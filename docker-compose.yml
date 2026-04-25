@@ -1,0 +1,108 @@
+services:
+
+  # ── TimescaleDB ──────────────────────────────────────────────────────────────
+  # timescale/timescaledb:latest-pg16 matches the Technical Docs requirement
+  # of PostgreSQL 16+ with the TimescaleDB extension pre-installed.
+  db:
+    image: timescale/timescaledb:latest-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       trading_ai
+      POSTGRES_USER:     trading_app      # matches the role in rls_policies.sql
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+    volumes:
+      # Named volume — data survives container restarts and image upgrades.
+      - timescaledb_data:/var/lib/postgresql/data
+      # Mount schema files so they can be applied manually on first run:
+      #   docker compose exec db psql -U trading_app -d trading_ai -f /sql/schema.sql
+      - ./database:/sql:ro
+    ports:
+      # Expose to host for psql / pgAdmin access during development.
+      # Remove in production — the api service connects over the internal network.
+      - "5433:5432"
+    healthcheck:
+      # pg_isready exits 0 only when the DB is fully accepting connections.
+      # start_period gives TimescaleDB time to run its first-run extension setup
+      # before the health probe starts counting failures.
+      test: ["CMD-SHELL", "pg_isready -U trading_app -d trading_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - trading_net
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  # Redis 7 alpine — Celery broker (DB 0) + result backend (DB 1).
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    # --save 60 1 : persist to disk if ≥1 key changes in 60 seconds.
+    # Prevents total queue loss on container restart without the overhead of
+    # always-on AOF persistence.
+    volumes:
+      - redis_data:/data
+    ports:
+      # Expose to host for redis-cli inspection during development.
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - trading_net
+
+  # ── FastAPI application ──────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    # Load all secrets (Stripe, JWT, Telegram, Supabase, MT5 keys) from .env.
+    # The environment block below overrides only the values that must point at
+    # Docker service names instead of localhost.
+    env_file: .env
+    environment:
+      # ── Database (asyncpg) ──────────────────────────────────────────────────
+      # Overrides the DATABASE_URL in .env which points at localhost.
+      DATABASE_URL: postgresql://trading_app:${DB_PASSWORD:?DB_PASSWORD must be set in .env}@db:5432/trading_ai
+
+      # ── Database (psycopg2 / Celery) ───────────────────────────────────────
+      # Overrides the DB_HOST in .env which points at localhost.
+      DB_HOST:     db
+      DB_PORT:     "5432"
+      DB_NAME:     trading_ai
+      DB_USER:     trading_app
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      DB_SSLMODE:  prefer
+
+      # ── Redis / Celery ──────────────────────────────────────────────────────
+      REDIS_URL:             redis://redis:6379/0
+      CELERY_BROKER_URL:     redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on:
+      db:
+        condition: service_healthy   # wait for pg_isready before starting
+      redis:
+        condition: service_healthy   # wait for redis-cli ping before starting
+    networks:
+      - trading_net
+
+# ── Named volumes ────────────────────────────────────────────────────────────
+volumes:
+  timescaledb_data:
+    # Default driver (local) — data stored in /var/lib/docker/volumes/.
+    # Replace with a cloud-backed driver (e.g. rexray, portworx) in production.
+  redis_data:
+
+# ── Internal network ─────────────────────────────────────────────────────────
+networks:
+  trading_net:
+    driver: bridge
+    # All three services communicate over this private network.
+    # Only the ports listed above are reachable from the host.

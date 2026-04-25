@@ -1,0 +1,73 @@
+# ── Secrets — NEVER commit these ──────────────────────────────────────────────
+.env
+# .env.template is safe to commit (no real secrets, just placeholders)
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.installed.cfg
+pip-wheel-metadata/
+MANIFEST
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env.bak
+
+# ── Testing / Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# ── ML Models (large binary files — store in object storage instead) ──────────
+models/*.pkl
+models/*.joblib
+models/*.json
+models/*.bin
+models/*.ubj
+!models/.gitkeep
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# docker-compose.yml IS committed — it has no secrets
+# Volumes and data dirs created at runtime:
+postgres_data/
+redis_data/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+.nuxt/
+dist/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+desktop.ini

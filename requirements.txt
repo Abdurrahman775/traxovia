@@ -1,0 +1,47 @@
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+
+# Database
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.30
+
+# Cache / Queue
+redis==5.0.4
+celery[redis]==5.3.6
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+supabase==2.4.3
+
+# Billing
+stripe==9.9.0
+
+# AI / ML
+xgboost==2.0.3
+# MetaTrader5 — Windows-only, install only on the Windows VPS running MT5
+# pip install MetaTrader5
+# MetaTrader5==5.0.45
+shap==0.45.0
+scikit-learn==1.4.2
+pandas==2.2.2
+numpy==1.26.4
+
+# Telegram
+python-telegram-bot==20.8
+
+# HTTP client
+httpx==0.26.0
+
+# Config
+python-dotenv==1.0.1
+pydantic-settings==2.2.1
+
+# Rate limiting
+slowapi==0.1.9
+
+# Monitoring
+prometheus-client==0.20.0

@@ -1,0 +1,394 @@
+"""
+api/billing.py — Stripe subscription management.
+
+Endpoints
+---------
+POST /billing/webhook                  Stripe webhook receiver (no auth — verified by signature)
+POST /billing/create-checkout-session  Start a Stripe Checkout flow for a plan upgrade
+POST /billing/customer-portal          Open the Stripe Billing Portal for self-service management
+GET  /billing/subscription             Return the current user's plan and subscription status
+
+Webhook events handled
+----------------------
+customer.subscription.created   → activate new plan
+customer.subscription.updated   → apply plan change (upgrade / downgrade / reinstatement)
+customer.subscription.deleted   → downgrade to community on cancellation / non-payment
+
+Plan → price ID mapping is read from env at startup (STRIPE_PRICE_*).
+Plan updates touch only the users table, which has no RLS, so no set_rls_user()
+call is required for the UPDATE. set_rls_user() is still required before the
+audit_log INSERT because audit_log does have RLS.
+
+Phase 1 quality gate: trigger subscription.created via Stripe CLI and confirm
+the user's plan column updates within 5 seconds.
+"""
+
+import logging
+
+import stripe
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
+
+from api.auth import get_current_user
+from config import settings
+from database.connection import get_db, set_rls_user
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/billing", tags=["billing"])
+
+# ── Stripe client initialisation ───────────────────────────────────────────────
+
+stripe.api_key = settings.stripe_secret_key
+
+# ── Plan definitions ───────────────────────────────────────────────────────────
+
+# All valid plan names in the platform. "community" is the free / downgrade target.
+VALID_PLANS = {"community", "starter", "trader", "pro", "elite"}
+
+# Human-readable prices — used in audit log messages only.
+PLAN_PRICES: dict[str, str] = {
+    "community": "$0",
+    "starter":   "$29/mo",
+    "trader":    "$79/mo",
+    "pro":       "$149/mo",
+    "elite":     "$299/mo",
+}
+
+# Stripe subscription statuses that mean the subscription is effectively active.
+_ACTIVE_STATUSES = {"active", "trialing"}
+
+
+def _price_to_plan_map() -> dict[str, str]:
+    """
+    Build the Stripe price_id → plan name lookup at call time so changes to
+    settings (e.g. in tests) are always reflected.
+    """
+    m: dict[str, str] = {}
+    if settings.stripe_price_starter:
+        m[settings.stripe_price_starter] = "starter"
+    if settings.stripe_price_trader:
+        m[settings.stripe_price_trader] = "trader"
+    if settings.stripe_price_pro:
+        m[settings.stripe_price_pro] = "pro"
+    if settings.stripe_price_elite:
+        m[settings.stripe_price_elite] = "elite"
+    return m
+
+
+def _plan_from_subscription(sub: stripe.Subscription) -> str | None:
+    """
+    Extract the plan name from a Stripe Subscription object.
+    Returns None if the price ID is not in our map (unknown/legacy price).
+    """
+    price_map = _price_to_plan_map()
+    try:
+        price_id = sub["items"]["data"][0]["price"]["id"]
+        return price_map.get(price_id)
+    except (KeyError, IndexError):
+        return None
+
+
+# ── Internal helpers ───────────────────────────────────────────────────────────
+
+async def _get_or_create_stripe_customer(user: dict, db) -> str:
+    """
+    Return the user's Stripe customer ID, creating a new Customer if needed.
+    Stores the ID back to users table on creation.
+    """
+    row = await db.fetchrow(
+        "SELECT id, email, stripe_customer_id FROM users WHERE id = $1::uuid",
+        user["sub"],
+    )
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+
+    if row["stripe_customer_id"]:
+        return row["stripe_customer_id"]
+
+    # Create a new Stripe customer linked to this account.
+    customer = stripe.Customer.create(
+        email=row["email"],
+        metadata={"user_id": str(row["id"])},
+    )
+    await db.execute(
+        "UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
+        customer["id"], row["id"],
+    )
+    return customer["id"]
+
+
+async def _apply_plan_change(
+    customer_id: str,
+    new_plan: str,
+    event_type: str,
+    db,
+) -> None:
+    """
+    Update the user's plan in the DB and write an audit log entry.
+    Called by all three webhook handlers so the logic lives in one place.
+    """
+    user = await db.fetchrow(
+        "SELECT id, plan FROM users WHERE stripe_customer_id = $1",
+        customer_id,
+    )
+    if not user:
+        # Customer exists in Stripe but not in our DB — skip silently.
+        # This can happen with test customers or accounts deleted by an admin.
+        logger.warning("stripe webhook: no user found for customer %s", customer_id)
+        return
+
+    old_plan = user["plan"]
+    if old_plan == new_plan:
+        return  # No change — idempotent update, nothing to do.
+
+    await db.execute(
+        "UPDATE users SET plan = $1, updated_at = NOW() WHERE id = $2",
+        new_plan, user["id"],
+    )
+
+    direction = "upgraded" if _plan_rank(new_plan) > _plan_rank(old_plan) else "downgraded"
+    detail = (
+        f"Plan {direction} from {old_plan} ({PLAN_PRICES.get(old_plan, '?')}) "
+        f"to {new_plan} ({PLAN_PRICES.get(new_plan, '?')}) "
+        f"via Stripe event {event_type}"
+    )
+
+    await set_rls_user(db, str(user["id"]))
+    await db.execute(
+        """
+        INSERT INTO audit_log (user_id, action, detail)
+        VALUES ($1, $2, $3)
+        """,
+        user["id"],
+        "plan_upgraded" if direction == "upgraded" else "plan_downgraded",
+        detail,
+    )
+
+    logger.info(
+        "billing: user %s %s — %s → %s (event: %s)",
+        user["id"], direction, old_plan, new_plan, event_type,
+    )
+
+
+def _plan_rank(plan: str) -> int:
+    """Numeric rank so upgrade vs downgrade direction can be determined."""
+    return {"community": 0, "starter": 1, "trader": 2, "pro": 3, "elite": 4}.get(plan, -1)
+
+
+# ── Webhook endpoint ───────────────────────────────────────────────────────────
+
+@router.post(
+    "/webhook",
+    status_code=status.HTTP_200_OK,
+    summary="Receive and process Stripe webhook events",
+    # No auth dependency — Stripe does not send a JWT.
+    # Security is provided by signature verification below.
+)
+async def stripe_webhook(request: Request, db=Depends(get_db)):
+    payload = await request.body()
+    sig_header = request.headers.get("Stripe-Signature", "")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, settings.stripe_webhook_secret
+        )
+    except stripe.error.SignatureVerificationError:
+        logger.warning("stripe webhook: invalid signature")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid Stripe signature")
+    except Exception as exc:
+        logger.warning("stripe webhook: malformed payload — %s", exc)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Malformed webhook payload")
+
+    event_type: str = event["type"]
+    sub: stripe.Subscription = event["data"]["object"]
+
+    try:
+        if event_type == "customer.subscription.created":
+            await _handle_subscription_created(sub, db)
+
+        elif event_type == "customer.subscription.updated":
+            await _handle_subscription_updated(sub, db)
+
+        elif event_type == "customer.subscription.deleted":
+            await _handle_subscription_deleted(sub, db)
+
+        # All other event types are acknowledged but not processed.
+
+    except Exception as exc:
+        # Return 500 so Stripe retries — do not swallow DB errors silently.
+        logger.exception("stripe webhook: unhandled error processing %s", event_type)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Webhook processing failed") from exc
+
+    return {"status": "ok", "event": event_type}
+
+
+# ── Webhook sub-handlers ───────────────────────────────────────────────────────
+
+async def _handle_subscription_created(sub: stripe.Subscription, db) -> None:
+    """
+    New subscription created.
+    Only activate the plan if the subscription status is active or trialing.
+    A `status=incomplete` means payment hasn't cleared yet — do not grant access.
+
+    Note (Correction 2.5): payment method fingerprint fraud check for referrals
+    is applied in api/routes/referral.py at reward-issuance time, not here.
+    """
+    if sub["status"] not in _ACTIVE_STATUSES:
+        logger.info(
+            "subscription.created with status=%s — deferring plan activation",
+            sub["status"],
+        )
+        return
+
+    plan = _plan_from_subscription(sub)
+    if not plan:
+        logger.warning("subscription.created: unrecognised price ID in subscription %s", sub["id"])
+        return
+
+    await _apply_plan_change(sub["customer"], plan, "customer.subscription.created", db)
+
+
+async def _handle_subscription_updated(sub: stripe.Subscription, db) -> None:
+    """
+    Subscription changed — covers upgrades, downgrades, and reinstatements
+    after a failed-payment recovery.
+
+    If the new status is not active/trialing, treat it as a cancellation and
+    drop to community so access is revoked promptly (e.g. payment_failed →
+    past_due → access removed before Stripe hard-cancels after grace period).
+    """
+    if sub["status"] not in _ACTIVE_STATUSES:
+        await _apply_plan_change(
+            sub["customer"], "community", "customer.subscription.updated", db
+        )
+        return
+
+    plan = _plan_from_subscription(sub)
+    if not plan:
+        logger.warning("subscription.updated: unrecognised price ID in subscription %s", sub["id"])
+        return
+
+    await _apply_plan_change(sub["customer"], plan, "customer.subscription.updated", db)
+
+
+async def _handle_subscription_deleted(sub: stripe.Subscription, db) -> None:
+    """
+    Subscription cancelled or permanently failed.
+    Downgrade to community — revoke all paid features immediately.
+    is_paper_mode is left unchanged here; trial expiry (expire_trials Celery
+    task) handles that flag for trial cancellations.
+    """
+    await _apply_plan_change(
+        sub["customer"], "community", "customer.subscription.deleted", db
+    )
+
+
+# ── Checkout session ───────────────────────────────────────────────────────────
+
+class CheckoutRequest(BaseModel):
+    plan: str
+
+
+@router.post(
+    "/create-checkout-session",
+    summary="Create a Stripe Checkout session for a plan upgrade",
+)
+async def create_checkout_session(
+    body: CheckoutRequest,
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    plan = body.plan.lower()
+    price_map = _price_to_plan_map()
+    plan_to_price = {v: k for k, v in price_map.items()}
+
+    if plan not in plan_to_price:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Unknown plan '{plan}'. Valid paid plans: starter, trader, pro, elite",
+        )
+
+    customer_id = await _get_or_create_stripe_customer(user, db)
+
+    session = stripe.checkout.Session.create(
+        customer=customer_id,
+        mode="subscription",
+        line_items=[{"price": plan_to_price[plan], "quantity": 1}],
+        success_url=f"{settings.frontend_url}/billing?checkout=success",
+        cancel_url=f"{settings.frontend_url}/billing?checkout=cancelled",
+        metadata={"user_id": user["sub"], "plan": plan},
+    )
+
+    return {"checkout_url": session["url"]}
+
+
+# ── Customer portal ────────────────────────────────────────────────────────────
+
+@router.post(
+    "/customer-portal",
+    summary="Open the Stripe Billing Portal for subscription self-management",
+)
+async def customer_portal(
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    row = await db.fetchrow(
+        "SELECT stripe_customer_id FROM users WHERE id = $1::uuid", user["sub"]
+    )
+    if not row or not row["stripe_customer_id"]:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "No active Stripe subscription found",
+        )
+
+    session = stripe.billing_portal.Session.create(
+        customer=row["stripe_customer_id"],
+        return_url=f"{settings.frontend_url}/billing",
+    )
+
+    return {"portal_url": session["url"]}
+
+
+# ── Subscription status ────────────────────────────────────────────────────────
+
+@router.get(
+    "/subscription",
+    summary="Return the current user's plan and Stripe subscription status",
+)
+async def get_subscription(
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    row = await db.fetchrow(
+        "SELECT plan, stripe_customer_id, trial_expires_at, is_paper_mode FROM users WHERE id = $1::uuid",
+        user["sub"],
+    )
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+
+    result = {
+        "plan":             row["plan"],
+        "price":            PLAN_PRICES.get(row["plan"], "unknown"),
+        "is_paper_mode":    row["is_paper_mode"],
+        "trial_expires_at": row["trial_expires_at"].isoformat() if row["trial_expires_at"] else None,
+    }
+
+    # Optionally enrich with live Stripe subscription data if customer exists.
+    if row["stripe_customer_id"]:
+        try:
+            subs = stripe.Subscription.list(
+                customer=row["stripe_customer_id"],
+                status="active",
+                limit=1,
+            )
+            if subs.data:
+                live = subs.data[0]
+                result["stripe_status"]       = live["status"]
+                result["current_period_end"]  = live["current_period_end"]
+                result["cancel_at_period_end"] = live["cancel_at_period_end"]
+        except stripe.error.StripeError as exc:
+            # Non-fatal: return DB plan even if Stripe API is unreachable.
+            logger.warning("billing: Stripe API error fetching subscription: %s", exc)
+
+    return result

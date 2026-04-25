@@ -1,0 +1,32 @@
+# Version control
+.git
+.gitignore
+
+# Secrets — never bake into the image
+.env
+.env.*
+
+# Python byte-code and caches
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Dev / docs — not needed at runtime
+docx/
+fixed-files/
+*.md
+*.html
+
+# Frontend and mobile are built separately
+frontend/
+mobile/
+
+# Trained model artefacts — mount as a volume at runtime
+models/
+
+# Test suite
+tests/
+backtest/tests/
