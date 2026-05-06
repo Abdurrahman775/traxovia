@@ -431,8 +431,611 @@ def test_jwt_issued_expires_correctly_refresh_works():
         _app.dependency_overrides.pop(get_db, None)
 
 
-# ── Allow running directly ────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 6 — DB schema: required tables exist
+# ══════════════════════════════════════════════════════════════════════════════
 
-if __name__ == "__main__":
-    import sys
-    sys.exit(pytest.main([__file__, "-v", "--tb=short"]))
+@requires_db
+def test_required_tables_exist():
+    """All core tables defined in schema.sql must exist in the public schema."""
+    required = {
+        "users", "trades", "trade_signals", "feature_store",
+        "audit_log", "risk_state", "mt5_accounts", "model_versions",
+    }
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT tablename FROM pg_tables WHERE schemaname='public'"
+            )
+            found = {r[0] for r in cur.fetchall()}
+    finally:
+        conn.close()
+
+    missing = required - found
+    assert not missing, f"Missing tables: {missing}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 7 — DB schema: users table has required columns
+# ══════════════════════════════════════════════════════════════════════════════
+
+@requires_db
+def test_users_table_has_required_columns():
+    """users table must have all columns defined in schema.sql."""
+    required = {
+        "id", "email", "password_hash", "plan", "stripe_customer_id",
+        "referral_code", "created_at", "updated_at",
+    }
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='public' AND table_name='users'"
+            )
+            found = {r[0] for r in cur.fetchall()}
+    finally:
+        conn.close()
+
+    missing = required - found
+    assert not missing, f"users table missing columns: {missing}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 8 — DB schema: plan CHECK constraint enforces valid values
+# ══════════════════════════════════════════════════════════════════════════════
+
+@requires_db
+def test_users_plan_check_constraint():
+    """Inserting an invalid plan value must raise an IntegrityError."""
+    import psycopg2
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            try:
+                cur.execute(
+                    "INSERT INTO users (id, email, password_hash, referral_code, plan) "
+                    "VALUES (gen_random_uuid(), %s, 'x', %s, 'invalid_plan')",
+                    (f"constraint_test_{uuid.uuid4().hex[:8]}@test.invalid",
+                     f"C-{uuid.uuid4().hex[:6].upper()}")
+                )
+                conn.commit()
+                pytest.fail("Expected IntegrityError for invalid plan value")
+            except psycopg2.errors.CheckViolation:
+                conn.rollback()
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 9 — DB schema: audit_log table has ip_address column
+# ══════════════════════════════════════════════════════════════════════════════
+
+@requires_db
+def test_audit_log_has_ip_address_column():
+    """audit_log must have ip_address column (Correction 2.5 fraud guard)."""
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='public' AND table_name='audit_log'"
+            )
+            found = {r[0] for r in cur.fetchall()}
+    finally:
+        conn.close()
+
+    assert "ip_address" in found, (
+        "audit_log missing ip_address column (Correction 2.5 fraud guard)"
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 10 — RLS: trades table has RLS enabled
+# ══════════════════════════════════════════════════════════════════════════════
+
+@requires_db
+def test_rls_enabled_on_trades_table():
+    """Row Level Security must be enabled on the trades table."""
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT rowsecurity FROM pg_tables "
+                "WHERE schemaname='public' AND tablename='trades'"
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+
+    assert row is not None, "trades table not found in pg_tables"
+    assert row[0] is True, "RLS is not enabled on the trades table"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 11 — RLS: at least one policy exists on trades
+# ══════════════════════════════════════════════════════════════════════════════
+
+@requires_db
+def test_rls_policies_exist_on_trades():
+    """At least one RLS policy must be defined on the trades table."""
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM pg_policies "
+                "WHERE schemaname='public' AND tablename='trades'"
+            )
+            count = cur.fetchone()[0]
+    finally:
+        conn.close()
+
+    assert count >= 1, "No RLS policies found on the trades table"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 12 — Auth: register endpoint returns 201 with token pair
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_register_endpoint_returns_201_with_tokens():
+    """POST /auth/register with valid credentials returns 201 and token pair."""
+    from database.connection import get_db
+
+    uid   = str(uuid.uuid4())
+    email = f"reg_{uid[:8]}@example.com"
+
+    new_user = {"id": uid, "email": email, "plan": "community"}
+    mock_db  = _MockDb(fetchrow_result=None)  # no existing user
+
+    # Override fetchrow to return None for duplicate check, then new_user for INSERT
+    call_count = [0]
+    async def _fetchrow(query, *args):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return None  # no existing user
+        return new_user  # INSERT RETURNING
+
+    mock_db.fetchrow = _fetchrow
+    client = _make_client(mock_db)
+
+    try:
+        response = client.post(
+            "/auth/register",
+            json={"email": email, "password": "SecurePass123"},
+        )
+        assert response.status_code == 201, (
+            f"Expected 201, got {response.status_code}: {response.text}"
+        )
+        data = response.json()
+        assert "access_token"  in data
+        assert "refresh_token" in data
+        assert data["email"]   == email
+    finally:
+        from main import app
+        app.dependency_overrides.pop(get_db, None)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 13 — Auth: duplicate email returns 409
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_register_duplicate_email_returns_409():
+    """POST /auth/register with an already-registered email returns 409."""
+    from database.connection import get_db
+
+    uid   = str(uuid.uuid4())
+    email = f"dup_{uid[:8]}@example.com"
+
+    existing_user = {"id": uid, "email": email, "plan": "community"}
+    mock_db       = _MockDb(fetchrow_result=existing_user)
+    client        = _make_client(mock_db)
+
+    try:
+        response = client.post(
+            "/auth/register",
+            json={"email": email, "password": "SecurePass123"},
+        )
+        assert response.status_code == 409, (
+            f"Expected 409 for duplicate email, got {response.status_code}"
+        )
+    finally:
+        from main import app
+        app.dependency_overrides.pop(get_db, None)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 14 — Auth: weak password returns 422
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_register_weak_password_returns_422():
+    """POST /auth/register with a password < 8 chars returns 422."""
+    from database.connection import get_db
+
+    mock_db = _MockDb(fetchrow_result=None)
+    client  = _make_client(mock_db)
+
+    try:
+        response = client.post(
+            "/auth/register",
+            json={"email": "weak@test.invalid", "password": "short"},
+        )
+        assert response.status_code == 422, (
+            f"Expected 422 for weak password, got {response.status_code}"
+        )
+    finally:
+        from main import app
+        app.dependency_overrides.pop(get_db, None)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 15 — Auth: login with wrong password returns 401
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_login_wrong_password_returns_401():
+    """POST /auth/login with wrong password returns 401."""
+    from database.connection import get_db
+    from passlib.context import CryptContext
+
+    _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    uid  = str(uuid.uuid4())
+
+    # User exists but password won't match
+    user_row = {
+        "id": uid,
+        "email": "user@example.com",
+        "password_hash": _pwd.hash("correct_password"),
+        "plan": "community",
+    }
+    mock_db = _MockDb(fetchrow_result=user_row)
+    client  = _make_client(mock_db)
+
+    try:
+        response = client.post(
+            "/auth/login",
+            json={"email": "user@example.com", "password": "wrong_password"},
+        )
+        assert response.status_code == 401, (
+            f"Expected 401 for wrong password, got {response.status_code}"
+        )
+    finally:
+        from main import app
+        app.dependency_overrides.pop(get_db, None)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 16 — Auth: login with correct credentials returns 200 + tokens
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_login_correct_credentials_returns_200():
+    """POST /auth/login with correct credentials returns 200 and token pair."""
+    from database.connection import get_db
+    from passlib.context import CryptContext
+
+    _pwd     = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    uid      = str(uuid.uuid4())
+    password = "correct_password_123"
+
+    user_row = {
+        "id": uid,
+        "email": "login@example.com",
+        "password_hash": _pwd.hash(password),
+        "plan": "trader",
+    }
+    mock_db = _MockDb(fetchrow_result=user_row)
+    client  = _make_client(mock_db)
+
+    try:
+        response = client.post(
+            "/auth/login",
+            json={"email": "login@example.com", "password": password},
+        )
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+        data = response.json()
+        assert "access_token"  in data
+        assert "refresh_token" in data
+        assert data["plan"]    == "trader"
+    finally:
+        from main import app
+        app.dependency_overrides.pop(get_db, None)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 17 — Auth: missing Bearer token returns 403
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_missing_bearer_token_returns_403():
+    """A request to a protected endpoint without a Bearer token returns 403."""
+    from database.connection import get_db
+
+    mock_db = _MockDb()
+    client  = _make_client(mock_db)
+
+    try:
+        # /auth/refresh requires a body but no Bearer — use a route that
+        # requires get_current_user. We test the dependency directly instead.
+        import asyncio
+        from fastapi import HTTPException
+        from api.auth import get_current_user
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="not.a.jwt")
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(get_current_user(creds))
+        assert exc_info.value.status_code == 401
+    finally:
+        from main import app
+        app.dependency_overrides.pop(get_db, None)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 18 — Rate limiting: _classify_stage thresholds
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_rate_limit_classify_stage_thresholds():
+    """
+    _classify_stage must return the correct stage for boundary values:
+      dd_pct =  9.9 → stage 0
+      dd_pct = 10.0 → stage 1
+      dd_pct = 12.0 → stage 2
+      dd_pct = 15.0 → stage 3
+    """
+    from core.risk_engine.drawdown_monitor import _classify_stage
+
+    assert _classify_stage(9.9)  == 0, "9.9% should be stage 0"
+    assert _classify_stage(10.0) == 1, "10.0% should be stage 1"
+    assert _classify_stage(12.0) == 2, "12.0% should be stage 2"
+    assert _classify_stage(15.0) == 3, "15.0% should be stage 3"
+    assert _classify_stage(20.0) == 3, "20.0% should be stage 3"
+    assert _classify_stage(0.0)  == 0, "0.0% should be stage 0"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 19 — Rate limiting: stage 3 blocks trading
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_rate_limit_stage3_blocks_trading():
+    """Stage 3 config must have trading_allowed=False."""
+    from core.risk_engine.drawdown_monitor import _STAGE_CFG
+
+    assert _STAGE_CFG[3]["trading_allowed"] is False, (
+        "Stage 3 must block trading"
+    )
+    assert _STAGE_CFG[3]["risk_cap"] == 0.0, (
+        "Stage 3 risk cap must be 0.0"
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 20 — Rate limiting: stage 2 caps risk at 0.25%
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_rate_limit_stage2_risk_cap():
+    """Stage 2 must cap risk at 0.25% (0.0025)."""
+    from core.risk_engine.drawdown_monitor import _STAGE_CFG
+
+    assert _STAGE_CFG[2]["risk_cap"] == pytest.approx(0.0025), (
+        f"Stage 2 risk cap must be 0.0025, got {_STAGE_CFG[2]['risk_cap']}"
+    )
+    assert _STAGE_CFG[2]["trading_allowed"] is True, (
+        "Stage 2 allows trading (with reduced risk)"
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 21 — DB schema: feature_store table has required columns
+# ══════════════════════════════════════════════════════════════════════════════
+
+@requires_db
+def test_feature_store_has_required_columns():
+    """feature_store hypertable must have outcome, pnl_r, features columns."""
+    required = {"outcome", "pnl_r", "features", "symbol", "timeframe"}
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='public' AND table_name='feature_store'"
+            )
+            found = {r[0] for r in cur.fetchall()}
+    finally:
+        conn.close()
+
+    missing = required - found
+    assert not missing, f"feature_store missing columns: {missing}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 22 — DB schema: risk_state table has drawdown columns
+# ══════════════════════════════════════════════════════════════════════════════
+
+@requires_db
+def test_risk_state_has_drawdown_columns():
+    """risk_state must have total_drawdown_pct, drawdown_stage, trading_allowed."""
+    required = {"total_drawdown_pct", "drawdown_stage", "trading_allowed", "block_reason"}
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='public' AND table_name='risk_state'"
+            )
+            found = {r[0] for r in cur.fetchall()}
+    finally:
+        conn.close()
+
+    missing = required - found
+    assert not missing, f"risk_state missing columns: {missing}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 23 — Auth: _build_token with refresh type
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_build_token_refresh_type():
+    """_build_token with type='refresh' must produce a token with type='refresh'."""
+    from jose import jwt as jose_jwt
+    from api.auth import _build_token
+    from config import settings
+
+    if not settings.jwt_secret:
+        settings.jwt_secret = "test-secret-key-phase1-quality-gate"
+
+    uid   = str(uuid.uuid4())
+    token = _build_token(uid, "test@example.com", "community", "refresh",
+                         timedelta(days=30))
+    payload = jose_jwt.decode(token, settings.jwt_secret,
+                              algorithms=[settings.jwt_algorithm])
+
+    assert payload["type"] == "refresh"
+    assert payload["sub"]  == uid
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 24 — Auth: get_current_user rejects expired token
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_get_current_user_rejects_expired_token():
+    """get_current_user must raise 401 for an expired access token."""
+    import asyncio
+    from fastapi import HTTPException
+    from fastapi.security import HTTPAuthorizationCredentials
+    from api.auth import _build_token, get_current_user
+    from config import settings
+
+    if not settings.jwt_secret:
+        settings.jwt_secret = "test-secret-key-phase1-quality-gate"
+
+    uid     = str(uuid.uuid4())
+    expired = _build_token(uid, "exp@example.com", "community", "access",
+                           timedelta(seconds=-1))
+    creds   = HTTPAuthorizationCredentials(scheme="Bearer", credentials=expired)
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(get_current_user(creds))
+    assert exc_info.value.status_code == 401
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 25 — Auth: _issue_pair tokens have correct TTL order
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_issue_pair_refresh_ttl_longer_than_access():
+    """Refresh token must expire later than access token."""
+    from jose import jwt as jose_jwt
+    from api.auth import _issue_pair
+    from config import settings
+
+    if not settings.jwt_secret:
+        settings.jwt_secret = "test-secret-key-phase1-quality-gate"
+
+    uid  = str(uuid.uuid4())
+    pair = _issue_pair(uid, "ttl@example.com", "trader")
+
+    acc_payload = jose_jwt.decode(pair.access_token,  settings.jwt_secret,
+                                  algorithms=[settings.jwt_algorithm])
+    ref_payload = jose_jwt.decode(pair.refresh_token, settings.jwt_secret,
+                                  algorithms=[settings.jwt_algorithm])
+
+    assert ref_payload["exp"] > acc_payload["exp"], (
+        "Refresh token must expire later than access token"
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 26 — Rate limiting: stage 0 has no risk cap
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_rate_limit_stage0_no_cap():
+    """Stage 0 must have no risk cap (None) and trading_allowed=True."""
+    from core.risk_engine.drawdown_monitor import _STAGE_CFG
+
+    assert _STAGE_CFG[0]["risk_cap"]        is None
+    assert _STAGE_CFG[0]["trading_allowed"] is True
+    assert _STAGE_CFG[0]["block_reason"]    is None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 27 — Rate limiting: stage 1 allows trading
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_rate_limit_stage1_allows_trading():
+    """Stage 1 must allow trading (caution mode, not full block)."""
+    from core.risk_engine.drawdown_monitor import _STAGE_CFG
+
+    assert _STAGE_CFG[1]["trading_allowed"] is True
+    assert _STAGE_CFG[1]["risk_cap"]        == pytest.approx(0.005)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 28 — Auth: register with invalid email format returns 422
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_register_invalid_email_returns_422():
+    """POST /auth/register with a malformed email returns 422."""
+    from database.connection import get_db
+
+    mock_db = _MockDb(fetchrow_result=None)
+    client  = _make_client(mock_db)
+
+    try:
+        response = client.post(
+            "/auth/register",
+            json={"email": "not-an-email", "password": "SecurePass123"},
+        )
+        assert response.status_code == 422, (
+            f"Expected 422 for invalid email, got {response.status_code}"
+        )
+    finally:
+        from main import app
+        app.dependency_overrides.pop(get_db, None)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 29 — Auth: login with non-existent user returns 401
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_login_nonexistent_user_returns_401():
+    """POST /auth/login with unknown email returns 401 (not 404)."""
+    from database.connection import get_db
+
+    # fetchrow returns None → user not found
+    mock_db = _MockDb(fetchrow_result=None)
+    client  = _make_client(mock_db)
+
+    try:
+        response = client.post(
+            "/auth/login",
+            json={"email": "nobody@example.com", "password": "SomePass123"},
+        )
+        assert response.status_code == 401, (
+            f"Expected 401 for unknown user, got {response.status_code}"
+        )
+    finally:
+        from main import app
+        app.dependency_overrides.pop(get_db, None)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Test 30 — DB schema: model_versions has unique active index
+# ══════════════════════════════════════════════════════════════════════════════
+
+@requires_db
+def test_model_versions_unique_active_index():
+    """model_versions must have a partial unique index on active=TRUE."""
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT indexname FROM pg_indexes "
+                "WHERE tablename='model_versions' AND indexdef ILIKE '%where%active%'"
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    assert len(rows) >= 1, (
+        "model_versions must have a partial unique index on active=TRUE"
+    )

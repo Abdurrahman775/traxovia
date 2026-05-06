@@ -31,7 +31,7 @@ async def heartbeat_check():
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(
                 f'{bridge_state["active_url"]}/health',
-                headers={'X-Api-Key': os.getenv('MT5_BRIDGE_API_KEY')},
+                headers=sign_request("GET", "/health"),
             )
             if resp.status_code == 200:
                 bridge_state['last_heartbeat'] = datetime.now()
@@ -101,3 +101,7 @@ async def _resume_trading():
         "UPDATE risk_state SET trading_allowed=TRUE, block_reason=NULL "
         "WHERE date=CURRENT_DATE"
     )
+
+
+# ── HMAC signing (Improvement 3.4) ────────────────────────────────────────────
+from core.execution_engine.mt5_executor import _sign as sign_request  # noqa: E402

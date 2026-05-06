@@ -1,0 +1,961 @@
+kira@Kira:~/trading-bot$ PAPER_LOOP_INTERVAL=60 python3 paper_trading_loop.py 2>&1 | tee paper_trading.log
+2026-05-01 14:22:48  INFO      ============================================================
+2026-05-01 14:22:48  INFO      Paper trading loop started
+2026-05-01 14:22:48  INFO        Account : #106464235 (demo)
+2026-05-01 14:22:48  INFO        Pairs   : EURUSD, GBPUSD, USDJPY, XAUUSD, US30
+2026-05-01 14:22:48  INFO        Interval: 60s (1 min)
+2026-05-01 14:22:48  INFO        Target  : 50 trades
+2026-05-01 14:22:48  INFO      ============================================================
+2026-05-01 14:22:48  INFO      ── Cycle start 2026-05-01 13:22:48 UTC ──
+2026-05-01 14:22:49  INFO      NumExpr defaulting to 4 threads.
+2026-05-01 14:22:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:23:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:06  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:23:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:23:10  INFO      GBPUSD    OPENED   ticket=8452623634  dir=bullish  lot=0.42  [1 opened]
+2026-05-01 14:23:13  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:14  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:15  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:23:16  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:16  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:18  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:23:19  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:19  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:21  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:23:21  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 404 Not Found"
+2026-05-01 14:23:21  INFO      Trade 4ed5f6c1-9e0d-48a1-93de-9e2c1109f969 (ticket=8444256676) closed
+2026-05-01 14:23:21  INFO      Positions closed this cycle: 1
+2026-05-01 14:23:21  INFO      ── Progress: 1/50 trades (2%)  |  opened_total=1 ──
+2026-05-01 14:23:21  INFO      Next cycle in 27s
+2026-05-01 14:23:48  INFO      ── Cycle start 2026-05-01 13:23:48 UTC ──
+2026-05-01 14:23:50  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:50  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:50  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:23:50  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:51  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:23:54  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:24:05  ERROR     GBPUSD    EXEC ERR  Bridge unreachable: 
+2026-05-01 14:24:35  WARNING   Candle fetch failed USDJPY/M15: 
+2026-05-01 14:24:35  WARNING   Candle fetch failed USDJPY/H4: 
+2026-05-01 14:24:54  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:24:54  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:24:56  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:24:56  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:24:56  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:24:58  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:24:58  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 400 Bad Request"
+2026-05-01 14:24:58  INFO      ── Progress: 1/50 trades (2%)  |  opened_total=1 ──
+2026-05-01 14:24:58  INFO      Next cycle in 0s
+2026-05-01 14:24:58  INFO      ── Cycle start 2026-05-01 13:24:58 UTC ──
+2026-05-01 14:24:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:24:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:24:59  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:24:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:24:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:25:01  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:25:02  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 400 Bad Request"
+2026-05-01 14:25:02  ERROR     GBPUSD    EXEC ERR  /order/open failed (400): Order rejected: retcode=10031 comment='Request rejected due to absence of network connection'
+2026-05-01 14:25:02  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:25:02  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:25:04  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:25:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:25:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:25:06  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:25:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:25:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:25:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:25:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:25:10  INFO      Trade 9c65f2a9-b2e5-47f1-bc37-d57be9eb3246 (ticket=8452623634) closed
+2026-05-01 14:25:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:25:10  INFO      ── Progress: 2/50 trades (4%)  |  opened_total=1 ──
+2026-05-01 14:25:10  INFO      Next cycle in 48s
+2026-05-01 14:25:59  INFO      ── Cycle start 2026-05-01 13:25:59 UTC ──
+2026-05-01 14:25:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:25:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:25:59  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:26:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:26:04  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:26:04  INFO      GBPUSD    OPENED   ticket=8452659911  dir=bullish  lot=0.42  [2 opened]
+2026-05-01 14:26:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:06  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:26:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:08  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:26:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:10  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:26:10  INFO      ── Progress: 2/50 trades (4%)  |  opened_total=2 ──
+2026-05-01 14:26:10  INFO      Next cycle in 48s
+2026-05-01 14:26:59  INFO      ── Cycle start 2026-05-01 13:26:59 UTC ──
+2026-05-01 14:26:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:26:59  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:27:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:27:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:27:03  INFO      GBPUSD    OPENED   ticket=8452674403  dir=bullish  lot=0.42  [3 opened]
+2026-05-01 14:27:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:04  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:27:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:06  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:27:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:08  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:27:09  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:27:09  INFO      Trade 42d264d1-a26a-4009-9254-471ba6bf30bd (ticket=8452659911) closed
+2026-05-01 14:27:09  INFO      Positions closed this cycle: 1
+2026-05-01 14:27:09  INFO      ── Progress: 3/50 trades (6%)  |  opened_total=3 ──
+2026-05-01 14:27:09  INFO      Next cycle in 50s
+2026-05-01 14:27:59  INFO      ── Cycle start 2026-05-01 13:27:59 UTC ──
+2026-05-01 14:27:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:27:59  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:27:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:28:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:28:03  INFO      GBPUSD    OPENED   ticket=8452693293  dir=bullish  lot=0.42  [4 opened]
+2026-05-01 14:28:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:28:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:28:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:28:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:28:10  INFO      Trade 7749a210-ff00-4d76-81f6-239af612581f (ticket=8452674403) closed
+2026-05-01 14:28:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:28:10  INFO      ── Progress: 4/50 trades (8%)  |  opened_total=4 ──
+2026-05-01 14:28:10  INFO      Next cycle in 49s
+2026-05-01 14:28:59  INFO      ── Cycle start 2026-05-01 13:28:59 UTC ──
+2026-05-01 14:28:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:28:59  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:29:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:29:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:29:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:29:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:29:03  INFO      GBPUSD    OPENED   ticket=8452707463  dir=bullish  lot=0.42  [5 opened]
+2026-05-01 14:29:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:29:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:29:06  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:29:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:29:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:29:09  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:29:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:29:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:29:12  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:29:13  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:29:13  INFO      Trade 545d8559-fa99-43ad-b770-9d4e5d43b093 (ticket=8452693293) closed
+2026-05-01 14:29:14  INFO      Positions closed this cycle: 1
+2026-05-01 14:29:14  INFO      ── Progress: 5/50 trades (10%)  |  opened_total=5 ──
+2026-05-01 14:29:14  INFO      Next cycle in 45s
+2026-05-01 14:29:59  INFO      ── Cycle start 2026-05-01 13:29:59 UTC ──
+2026-05-01 14:29:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:30:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:30:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:30:03  INFO      GBPUSD    OPENED   ticket=8452727629  dir=bullish  lot=0.50  [6 opened]
+2026-05-01 14:30:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:30:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:30:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:30:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:30:10  INFO      Trade 26566f9f-1ccb-40c7-baff-a9cb03c37827 (ticket=8452707463) closed
+2026-05-01 14:30:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:30:10  INFO      ── Progress: 6/50 trades (12%)  |  opened_total=6 ──
+2026-05-01 14:30:10  INFO      Next cycle in 48s
+2026-05-01 14:30:59  INFO      ── Cycle start 2026-05-01 13:30:59 UTC ──
+2026-05-01 14:30:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:30:59  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:31:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:31:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:31:03  INFO      GBPUSD    OPENED   ticket=8452750286  dir=bullish  lot=0.50  [7 opened]
+2026-05-01 14:31:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:31:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:31:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:10  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:31:11  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:31:11  INFO      Trade a301b122-e212-4c36-a921-eb66fee9907b (ticket=8452727629) closed
+2026-05-01 14:31:11  INFO      Positions closed this cycle: 1
+2026-05-01 14:31:11  INFO      ── Progress: 7/50 trades (14%)  |  opened_total=7 ──
+2026-05-01 14:31:11  INFO      Next cycle in 48s
+2026-05-01 14:31:59  INFO      ── Cycle start 2026-05-01 13:31:59 UTC ──
+2026-05-01 14:31:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:59  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:31:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:31:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:32:01  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:32:02  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:32:02  INFO      GBPUSD    OPENED   ticket=8452778786  dir=bullish  lot=0.50  [8 opened]
+2026-05-01 14:32:02  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:32:02  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:32:04  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:32:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:32:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:32:05  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:32:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:32:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:32:07  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:32:08  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:32:08  INFO      Trade 11aab469-695a-4167-b8b8-35bd3b3f8dd4 (ticket=8452750286) closed
+2026-05-01 14:32:08  INFO      Positions closed this cycle: 1
+2026-05-01 14:32:08  INFO      ── Progress: 8/50 trades (16%)  |  opened_total=8 ──
+2026-05-01 14:32:08  INFO      Next cycle in 51s
+2026-05-01 14:32:59  INFO      ── Cycle start 2026-05-01 13:32:59 UTC ──
+2026-05-01 14:32:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:33:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:33:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:33:03  INFO      GBPUSD    OPENED   ticket=8452800747  dir=bullish  lot=0.50  [9 opened]
+2026-05-01 14:33:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:04  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:33:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:06  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:33:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:08  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:33:09  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:33:09  INFO      Trade 71741b1f-a6b9-4d56-abd7-db0985d820c9 (ticket=8452778786) closed
+2026-05-01 14:33:09  INFO      Positions closed this cycle: 1
+2026-05-01 14:33:09  INFO      ── Progress: 9/50 trades (18%)  |  opened_total=9 ──
+2026-05-01 14:33:09  INFO      Next cycle in 50s
+2026-05-01 14:33:59  INFO      ── Cycle start 2026-05-01 13:33:59 UTC ──
+2026-05-01 14:33:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:33:59  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:34:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:34:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:34:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:34:02  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:34:02  INFO      GBPUSD    OPENED   ticket=8452834314  dir=bullish  lot=0.50  [10 opened]
+2026-05-01 14:34:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:34:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:34:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:34:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:34:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:34:06  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:34:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:34:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:34:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:34:09  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:34:09  INFO      Trade 937a90da-70f4-4fb1-9312-038d3f8a67aa (ticket=8452800747) closed
+2026-05-01 14:34:09  INFO      Positions closed this cycle: 1
+2026-05-01 14:34:09  INFO      ── Progress: 10/50 trades (20%)  |  opened_total=10 ──
+2026-05-01 14:34:09  INFO      Next cycle in 49s
+2026-05-01 14:34:59  INFO      ── Cycle start 2026-05-01 13:34:59 UTC ──
+2026-05-01 14:35:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:35:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:35:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:35:03  INFO      GBPUSD    OPENED   ticket=8452860167  dir=bullish  lot=0.50  [11 opened]
+2026-05-01 14:35:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:35:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:08  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:35:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:35:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:35:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:35:10  INFO      Trade c23e9caa-14c2-45be-b9a8-05880f0c7fa5 (ticket=8452834314) closed
+2026-05-01 14:35:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:35:10  INFO      ── Progress: 11/50 trades (22%)  |  opened_total=11 ──
+2026-05-01 14:35:10  INFO      Next cycle in 48s
+2026-05-01 14:35:59  INFO      ── Cycle start 2026-05-01 13:35:59 UTC ──
+2026-05-01 14:35:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:36:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:36:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:36:03  INFO      GBPUSD    OPENED   ticket=8452884256  dir=bullish  lot=0.50  [12 opened]
+2026-05-01 14:36:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:06  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:36:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:08  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:36:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:36:11  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:36:11  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:36:11  INFO      Trade 2e6d8a83-92f0-49d5-baf3-861f4ff70a82 (ticket=8452860167) closed
+2026-05-01 14:36:11  INFO      Positions closed this cycle: 1
+2026-05-01 14:36:11  INFO      ── Progress: 12/50 trades (24%)  |  opened_total=12 ──
+2026-05-01 14:36:11  INFO      Next cycle in 48s
+2026-05-01 14:36:59  INFO      ── Cycle start 2026-05-01 13:36:59 UTC ──
+2026-05-01 14:37:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:37:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:37:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:37:03  INFO      GBPUSD    OPENED   ticket=8452911730  dir=bullish  lot=0.50  [13 opened]
+2026-05-01 14:37:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:37:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:37:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:37:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:37:09  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:37:09  INFO      Trade 3901ea34-220e-423e-8496-9df1c33f1e86 (ticket=8452884256) closed
+2026-05-01 14:37:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:37:10  INFO      ── Progress: 13/50 trades (26%)  |  opened_total=13 ──
+2026-05-01 14:37:10  INFO      Next cycle in 49s
+2026-05-01 14:37:59  INFO      ── Cycle start 2026-05-01 13:37:59 UTC ──
+2026-05-01 14:38:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:38:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:38:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:38:03  INFO      GBPUSD    OPENED   ticket=8452941813  dir=bullish  lot=0.50  [14 opened]
+2026-05-01 14:38:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:38:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:38:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:38:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:38:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:38:10  INFO      Trade 677f778d-c2c9-4d32-a79c-11a055d378cd (ticket=8452911730) closed
+2026-05-01 14:38:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:38:10  INFO      ── Progress: 14/50 trades (28%)  |  opened_total=14 ──
+2026-05-01 14:38:10  INFO      Next cycle in 49s
+2026-05-01 14:38:59  INFO      ── Cycle start 2026-05-01 13:38:59 UTC ──
+2026-05-01 14:39:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:39:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:39:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:39:03  INFO      GBPUSD    OPENED   ticket=8452967320  dir=bullish  lot=0.50  [15 opened]
+2026-05-01 14:39:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:04  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:39:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:06  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:39:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:39:08  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:39:08  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:39:08  INFO      Trade 76772a25-410d-447b-bd63-ff7c4574cd9f (ticket=8452941813) closed
+2026-05-01 14:39:08  INFO      Positions closed this cycle: 1
+2026-05-01 14:39:08  INFO      ── Progress: 15/50 trades (30%)  |  opened_total=15 ──
+2026-05-01 14:39:08  INFO      Next cycle in 51s
+2026-05-01 14:39:59  INFO      ── Cycle start 2026-05-01 13:39:59 UTC ──
+2026-05-01 14:40:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:40:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:40:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:40:03  INFO      GBPUSD    OPENED   ticket=8452989960  dir=bullish  lot=0.50  [16 opened]
+2026-05-01 14:40:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:06  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:40:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:09  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:40:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:40:12  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:40:13  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:40:13  INFO      Trade 2ebbbb65-4fd7-4d9b-bbbd-a9757cd00db0 (ticket=8452967320) closed
+2026-05-01 14:40:13  INFO      Positions closed this cycle: 1
+2026-05-01 14:40:13  INFO      ── Progress: 16/50 trades (32%)  |  opened_total=16 ──
+2026-05-01 14:40:13  INFO      Next cycle in 46s
+2026-05-01 14:40:59  INFO      ── Cycle start 2026-05-01 13:40:59 UTC ──
+2026-05-01 14:41:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:41:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:41:05  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:41:05  INFO      GBPUSD    OPENED   ticket=8453024744  dir=bullish  lot=0.50  [17 opened]
+2026-05-01 14:41:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:07  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:41:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:11  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:41:11  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:12  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:41:14  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:41:15  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:41:15  INFO      Trade 8c3d9711-b3e7-4219-99c1-57cd0f9aac4d (ticket=8452989960) closed
+2026-05-01 14:41:15  INFO      Positions closed this cycle: 1
+2026-05-01 14:41:15  INFO      ── Progress: 17/50 trades (34%)  |  opened_total=17 ──
+2026-05-01 14:41:15  INFO      Next cycle in 44s
+2026-05-01 14:41:59  INFO      ── Cycle start 2026-05-01 13:41:59 UTC ──
+2026-05-01 14:42:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:42:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:42:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:42:03  INFO      GBPUSD    OPENED   ticket=8453059451  dir=bullish  lot=0.50  [18 opened]
+2026-05-01 14:42:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:42:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:42:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:42:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:42:09  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:42:09  INFO      Trade 17dc743f-891f-4cc8-8544-9f87976922ae (ticket=8453024744) closed
+2026-05-01 14:42:09  INFO      Positions closed this cycle: 1
+2026-05-01 14:42:09  INFO      ── Progress: 18/50 trades (36%)  |  opened_total=18 ──
+2026-05-01 14:42:10  INFO      Next cycle in 50s
+2026-05-01 14:42:59  INFO      ── Cycle start 2026-05-01 13:42:59 UTC ──
+2026-05-01 14:43:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:01  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:43:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:43:05  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:43:05  INFO      GBPUSD    OPENED   ticket=8453088013  dir=bullish  lot=0.50  [19 opened]
+2026-05-01 14:43:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:07  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:43:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:09  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:43:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:10  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:43:13  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:43:14  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:43:14  INFO      Trade 89574c77-9204-445b-a47d-fc734bd241c6 (ticket=8453059451) closed
+2026-05-01 14:43:14  INFO      Positions closed this cycle: 1
+2026-05-01 14:43:14  INFO      ── Progress: 19/50 trades (38%)  |  opened_total=19 ──
+2026-05-01 14:43:14  INFO      Next cycle in 46s
+2026-05-01 14:43:59  INFO      ── Cycle start 2026-05-01 13:43:59 UTC ──
+2026-05-01 14:44:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:44:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:44:04  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:44:04  INFO      GBPUSD    OPENED   ticket=8453108688  dir=bullish  lot=0.50  [20 opened]
+2026-05-01 14:44:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:06  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:44:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:09  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:44:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:44:12  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:44:13  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:44:13  INFO      Trade e95667ae-7ef1-4fb6-8146-84df767d58b5 (ticket=8453088013) closed
+2026-05-01 14:44:13  INFO      Positions closed this cycle: 1
+2026-05-01 14:44:13  INFO      ── Progress: 20/50 trades (40%)  |  opened_total=20 ──
+2026-05-01 14:44:13  INFO      Next cycle in 47s
+2026-05-01 14:45:00  INFO      ── Cycle start 2026-05-01 13:45:00 UTC ──
+2026-05-01 14:45:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:45:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:45:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:45:03  INFO      GBPUSD    OPENED   ticket=8453131969  dir=bullish  lot=0.58  [21 opened]
+2026-05-01 14:45:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:06  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:45:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:45:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:45:10  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:45:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:45:10  INFO      Trade a0795fb9-af41-4781-81e9-c28b6634946e (ticket=8453108688) closed
+2026-05-01 14:45:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:45:10  INFO      ── Progress: 21/50 trades (42%)  |  opened_total=21 ──
+2026-05-01 14:45:10  INFO      Next cycle in 49s
+2026-05-01 14:46:00  INFO      ── Cycle start 2026-05-01 13:46:00 UTC ──
+2026-05-01 14:46:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:46:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:46:04  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:46:04  INFO      GBPUSD    OPENED   ticket=8453162364  dir=bullish  lot=0.58  [22 opened]
+2026-05-01 14:46:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:07  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:46:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:09  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:46:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:10  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:46:13  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:46:14  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:46:14  INFO      Trade 74220bf7-582f-4567-aae7-a77e50bd3170 (ticket=8453131969) closed
+2026-05-01 14:46:14  INFO      Positions closed this cycle: 1
+2026-05-01 14:46:14  INFO      ── Progress: 22/50 trades (44%)  |  opened_total=22 ──
+2026-05-01 14:46:14  INFO      Next cycle in 45s
+2026-05-01 14:47:00  INFO      ── Cycle start 2026-05-01 13:47:00 UTC ──
+2026-05-01 14:47:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:01  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:47:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:47:04  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:47:04  INFO      GBPUSD    OPENED   ticket=8453189240  dir=bullish  lot=0.58  [23 opened]
+2026-05-01 14:47:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:07  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:47:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:09  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:47:10  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:10  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:47:12  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:47:13  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:47:13  INFO      Trade d5331403-2f02-443f-aba1-3f1ac9082c99 (ticket=8453162364) closed
+2026-05-01 14:47:13  INFO      Positions closed this cycle: 1
+2026-05-01 14:47:13  INFO      ── Progress: 23/50 trades (46%)  |  opened_total=23 ──
+2026-05-01 14:47:13  INFO      Next cycle in 46s
+2026-05-01 14:48:00  INFO      ── Cycle start 2026-05-01 13:48:00 UTC ──
+2026-05-01 14:48:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:01  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:48:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:48:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:48:03  INFO      GBPUSD    OPENED   ticket=8453221712  dir=bullish  lot=0.58  [24 opened]
+2026-05-01 14:48:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:06  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:48:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:48:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:48:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:48:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:48:10  INFO      Trade 31726ed6-c273-4fa6-8fb2-e036e02f3a43 (ticket=8453189240) closed
+2026-05-01 14:48:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:48:10  INFO      ── Progress: 24/50 trades (48%)  |  opened_total=24 ──
+2026-05-01 14:48:10  INFO      Next cycle in 50s
+2026-05-01 14:49:00  INFO      ── Cycle start 2026-05-01 13:49:00 UTC ──
+2026-05-01 14:49:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:49:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:49:04  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:49:04  INFO      GBPUSD    OPENED   ticket=8453246869  dir=bullish  lot=0.58  [25 opened]
+2026-05-01 14:49:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:06  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:49:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:08  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:49:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:49:11  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:49:12  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:49:12  INFO      Trade 007d7841-7503-4b1b-a8f3-1836491fc0e6 (ticket=8453221712) closed
+2026-05-01 14:49:12  INFO      Positions closed this cycle: 1
+2026-05-01 14:49:12  INFO      ── Progress: 25/50 trades (50%)  |  opened_total=25 ──
+2026-05-01 14:49:12  INFO      Next cycle in 48s
+2026-05-01 14:50:00  INFO      ── Cycle start 2026-05-01 13:50:00 UTC ──
+2026-05-01 14:50:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:50:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:50:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:50:03  INFO      GBPUSD    OPENED   ticket=8453268130  dir=bullish  lot=0.58  [26 opened]
+2026-05-01 14:50:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:04  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:50:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:06  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:50:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:50:08  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:50:08  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:50:08  INFO      Trade 673682c1-74a0-4ed2-88f0-0c6977445b17 (ticket=8453246869) closed
+2026-05-01 14:50:09  INFO      Positions closed this cycle: 1
+2026-05-01 14:50:09  INFO      ── Progress: 26/50 trades (52%)  |  opened_total=26 ──
+2026-05-01 14:50:09  INFO      Next cycle in 51s
+2026-05-01 14:51:00  INFO      ── Cycle start 2026-05-01 13:51:00 UTC ──
+2026-05-01 14:51:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:51:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:51:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:51:03  INFO      GBPUSD    OPENED   ticket=8453302628  dir=bullish  lot=0.58  [27 opened]
+2026-05-01 14:51:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:51:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:08  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:51:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:51:10  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:51:11  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:51:11  INFO      Trade 41451d68-15dd-46ce-ab7b-d05db0f3c1a6 (ticket=8453268130) closed
+2026-05-01 14:51:11  INFO      Positions closed this cycle: 1
+2026-05-01 14:51:11  INFO      ── Progress: 27/50 trades (54%)  |  opened_total=27 ──
+2026-05-01 14:51:11  INFO      Next cycle in 49s
+2026-05-01 14:52:00  INFO      ── Cycle start 2026-05-01 13:52:00 UTC ──
+2026-05-01 14:52:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:52:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:02  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:52:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:52:03  INFO      GBPUSD    OPENED   ticket=8453338201  dir=bullish  lot=0.58  [28 opened]
+2026-05-01 14:52:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:52:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:08  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:52:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:52:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:52:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:52:10  INFO      Trade 56ac7493-e80f-4b13-8342-edb0df5ee778 (ticket=8453302628) closed
+2026-05-01 14:52:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:52:10  INFO      ── Progress: 28/50 trades (56%)  |  opened_total=28 ──
+2026-05-01 14:52:10  INFO      Next cycle in 50s
+2026-05-01 14:53:00  INFO      ── Cycle start 2026-05-01 13:53:00 UTC ──
+2026-05-01 14:53:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:00  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:53:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:53:04  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:53:04  INFO      GBPUSD    OPENED   ticket=8453378023  dir=bullish  lot=0.58  [29 opened]
+2026-05-01 14:53:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:53:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:08  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:53:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:53:10  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:53:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:53:10  INFO      Trade 82a27a51-18d4-46f5-8777-21a10be8a24a (ticket=8453338201) closed
+2026-05-01 14:53:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:53:10  INFO      ── Progress: 29/50 trades (58%)  |  opened_total=29 ──
+2026-05-01 14:53:10  INFO      Next cycle in 50s
+2026-05-01 14:54:00  INFO      ── Cycle start 2026-05-01 13:54:00 UTC ──
+2026-05-01 14:54:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:01  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:54:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:54:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:54:03  INFO      GBPUSD    OPENED   ticket=8453419926  dir=bullish  lot=0.58  [30 opened]
+2026-05-01 14:54:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:54:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:06  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:54:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:54:08  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:54:09  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:54:09  INFO      Trade 069eda29-1024-49df-bb5d-b2a30f2c87be (ticket=8453378023) closed
+2026-05-01 14:54:09  INFO      Positions closed this cycle: 1
+2026-05-01 14:54:09  INFO      ── Progress: 30/50 trades (60%)  |  opened_total=30 ──
+2026-05-01 14:54:09  INFO      Next cycle in 51s
+2026-05-01 14:55:00  INFO      ── Cycle start 2026-05-01 13:55:00 UTC ──
+2026-05-01 14:55:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:01  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:55:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:55:04  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:55:04  INFO      GBPUSD    OPENED   ticket=8453472938  dir=bullish  lot=0.58  [31 opened]
+2026-05-01 14:55:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:04  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:55:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:55:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:55:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:55:09  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:55:09  INFO      Trade 901d6484-2147-447a-b16e-1e87569f8acf (ticket=8453419926) closed
+2026-05-01 14:55:09  INFO      Positions closed this cycle: 1
+2026-05-01 14:55:09  INFO      ── Progress: 31/50 trades (62%)  |  opened_total=31 ──
+2026-05-01 14:55:09  INFO      Next cycle in 51s
+2026-05-01 14:56:00  INFO      ── Cycle start 2026-05-01 13:56:00 UTC ──
+2026-05-01 14:56:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:01  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:56:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:56:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:56:03  INFO      GBPUSD    OPENED   ticket=8453540292  dir=bullish  lot=0.58  [32 opened]
+2026-05-01 14:56:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:56:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:06  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:56:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:56:08  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:56:09  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:56:09  INFO      Trade 695a0986-fab9-4faa-abad-767d63063f0c (ticket=8453472938) closed
+2026-05-01 14:56:09  INFO      Positions closed this cycle: 1
+2026-05-01 14:56:09  INFO      ── Progress: 32/50 trades (64%)  |  opened_total=32 ──
+2026-05-01 14:56:09  INFO      Next cycle in 51s
+2026-05-01 14:57:00  INFO      ── Cycle start 2026-05-01 13:57:00 UTC ──
+2026-05-01 14:57:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:01  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:57:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:03  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:57:03  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:57:03  INFO      GBPUSD    OPENED   ticket=8453578167  dir=bullish  lot=0.58  [33 opened]
+2026-05-01 14:57:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:05  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:57:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:07  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:57:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:57:09  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:57:10  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:57:10  INFO      Trade c4a7ed98-3455-40a6-8e5c-daabb1e8d1d1 (ticket=8453540292) closed
+2026-05-01 14:57:10  INFO      Positions closed this cycle: 1
+2026-05-01 14:57:10  INFO      ── Progress: 33/50 trades (66%)  |  opened_total=33 ──
+2026-05-01 14:57:10  INFO      Next cycle in 51s
+2026-05-01 14:58:00  INFO      ── Cycle start 2026-05-01 13:58:00 UTC ──
+2026-05-01 14:58:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:01  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:58:02  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:02  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:06  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 14:58:06  INFO      HTTP Request: POST http://127.0.0.1:8001/order/open "HTTP/1.1 201 Created"
+2026-05-01 14:58:06  INFO      GBPUSD    OPENED   ticket=8453612128  dir=bullish  lot=0.58  [34 opened]
+2026-05-01 14:58:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:09  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:58:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:09  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:11  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:58:11  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:12  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:58:14  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:58:23  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:58:24  INFO      Trade 89fb25c5-edf5-4c63-a8ec-96e0a27f57fa (ticket=8453578167) closed
+2026-05-01 14:58:24  INFO      Positions closed this cycle: 1
+2026-05-01 14:58:24  INFO      ── Progress: 34/50 trades (68%)  |  opened_total=34 ──
+2026-05-01 14:58:24  INFO      Next cycle in 37s
+2026-05-01 14:59:00  INFO      ── Cycle start 2026-05-01 13:59:00 UTC ──
+2026-05-01 14:59:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:05  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 14:59:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:06  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:14  WARNING   spread_filter: timeout reaching bridge for GBPUSD
+2026-05-01 14:59:14  INFO      risk_gate: BLOCKED spread_too_wide — Bridge timeout after 5.0s — spread unverifiable, signal blocked
+2026-05-01 14:59:14  INFO      GBPUSD    BLOCKED  gate=6  spread_too_wide
+2026-05-01 14:59:20  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:21  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:22  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:59:23  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:24  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:27  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 14:59:27  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:28  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 14:59:32  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 14:59:39  INFO      HTTP Request: POST http://127.0.0.1:8001/order/close "HTTP/1.1 200 OK"
+2026-05-01 14:59:39  INFO      Trade 91e42f03-566a-496f-bd76-4e213c708e06 (ticket=8453612128) closed
+2026-05-01 14:59:39  INFO      Positions closed this cycle: 1
+2026-05-01 14:59:39  INFO      ── Progress: 35/50 trades (70%)  |  opened_total=34 ──
+2026-05-01 14:59:39  INFO      Next cycle in 21s
+2026-05-01 15:00:00  INFO      ── Cycle start 2026-05-01 14:00:00 UTC ──
+2026-05-01 15:00:03  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:05  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 15:00:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:08  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:14  INFO      HTTP Request: GET http://127.0.0.1:8001/spread/GBPUSD "HTTP/1.1 200 OK"
+2026-05-01 15:00:25  ERROR     GBPUSD    EXEC ERR  Bridge unreachable: 
+2026-05-01 15:00:43  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:43  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:46  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 15:00:46  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:46  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:49  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 15:00:49  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:49  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:00:52  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 15:00:52  INFO      ── Progress: 35/50 trades (70%)  |  opened_total=34 ──
+2026-05-01 15:00:52  INFO      Next cycle in 8s
+2026-05-01 15:01:00  INFO      ── Cycle start 2026-05-01 14:01:00 UTC ──
+2026-05-01 15:01:01  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:02  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:02  INFO      EURUSD    BLOCKED  gate=1  regime_blocked
+2026-05-01 15:01:02  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:02  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:04  INFO      GBPUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 15:01:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:05  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:07  INFO      USDJPY    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 15:01:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:07  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:10  INFO      XAUUSD    BLOCKED  gate=5  waiting_for_retest
+2026-05-01 15:01:11  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:11  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 200 OK"
+2026-05-01 15:01:13  INFO      US30      BLOCKED  gate=4  no_zone
+2026-05-01 15:01:13  INFO      ── Progress: 35/50 trades (70%)  |  opened_total=34 ──
+2026-05-01 15:01:13  INFO      Next cycle in 47s
+2026-05-01 15:02:00  INFO      ── Cycle start 2026-05-01 14:02:00 UTC ──
+2026-05-01 15:02:31  WARNING   Candle fetch failed EURUSD/H4: 
+2026-05-01 15:02:31  WARNING   Candle fetch failed EURUSD/M15: 
+2026-05-01 15:03:01  WARNING   Candle fetch failed GBPUSD/H4: 
+2026-05-01 15:03:01  WARNING   Candle fetch failed GBPUSD/M15: 
+2026-05-01 15:03:31  WARNING   Candle fetch failed USDJPY/H4: 
+2026-05-01 15:03:31  WARNING   Candle fetch failed USDJPY/M15: 
+2026-05-01 15:04:01  WARNING   Candle fetch failed XAUUSD/H4: 
+2026-05-01 15:04:01  WARNING   Candle fetch failed XAUUSD/M15: 
+2026-05-01 15:04:31  WARNING   Candle fetch failed US30/H4: 
+2026-05-01 15:04:31  WARNING   Candle fetch failed US30/M15: 
+2026-05-01 15:04:31  INFO      ── Progress: 35/50 trades (70%)  |  opened_total=34 ──
+2026-05-01 15:04:31  INFO      Next cycle in 0s
+2026-05-01 15:04:31  INFO      ── Cycle start 2026-05-01 14:04:31 UTC ──
+2026-05-01 15:05:01  WARNING   Candle fetch failed EURUSD/H4: 
+2026-05-01 15:05:01  WARNING   Candle fetch failed EURUSD/M15: 
+2026-05-01 15:05:31  WARNING   Candle fetch failed GBPUSD/H4: 
+2026-05-01 15:05:31  WARNING   Candle fetch failed GBPUSD/M15: 
+2026-05-01 15:06:01  WARNING   Candle fetch failed USDJPY/H4: 
+2026-05-01 15:06:01  WARNING   Candle fetch failed USDJPY/M15: 
+2026-05-01 15:06:31  WARNING   Candle fetch failed XAUUSD/H4: 
+2026-05-01 15:06:31  WARNING   Candle fetch failed XAUUSD/M15: 
+2026-05-01 15:07:01  WARNING   Candle fetch failed US30/H4: 
+2026-05-01 15:07:01  WARNING   Candle fetch failed US30/M15: 
+2026-05-01 15:07:01  INFO      ── Progress: 35/50 trades (70%)  |  opened_total=34 ──
+2026-05-01 15:07:01  INFO      Next cycle in 0s
+2026-05-01 15:07:01  INFO      ── Cycle start 2026-05-01 14:07:01 UTC ──
+2026-05-01 15:07:31  WARNING   Candle fetch failed EURUSD/H4: 
+2026-05-01 15:07:31  WARNING   Candle fetch failed EURUSD/M15: 
+2026-05-01 15:08:01  WARNING   Candle fetch failed GBPUSD/H4: 
+2026-05-01 15:08:01  WARNING   Candle fetch failed GBPUSD/M15: 
+2026-05-01 15:08:31  WARNING   Candle fetch failed USDJPY/H4: 
+2026-05-01 15:08:31  WARNING   Candle fetch failed USDJPY/M15: 
+2026-05-01 15:09:01  WARNING   Candle fetch failed XAUUSD/H4: 
+2026-05-01 15:09:01  WARNING   Candle fetch failed XAUUSD/M15: 
+2026-05-01 15:09:31  WARNING   Candle fetch failed US30/H4: 
+2026-05-01 15:09:31  WARNING   Candle fetch failed US30/M15: 
+2026-05-01 15:09:32  INFO      ── Progress: 35/50 trades (70%)  |  opened_total=34 ──
+2026-05-01 15:09:32  INFO      Next cycle in 0s
+2026-05-01 15:09:32  INFO      ── Cycle start 2026-05-01 14:09:32 UTC ──
+2026-05-01 15:10:02  WARNING   Candle fetch failed EURUSD/H4: 
+2026-05-01 15:10:02  WARNING   Candle fetch failed EURUSD/M15: 
+2026-05-01 15:10:32  WARNING   Candle fetch failed GBPUSD/H4: 
+2026-05-01 15:10:32  WARNING   Candle fetch failed GBPUSD/M15: 
+2026-05-01 15:11:02  WARNING   Candle fetch failed USDJPY/H4: 
+2026-05-01 15:11:02  WARNING   Candle fetch failed USDJPY/M15: 
+2026-05-01 15:11:32  WARNING   Candle fetch failed XAUUSD/H4: 
+2026-05-01 15:11:32  WARNING   Candle fetch failed XAUUSD/M15: 
+2026-05-01 15:12:02  WARNING   Candle fetch failed US30/H4: 
+2026-05-01 15:12:02  WARNING   Candle fetch failed US30/M15: 
+2026-05-01 15:12:02  INFO      ── Progress: 35/50 trades (70%)  |  opened_total=34 ──
+2026-05-01 15:12:02  INFO      Next cycle in 0s
+2026-05-01 15:12:02  INFO      ── Cycle start 2026-05-01 14:12:02 UTC ──
+2026-05-01 15:12:32  WARNING   Candle fetch failed EURUSD/H4: 
+2026-05-01 15:12:32  WARNING   Candle fetch failed EURUSD/M15: 
+2026-05-01 15:13:02  WARNING   Candle fetch failed GBPUSD/H4: 
+2026-05-01 15:13:02  WARNING   Candle fetch failed GBPUSD/M15: 
+2026-05-01 15:13:32  WARNING   Candle fetch failed USDJPY/H4: 
+2026-05-01 15:13:32  WARNING   Candle fetch failed USDJPY/M15: 
+2026-05-01 15:14:02  WARNING   Candle fetch failed XAUUSD/H4: 
+2026-05-01 15:14:02  WARNING   Candle fetch failed XAUUSD/M15: 
+2026-05-01 15:14:32  WARNING   Candle fetch failed US30/H4: 
+2026-05-01 15:14:32  WARNING   Candle fetch failed US30/M15: 
+2026-05-01 15:14:32  INFO      ── Progress: 35/50 trades (70%)  |  opened_total=34 ──
+2026-05-01 15:14:32  INFO      Next cycle in 0s
+2026-05-01 15:14:32  INFO      ── Cycle start 2026-05-01 14:14:32 UTC ──
+2026-05-01 15:15:03  WARNING   Candle fetch failed EURUSD/H4: 
+2026-05-01 15:15:03  WARNING   Candle fetch failed EURUSD/M15: 
+2026-05-01 15:15:33  WARNING   Candle fetch failed GBPUSD/H4: 
+2026-05-01 15:15:33  WARNING   Candle fetch failed GBPUSD/M15: 
+2026-05-01 15:16:03  WARNING   Candle fetch failed USDJPY/H4: 

@@ -1,0 +1,725 @@
+> Two issues found from the paper trading log:
+
+ISSUE 1 — trade_manager.py has the same get_db() bug:
+  File "core/execution_engine/trade_manager.py", line 36
+    db = await get_db()
+TypeError: object async_generator can't be used in 'await' expression
+
+Fix it the same way as paper_trading_loop.py — replace 
+await get_db() with async with get_db_direct() as db:
+Check ALL functions in trade_manager.py for this pattern.
+
+ISSUE 2 — Bridge has no /candles endpoint:
+The loop calls GET /candles/EURUSD/H4?count=200 but the 
+bridge returns 404. The correct endpoint in mt5_bridge.py 
+is /ohlc not /candles.
+
+Check mt5_bridge.py to confirm the exact endpoint path 
+and parameters, then fix paper_trading_loop.py to call 
+the correct URL.
+
+Fix both issues then run again:
+python3 paper_trading_loop.py 2>&1 | tee paper_trading.log
+
+Show me the first 30 lines of output.
+
+> Let me read both files first to understand the current state.
+Tool validation failed: 
+Failed to validate tool parameters: '/home/kira/trading-bot/mt5_bridge.py' does not exist
+Batch fs_read operation with 2 operations (using tool: read)
+
+↱ Operation 1: Reading file: /home/kira/trading-bot/core/execution_engine/trade_manager.py, all lines
+↱ Operation 2: Reading directory: /home/kira/trading-bot
+ ✓ Successfully read 3592 bytes from /home/kira/trading-bot/core/execution_engine/trade_manager.py
+
+ ✓ Successfully read directory /home/kira/trading-bot (366 entries)
+
+ ⋮ 
+
+- Summary: 2 operations processed, 2 successful, 0 failed
+ - Completed in 0.215s
+
+> Good — trade_manager.py already uses get_db_direct() correctly (no 
+await get_db() bug). Now let me check the actual bridge file and the candles 
+call in paper_trading_loop.py:
+Batch fs_read operation with 2 operations (using tool: read)
+
+↱ Operation 1: Searching: /home/kira/trading-bot/core/execution_engine/mt5_bridge.py for pattern: ohlc|candles|@app.route|@router
+↱ Operation 2: Searching: /home/kira/trading-bot/paper_trading_loop.py for pattern: candles|ohlc|/candles|/ohlc
+ ✓ Found 0 matches for pattern 'ohlc|candles|@app.route|@router' in /home/kira/trading-bot/core/execution_engine/mt5_bridge.py
+⠋ Thinking...
+ ✓ Found 0 matches for pattern 'candles|ohlc|/candles|/ohlc' in /home/kira/trading-bot/paper_trading_loop.py
+
+ ⋮ 
+
+- Summary: 2 operations processed, 2 successful, 0 failed
+ - Completed in 0.4s
+
+Batch fs_read operation with 2 operations (using tool: read)
+
+↱ Operation 1: Searching: /home/kira/trading-bot/core/execution_engine/mt5_bridge.py for pattern: def |route|endpoint|flask|fastapi
+↱ Operation 2: Searching: /home/kira/trading-bot/paper_trading_loop.py for pattern: get|fetch|http|bridge|url|url
+ ✓ Found 0 matches for pattern 'def |route|endpoint|flask|fastapi' in /home/kira/trading-bot/core/execution_engine/mt5_bridge.py
+
+ ✓ Found 0 matches for pattern 'get|fetch|http|bridge|url|URL' in /home/kira/trading-bot/paper_trading_loop.py
+
+ ⋮ 
+
+- Summary: 2 operations processed, 2 successful, 0 failed
+ - Completed in 0.4s
+
+Batch fs_read operation with 2 operations (using tool: read)
+
+↱ Operation 1: Reading file: /home/kira/trading-bot/core/execution_engine/mt5_bridge.py, from line 1 to 60
+↱ Operation 2: Reading file: /home/kira/trading-bot/paper_trading_loop.py, all lines
+ ✓ Successfully read 2370 bytes from /home/kira/trading-bot/core/execution_engine/mt5_bridge.py
+
+ ✓ Successfully read 9039 bytes from /home/kira/trading-bot/paper_trading_loop.py
+
+ ⋮ 
+
+- Summary: 2 operations processed, 2 successful, 0 failed
+ - Completed in 0.2s
+
+> paper_trading_loop.py already uses /ohlc (line 
+f"{_BRIDGE_URL}/ohlc/{symbol}/{timeframe}"), and trade_manager.py already uses 
+async with get_db_direct() as db: correctly — no await get_db() anywhere.
+
+Both bugs are already fixed. Let me verify the log to understand what the actual
+current error is:
+Reading file: /home/kira/trading-bot/paper_trading.log, all lines (using tool: read)
+⠋ Thinking... ✓ Successfully read 2558 bytes from /home/kira/trading-bot/paper_trading.log
+ - Completed in 0.0s
+
+> The log is from the previous run — the file on disk still has the old bugs. 
+The current file I read must be a newer version. Let me check the actual line 36
+of trade_manager.py:
+I will run the following command: sed -n '30,45p' /home/kira/trading-bot/core/execution_engine/trade_manager.py (using tool: shell)
+Purpose: Check actual line 36 of trade_manager.py
+
+
+Allow this action? Use 't' to trust (always allow) this tool for the session. [y/n/t]:
+
+> t
+
+    Main entry point — called by Celery task via asyncio.run().
+    Fetches all open trades from DB, checks each against MT5 bridge,
+    closes any that are no longer open.
+
+    Returns summary dict with counts for logging.
+    """
+    async with get_db_direct() as db:
+        open_trades = await db.fetch(
+            "SELECT id, user_id, ticket, symbol FROM trades WHERE status='open'"
+        )
+
+        if not open_trades:
+            return {"checked": 0, "closed": 0}
+
+        closed_count = 0
+        for trade in open_trades:
+ - Completed in 0.46s
+
+> The file on disk already has async with get_db_direct() as db: — it was 
+already fixed. The log is from a previous run. Now let me check the 
+paper_trading_loop.py on disk for the candles URL:
+I will run the following command: grep -n "candles\|ohlc\|/ohlc\|/candles" /home/kira/trading-bot/paper_trading_loop.py (using tool: shell)
+Purpose: Check actual candles/ohlc URL in paper_trading_loop.py
+
+5:  1. Fetch latest H4 + M15 candles from MT5 bridge for each pair
+64:async def _fetch_candles(client: httpx.AsyncClient, symbol: str, timeframe: str) -> list[dict]:
+65:    """Fetch latest candles from MT5 bridge. Returns [] on error."""
+68:            f"{_BRIDGE_URL}/ohlc/{symbol}/{timeframe}",
+104:            h4_raw  = await _fetch_candles(client, symbol, "H4")
+105:            m15_raw = await _fetch_candles(client, symbol, "M15")
+ - Completed in 0.48s
+
+> Both files are already correct on disk. The log was from the previous run 
+before fixes were applied. Now let me confirm the /ohlc endpoint exists in 
+mt5_bridge.py and check what the mock bridge uses (since the bridge is running 
+locally):
+Batch fs_read operation with 2 operations (using tool: read)
+
+↱ Operation 1: Searching: /home/kira/trading-bot/core/execution_engine/mt5_bridge.py for pattern: ohlc|candles
+↱ Operation 2: Searching: /home/kira/trading-bot/data_engine/mock_bridge.py for pattern: ohlc|candles
+ ✓ Found 0 matches for pattern 'ohlc|candles' in /home/kira/trading-bot/core/execution_engine/mt5_bridge.py
+
+ ✓ Found 0 matches for pattern 'ohlc|candles' in /home/kira/trading-bot/data_engine/mock_bridge.py
+
+ ⋮ 
+
+⠋ Thinking...- Summary: 2 operations processed, 2 successful, 0 failed
+ - Completed in 0.4s
+
+I will run the following command: grep -n "def \|route\|@app\|ohlc\|candle\|OHLC" /home/kira/trading-bot/core/execution_engine/mt5_bridge.py | head -40 (using tool: shell)
+Purpose: Find route definitions in mt5_bridge.py
+
+85:def _mt5_init() -> bool:
+111:def _mt5_shutdown() -> None:
+119:def _require_connected() -> None:
+130:async def lifespan(app: FastAPI):
+159:async def verify_signature(request: Request) -> None:
+204:class OHLCBar(BaseModel):
+214:class OHLCResponse(BaseModel):
+218:    bars: list[OHLCBar]
+273:@app.get("/health", summary="MT5 connection health check", dependencies=[_auth])
+274:async def health():
+288:    def _account():
+305:# ── GET /ohlc/{symbol}/{timeframe} ────────────────────────────────────────────
+307:@app.get(
+308:    "/ohlc/{symbol}/{timeframe}",
+309:    response_model=OHLCResponse,
+310:    summary="Fetch OHLC bars from MT5",
+⠋ Thinking...313:async def get_ohlc(symbol: str, timeframe: str, count: int = 500):
+334:    def _fetch():
+344:            f"No OHLC data for {symbol} {timeframe} — MT5 error: {mt5.last_error()}",
+347:    return OHLCResponse(
+352:            OHLCBar(
+368:@app.get(
+374:async def get_spread(symbol: str):
+381:    def _fetch():
+411:@app.post(
+418:async def order_open(body: OrderOpenRequest):
+430:    def _send():
+478:@app.post(
+484:async def order_close(body: OrderCloseRequest):
+491:    def _close():
+545:@app.post(
+551:async def mt5_initialize():
+569:    def _info():
+ - Completed in 0.46s
+
+> The bridge has /ohlc/{symbol}/{timeframe} confirmed. But the bridge returns 
+OHLCResponse (a dict with a bars key), not a plain list. Let me check what 
+paper_trading_loop.py expects back:
+Batch fs_read operation with 2 operations (using tool: read)
+
+↱ Operation 1: Reading file: /home/kira/trading-bot/core/execution_engine/mt5_bridge.py, from line 305 to 370
+↱ Operation 2: Reading file: /home/kira/trading-bot/paper_trading_loop.py, from line 64 to 80
+ ✓ Successfully read 2195 bytes from /home/kira/trading-bot/core/execution_engine/mt5_bridge.py
+
+ ✓ Successfully read 647 bytes from /home/kira/trading-bot/paper_trading_loop.py
+
+ ⋮ 
+
+- Summary: 2 operations processed, 2 successful, 0 failed
+ - Completed in 0.2s
+
+> There's a mismatch: the bridge returns 
+{"symbol": ..., "timeframe": ..., "count": ..., "bars": [...]} but 
+_fetch_candles returns resp.json() directly (the whole dict), and then 
+paper_trading_loop.py does pd.DataFrame(h4_raw) on it — which would create a 1-
+row DataFrame from the dict keys, not the bars list.
+
+Also, the bridge requires HMAC auth (dependencies=[_auth]) but _fetch_candles 
+sends no auth headers. Let me check the mock bridge too since that's what's 
+running locally:
+I will run the following command: grep -n "def \|route\|@app\|ohlc\|candle\|OHLC\|bars" /home/kira/trading-bot/data_engine/mock_bridge.py | head -40 (using tool: shell)
+Purpose: Find route definitions in mock_bridge.py
+
+6:MetaTrader5 library. OHLC bars are generated via a seeded random walk from
+107:# ── OHLC generation ────────────────────────────────────────────────────────────
+109:def _generate_bars(symbol: str, timeframe: str, count: int) -> list[dict] | None:
+111:    Build `count` closed OHLC bars for *symbol* / *timeframe* using a
+113:    identical calls produce identical bars — so re-running historical_loader
+132:    spread_points = spread_pips * _PIP_DIVISOR[sym]  # raw points in OHLCBar
+135:    day_seed = now // 86400  # stable for 24 h — bars look the same within a day
+145:    # so callers asking for different count values get bars that share history.
+152:    # Collect bars oldest-first (index 0 = oldest).
+153:    bars: list[dict] = []
+171:        bars.append({
+182:    return bars
+188:async def lifespan(app: FastAPI):
+216:async def verify_signature(request: Request) -> None:
+261:class OHLCBar(BaseModel):
+271:class OHLCResponse(BaseModel):
+275:    bars:      list[OHLCBar]
+330:@app.get("/health", summary="MT5 connection health check", dependencies=[_auth])
+331:async def health():
+344:# ── GET /ohlc/{symbol}/{timeframe} ────────────────────────────────────────────
+346:@app.get(
+347:    "/ohlc/{symbol}/{timeframe}",
+348:    response_model=OHLCResponse,
+349:    summary="Fetch OHLC bars (mock random-walk data)",
+352:async def get_ohlc(symbol: str, timeframe: str, count: int = 500):
+372:    bars = _generate_bars(sym, tf, count)
+373:    return OHLCResponse(
+376:        count=len(bars),
+377:        bars=[OHLCBar(**b) for b in bars],
+383:@app.get(
+389:async def get_spread(symbol: str):
+419:@app.post(
+426:async def order_open(body: OrderOpenRequest):
+455:@app.post(
+461:async def order_close(body: OrderCloseRequest):
+480:@app.post(
+486:async def mt5_initialize():
+ - Completed in 0.46s
+
+> Both bridges return OHLCResponse with a bars key. The _fetch_candles function 
+returns the whole JSON dict, but pd.DataFrame(h4_raw) is called on it — this 
+needs to extract .bars. Also need to check if the mock bridge auth is required 
+and what headers _fetch_candles sends:
+Reading file: /home/kira/trading-bot/data_engine/mock_bridge.py, from line 188 to 260 (using tool: read)
+ ✓ Successfully read 2712 bytes from /home/kira/trading-bot/data_engine/mock_bridge.py
+ - Completed in 0.1s
+
+> The mock bridge requires HMAC auth. _fetch_candles sends no auth headers — it 
+would get 403. Let me check how mt5_executor.py handles auth (the _sign function
+) and whether paper_trading_loop.py uses it:
+Reading file: /home/kira/trading-bot/core/execution_engine/mt5_executor.py, all lines (using tool: read)
+ ✓ Successfully read 4405 bytes from /home/kira/trading-bot/core/execution_engine/mt5_executor.py
+ - Completed in 0.0s
+
+> Now I have the full picture. Two real issues to fix in paper_trading_loop.py:
+
+1. _fetch_candles sends no auth headers — needs _sign("GET", path) from 
+mt5_executor
+2. _fetch_candles returns resp.json() (the full OHLCResponse dict with a bars 
+key) but the caller does pd.DataFrame(h4_raw) expecting a list of bar dicts — 
+needs to extract ["bars"]
+I'll modify the following file: paper_trading_loop.py (using tool: write)
+
+  34, 34: import httpx
+  35, 35: 
++     36: from core.execution_engine.mt5_executor import _sign
+  36, 37: from database.connection import create_pool, close_pool, get_db_direct
+
+
+Allow this action? Use 't' to trust (always allow) this tool for the session. [y/n/t]:
+
+> t
+
+Updating: paper_trading_loop.py
+ - Completed in 0.4s
+
+I'll modify the following file: paper_trading_loop.py (using tool: write)
+
+  65, 65: async def _fetch_candles(client: httpx.AsyncClient, symbol: str, timeframe: str) -> list[dict]:
+  66, 66:     """Fetch latest candles from MT5 bridge. Returns [] on error."""
++     67:     path = f"/ohlc/{symbol}/{timeframe}"
+  67, 68:     try:
+  68, 69:         resp = await client.get(
+- 69    :             f"{_BRIDGE_URL}/ohlc/{symbol}/{timeframe}",
++     70:             f"{_BRIDGE_URL}{path}",
+  70, 71:             params={"count": 200},
++     72:             headers=_sign("GET", path),
+  71, 73:             timeout=10,
+  72, 74:         )
+  73, 75:         if resp.status_code == 200:
+- 74    :             return resp.json()
++     76:             return resp.json().get("bars", [])
+  75, 77:     except Exception as exc:
+  76, 78:         logger.warning("Candle fetch failed %s/%s: %s", symbol, timeframe, exc)
+  77, 79:     return []
+
+Updating: paper_trading_loop.py
+ - Completed in 0.4s
+
+> Now run it:
+I will run the following command: cd /home/kira/trading-bot && timeout 45 python3 paper_trading_loop.py 2>&1 | tee paper_trading.log | head -30 (using tool: shell)
+Purpose: Run paper trading loop and capture first 30 lines
+
+2026-05-01 01:37:53  INFO      ============================================================
+2026-05-01 01:37:53  INFO      Paper trading loop started
+2026-05-01 01:37:53  INFO        Account : #106464235 (demo)
+2026-05-01 01:37:53  INFO        Pairs   : EURUSD, GBPUSD, USDJPY, XAUUSD, US30
+2026-05-01 01:37:53  INFO        Interval: 900s (15 min)
+2026-05-01 01:37:53  INFO        Target  : 50 trades
+2026-05-01 01:37:53  INFO      ============================================================
+2026-05-01 01:37:53  INFO      ── Cycle start 2026-05-01 00:37:53 UTC ──
+2026-05-01 01:37:55  INFO      NumExpr defaulting to 4 threads.
+2026-05-01 01:37:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:37:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/EURUSD/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:37:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:37:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:37:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:37:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/USDJPY/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:37:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:37:59  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:38:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:38:00  INFO      HTTP Request: GET http://127.0.0.1:8001/ohlc/US30/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:38:00  ERROR     Cycle error: column "ticket" does not exist
+Traceback (most recent call last):
+  File "/home/kira/trading-bot/paper_trading_loop.py", line 212, in main
+    await run_cycle(stats)
+  File "/home/kira/trading-bot/paper_trading_loop.py", line 170, in run_cycle
+    monitor_result = await check_open_trades()
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kira/trading-bot/core/execution_engine/trade_manager.py", line 37, in check_open_trades
+    open_trades = await db.fetch(
+                  ^^^^^^^^^^^^^^^
+  File "/home/kira/.local/lib/python3.12/site-packages/asyncpg/connection.py", line 694, in fetch
+⠋ Thinking... - Completed in 46.423s
+
+> Good progress — both original bugs are fixed. Two new issues visible:
+
+1. 403 on /ohlc — HMAC signing is happening but the bridge is rejecting it. The 
+_sign function in mt5_executor.py includes the query string in the path for 
+signing, but the actual request URL has ?count=200 appended by httpx separately.
+Let me check the signing message vs what the bridge verifies:
+Reading file: /home/kira/trading-bot/data_engine/mock_bridge.py, from line 216 t⠋ Thinking...tool: read)
+ ✓ Successfully read 941 bytes from /home/kira/trading-bot/data_engine/mock_bridge.py
+ - Completed in 0.3s
+
+> The bridge signs METHOD + path + timestamp + body. The path used in 
+verify_signature is request.url.path (just /ohlc/EURUSD/H4, no query string). 
+The _sign call in _fetch_candles passes path = f"/ohlc/{symbol}/{timeframe}" 
+which matches. The 403 means the signature is wrong — likely MT5_BRIDGE_API_KEY 
+is not set or mismatched. Let me check:
+I will run the following command: grep "MT5_BRIDGE_API_KEY" /home/kira/trading-bot/.env (using tool: shell)
+Purpose: Check MT5_BRIDGE_API_KEY in .env
+
+MT5_BRIDGE_API_KEY=309612@Aaa..
+⠋ Thinking... - Completed in 0.39s
+
+I will run the following command: cd /home/kira/trading-bot && python3 -c "
+import os, hmac, hashlib, time
+from dotenv import load_dotenv
+load_dotenv()
+key = os.getenv('MT5_BRIDGE_API_KEY', '')
+print('key present:', bool(key), 'len:', len(key))
+ts = str(int(time.time()))
+path = '/ohlc/EURUSD/H4'
+msg = ('GET' + path + ts + '').encode()
+sig = hmac.new(key.encode(), msg, hashlib.sha256).hexdigest()
+print('sig:', sig[:20], '...')
+"
+ (using tool: shell)
+Purpose: Verify HMAC signing works with the key
+
+key present: True len: 12
+sig: 22c42d1c5fd39de13b7d ...
+⠋ Thinking... - Completed in 0.606s
+
+> Key is present. The issue is that _sign uses hmac.new(...) but the standard 
+library function is hmac.new — wait, it's actually hmac.new which is correct. 
+Let me check if the mock bridge is actually loading the same .env:
+I will run the following command: ps aux | grep mock_bridge | grep -v grep (using tool: shell)
+Purpose: Check if mock bridge is running
+
+kira      269169  0.1  0.0  59688  2800 ?        SN   Apr30   0:41 python3 -m uvicorn data_engine.mock_bridge:app --host 0.0.0.0 --port 8002 --workers 1 --log-level warning
+ - Completed in 0.990s
+
+> The mock bridge is on port 8002, but _BRIDGE_URL defaults to 
+http://127.0.0.1:8001. The loop is hitting port 8001 where nothing is listening 
+(or something else is). Let me check:
+I will run the following command: ss -tlnp | grep -E '8001|8002' && echo "---" && curl -s http://127.0.0.1:8001/health 2>&1 | head -5 && echo "---" && curl -s http://127.0.0.1:8002/health 2>&1 | head -5 (using tool: shell)
+Purpose: Check what's on ports 8001 and 8002
+
+LISTEN 0      2048         0.0.0.0:8002       0.0.0.0:*    users:(("python3",pid=269169,fd=6))         
+LISTEN 0      10           0.0.0.0:8001       0.0.0.0:*                                                
+---
+{"detail":"X-Timestamp missing or not a valid integer"}---
+{"detail":"X-Timestamp missing or not a valid integer"}
+ - Completed in 0.633s
+
+> Both ports have something listening. Port 8001 is not the mock bridge (
+different process). The 403 means the signature is being rejected. Let me test 
+the signing directly against the bridge:
+I will run the following command: cd /home/kira/trading-bot && python3 -c "
+import os, hmac, hashlib, time, urllib.request, json
+from dotenv import load_dotenv
+load_dotenv()
+key = os.getenv('MT5_BRIDGE_API_KEY', '')
+ts = str(int(time.time()))
+path = '/ohlc/EURUSD/H4'
+msg = ('GET' + path + ts + '').encode()
+sig = hmac.new(key.encode(), msg, hashlib.sha256).hexdigest()
+req = urllib.request.Request('http://127.0.0.1:8001' + path + '?count=5')
+req.add_header('X-Timestamp', ts)
+req.add_header('X-Signature', sig)
+try:
+    r = urllib.request.urlopen(req, timeout=5)
+    print('status:', r.status)
+    print(r.read()[:200])
+except urllib.error.HTTPError as e:
+    print('HTTP error:', e.code, e.read()[:200])
+"
+ (using tool: shell)
+Purpose: Test HMAC signing against port 8001
+
+HTTP error: 403 b'{"detail":"Invalid or missing X-Signature"}'
+ - Completed in 1.216s
+
+I will run the following command: cd /home/kira/trading-bot && python3 -c "
+import os, hmac, hashlib, time, urllib.request, json
+from dotenv import load_dotenv
+load_dotenv()
+key = os.getenv('MT5_BRIDGE_API_KEY', '')
+ts = str(int(time.time()))
+path = '/ohlc/EURUSD/H4'
+msg = ('GET' + path + ts + '').encode()
+sig = hmac.new(key.encode(), msg, hashlib.sha256).hexdigest()
+req = urllib.request.Request('http://127.0.0.1:8002' + path + '?count=5')
+req.add_header('X-Timestamp', ts)
+req.add_header('X-Signature', sig)
+try:
+    r = urllib.request.urlopen(req, timeout=5)
+    print('status:', r.status)
+    print(r.read()[:300])
+except urllib.error.HTTPError as e:
+    print('HTTP error:', e.code, e.read()[:200])
+"
+ (using tool: shell)
+Purpose: Test HMAC signing against port 8002 (mock bridge)
+
+HTTP error: 403 b'{"detail":"Invalid or missing X-Signature"}'
+ - Completed in 1.274s
+
+> Both reject. The signing logic must differ. Let me check the bridge's verify_
+signature more carefully — specifically what request.url.path returns vs what we
+'re signing:
+I will run the following command: cd /home/kira/trading-bot && python3 -c "
+import os, hmac as hmac_mod, hashlib, time, urllib.request
+from dotenv import load_dotenv
+load_dotenv()
+key = os.getenv('MT5_BRIDGE_API_KEY', '')
+print('key repr:', repr(key))
+
+# Try different path variants
+ts = str(int(time.time()))
+for path in ['/ohlc/EURUSD/H4', '/ohlc/EURUSD/H4?count=5']:
+    msg = ('GET' + path + ts + '').encode()
+    sig = hmac_mod.new(key.encode(), msg, hashlib.sha256).hexdigest()
+    print(f'path={path!r}  sig={sig[:16]}...')
+"
+ (using tool: shell)
+Purpose: Debug HMAC key and path variants
+
+key repr: '309612@Aaa..'
+path='/ohlc/EURUSD/H4'  sig=b3a4e43fbd86bd89...
+path='/ohlc/EURUSD/H4?count=5'  sig=67fd3b3a8c880e65...
+⠋ Thinking... - Completed in 0.982s
+
+I will run the following command: cd /home/kira/trading-bot && grep -n "MT5_BRIDGE_API_KEY\|_API_KEY" data_engine/mock_bridge.py | head -10 (using tool: shell)
+Purpose: Check how mock bridge loads the API key
+
+37:_API_KEY   = os.getenv("MT5_BRIDGE_API_KEY", "")
+222:    if not _API_KEY:
+225:            "MT5_BRIDGE_API_KEY not configured on this server",
+248:    expected   = hmac.new(_API_KEY.encode(), message, hashlib.sha256).hexdigest()
+ - Completed in 0.27s
+
+I will run the following command: cd /home/kira/trading-bot && python3 -c "
+# Simulate exactly what the bridge does
+import os, hmac as hmac_mod, hashlib, time
+from dotenv import load_dotenv
+load_dotenv()
+key = os.getenv('MT5_BRIDGE_API_KEY', '')
+
+ts = str(int(time.time()))
+method = 'GET'
+path = '/ohlc/EURUSD/H4'  # request.url.path (no query string)
+body = b''
+
+# What the bridge computes:
+message = (method + path + ts + body.decode()).encode()
+expected = hmac_mod.new(key.encode(), message, hashlib.sha256).hexdigest()
+print('bridge expected:', expected[:20])
+
+# What _sign() computes (same thing):
+from core.execution_engine.mt5_executor import _sign
+import os
+os.environ['MT5_BRIDGE_API_KEY'] = key
+headers = _sign('GET', path)
+print('_sign X-Timestamp:', headers['X-Timestamp'])
+print('_sign X-Signature:', headers['X-Signature'][:20])
+print('ts used in _sign:', headers['X-Timestamp'])
+print('ts used in bridge:', ts)
+print('match:', headers['X-Signature'] == expected if headers['X-Timestamp'] == ts else 'different ts')
+"
+ (using tool: shell)
+Purpose: Compare bridge expected signature vs _sign output
+
+bridge expected: 60f1640c0f684c2510c5
+_sign X-Timestamp: 1777595986
+_sign X-Signature: 71593c1ffcba4b57d463
+ts used in _sign: 1777595986
+ts used in bridge: 1777595985
+match: different ts
+ - Completed in 1.736s
+
+> The timestamps differ by 1 second (the _sign call happens slightly after ts is
+set). That's not the issue — 1 second is within the 30-second tolerance. The 
+signatures differ even with the same timestamp. Let me check if the bridge 
+process was started with a different key:
+I will run the following command: cat /proc/269169/environ 2>/dev/null | tr '\0' '\n' | grep MT5_BRIDGE_API_KEY (using tool: shell)
+Purpose: Check what API key the mock bridge process has
+
+MT5_BRIDGE_API_KEY=your-bridge-api-key
+ - Completed in 0.30s
+
+> The mock bridge was started with MT5_BRIDGE_API_KEY=your-bridge-api-key (the 
+placeholder from .env.template), but the current .env has 
+MT5_BRIDGE_API_KEY=309612@Aaa... The bridge needs to be restarted with the 
+correct key. Let me check how it's started:
+Reading file: /home/kira/trading-bot/scripts/start_mock_bridge.sh, all lines (using tool: read)
+ ✓ Successfully read 2006 bytes from /home/kira/trading-bot/scripts/start_mock_bridge.sh
+ - Completed in 0.0s
+
+> The mock bridge on port 8002 was started with the wrong key. Also, 
+paper_trading_loop.py points to port 8001 by default. I need to restart the mock
+bridge on port 8001 with the correct .env key:
+I will run the following command: kill 269169 2>/dev/null; sleep 1; echo "killed" (using tool: shell)
+Purpose: Kill the old mock bridge process
+
+killed
+ - Completed in 1.27s
+
+I will run the following command: ss -tlnp | grep -E '8001|8002' (using tool: shell)
+Purpose: Check what's still on port 8001
+
+LISTEN 0      10           0.0.0.0:8001       0.0.0.0:*                                                
+ - Completed in 0.339s
+
+I will run the following command: ss -tlnp | grep 8001 (using tool: shell)
+Purpose: Find what process is on port 8001
+
+LISTEN 0      10           0.0.0.0:8001       0.0.0.0:*                                                
+⠋ Thinking... - Completed in 0.358s
+
+I will run the following command: fuser 8001/tcp 2>/dev/null && echo "found" || echo "none" (using tool: shell)
+Purpose: Find PID on port 8001
+
+none
+ - Completed in 1.69s
+
+I will run the following command: curl -s http://127.0.0.1:8001/health 2>&1 (using tool: shell)
+Purpose: Test what's on port 8001
+
+⠋ Thinking...{"detail":"X-Timestamp missing or not a valid integer"}
+ - Completed in 0.117s
+
+> Something is still on 8001. Let me find it:
+I will run the following command: ps aux | grep -E "uvicorn|mock_bridge|8001" | grep -v grep (using tool: shell)
+Purpose: Find processes related to bridge
+
+root        2846  0.0  0.0  39976    16 ?        Ss   Apr29   0:03 /usr/local/bin/python3.11 /usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2 --log-level info
+ - Completed in 0.352s
+
+I will run the following command: cat /proc/2846/environ 2>/dev/null | tr '\0' '\n' | grep -E "MT5_BRIDGE|PORT|8001" | head -5 (using tool: shell)
+Purpose: Check what process is on 8001
+
+ - Completed in 0.133s
+
+I will run the following command: netstat -tlnp 2>/dev/null | grep 8001 || ss -tlnp sport = :8001 (using tool: shell)
+Purpose: Find what's listening on 8001
+
+tcp        0      0 0.0.0.0:8001            0.0.0.0:*               LISTEN      -                   
+ - Completed in 0.357s
+
+> Port 8001 is listening but no PID is shown — it's likely a Docker container or
+network namespace. Let me check:
+I will run the following command: docker ps 2>/dev/null | grep -E "8001|bridge" || echo "no docker" (using tool: shell)
+Purpose: Check Docker containers on port 8001
+
+no docker
+ - Completed in 0.932s
+
+I will run the following command: cat /proc/net/tcp | awk '{print $2}' | grep -i "1F41\|1F42" | head  # 8001=0x1F41, 8002=0x1F42 (using tool: shell)
+Purpose: Check kernel TCP table for port 8001
+
+00000000:1F41
+ - Completed in 0.95s
+
+I will run the following command: cat /proc/net/tcp | grep "1F41" | awk '{print $10}'  # inode (using tool: shell)
+Purpose: Get inode for port 8001
+
+1568619
+0
+ - Completed in 0.115s
+
+I will run the following command: grep -r "1568619" /proc/*/fd 2>/dev/null | head -5 | sed 's|/proc/\([0-9]*\)/.*|\1|' | sort -u | xargs -I{} ps -p {} -o pid,cmd 2>/dev/null (using tool: shell)
+Purpose: Find process owning the socket on port 8001
+
+ - Completed in 0.173s
+
+> The socket is owned by a process we can't see (likely running as root or in a 
+container). Port 8001 is the real/standby bridge endpoint that's already 
+deployed. The mock bridge was on 8002. The paper trading loop should use port 
+8002 (the mock bridge with the correct key after restart), or we restart the 
+mock bridge on 8001.
+
+Since port 8001 is occupied by something we can't kill, let's restart the mock 
+bridge on 8002 with the correct .env key, and set MT5_BRIDGE_PRIMARY_URL 
+accordingly:
+I will run the following command: cd /home/kira/trading-bot && set -a && source .env && set +a && \
+nohup python3 -m uvicorn data_engine.mock_bridge:app \
+    --host 0.0.0.0 --port 8002 --workers 1 --log-level warning \
+    > /tmp/mock_bridge.log 2>&1 &
+echo "PID: $!"
+sleep 2
+curl -s http://127.0.0.1:8002/health 2>&1 (using tool: shell)
+Purpose: Restart mock bridge on port 8002 with correct .env key
+
+PID: 316300
+ - Completed in 2.56s
+
+I will run the following command: sleep 3 && curl -s http://127.0.0.1:8002/health 2>&1 && echo "" && cat /tmp/mock_bridge.log | tail -5 (using tool: shell)
+Purpose: Check if mock bridge started on 8002
+
+{"detail":"X-Timestamp missing or not a valid integer"}
+ - Completed in 3.91s
+
+> Mock bridge is up on 8002. Now verify the key matches:
+I will run the following command: cd /home/kira/trading-bot && python3 -c "
+import os, hmac as hmac_mod, hashlib, time, urllib.request
+from dotenv import load_dotenv
+load_dotenv()
+key = os.getenv('MT5_BRIDGE_API_KEY', '')
+ts = str(int(time.time()))
+path = '/ohlc/EURUSD/H4'
+msg = ('GET' + path + ts + '').encode()
+sig = hmac_mod.new(key.encode(), msg, hashlib.sha256).hexdigest()
+req = urllib.request.Request('http://127.0.0.1:8002' + path + '?count=5')
+req.add_header('X-Timestamp', ts)
+req.add_header('X-Signature', sig)
+try:
+    r = urllib.request.urlopen(req, timeout=5)
+    import json
+    data = json.loads(r.read())
+    print('OK - bars count:', len(data.get('bars', [])))
+except urllib.error.HTTPError as e:
+    print('HTTP error:', e.code, e.read()[:200])
+"
+ (using tool: shell)
+Purpose: Test signed request against mock bridge on 8002
+
+OK - bars count: 5
+ - Completed in 1.73s
+
+> Auth works on port 8002. Now run the loop pointing at port 8002:
+I will run the following command: cd /home/kira/trading-bot && timeout 45 env MT5_BRIDGE_PRIMARY_URL=http://127.0.0.1:8002 python3 paper_trading_loop.py 2>&1 | tee paper_trading.log | head -30 (using tool: shell)
+Purpose: Run paper trading loop against mock bridge on port 8002
+
+2026-05-01 01:41:31  INFO      ============================================================
+2026-05-01 01:41:31  INFO      Paper trading loop started
+2026-05-01 01:41:31  INFO        Account : #106464235 (demo)
+2026-05-01 01:41:31  INFO        Pairs   : EURUSD, GBPUSD, USDJPY, XAUUSD, US30
+2026-05-01 01:41:31  INFO        Interval: 900s (15 min)
+2026-05-01 01:41:31  INFO        Target  : 50 trades
+2026-05-01 01:41:31  INFO      ============================================================
+2026-05-01 01:41:31  INFO      ── Cycle start 2026-05-01 00:41:31 UTC ──
+2026-05-01 01:41:31  INFO      NumExpr defaulting to 4 threads.
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/EURUSD/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/EURUSD/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/GBPUSD/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/GBPUSD/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/USDJPY/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/USDJPY/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/XAUUSD/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/XAUUSD/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/US30/H4?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  INFO      HTTP Request: GET http://127.0.0.1:8002/ohlc/US30/M15?count=200 "HTTP/1.1 403 Forbidden"
+2026-05-01 01:41:34  ERROR     Cycle error: column "ticket" does not exist
+Traceback (most recent call last):
+  File "/home/kira/trading-bot/paper_trading_loop.py", line 212, in main
+    await run_cycle(stats)
+  File "/home/kira/trading-bot/paper_trading_loop.py", line 170, in run_cycle
+    monitor_result = await check_open_trades()
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kira/trading-bot/core/execution_engine/trade_manager.py", line 37, in check_open_trades
+    open_trades = await db.fetch(
+                  ^^^^^^^^^^^^^^^
+  File "/home/kira/.local/lib/python3.12/site-packages/asyncpg/connection.py", line 694, in fetch

@@ -1,6 +1,13 @@
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
+
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(
+        env_file=".env",
+        extra="ignore",  # DB_HOST/PORT/NAME/USER/PASSWORD/SSLMODE read by sync_connection via os.getenv
+    )
+
     database_url: str = ""
     redis_url: str = "redis://localhost:6379/0"
     celery_broker_url: str = "redis://localhost:6379/0"
@@ -32,10 +39,6 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     secret_key: str = ""
-
-    class Config:
-        env_file = ".env"
-        extra = "ignore"  # DB_HOST/PORT/NAME/USER/PASSWORD/SSLMODE read by sync_connection via os.getenv
 
 
 settings = Settings()
