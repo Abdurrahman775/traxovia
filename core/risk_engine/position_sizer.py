@@ -28,7 +28,7 @@ def calculate_lot_size(
     if dd_stage == 3 or sl_pips == 0:
         return 0.0
     adjusted_risk  = risk_pct * (0.5 if regime == "volatile" else 1.0)
-    cap            = _STAGE_RISK_CAP[dd_stage]
+    cap            = _STAGE_RISK_CAP.get(dd_stage, 0.0)
     effective_risk = min(adjusted_risk, cap)
     risk_amount    = account_balance * effective_risk
     pip_val     = _pip_value_per_lot(symbol)

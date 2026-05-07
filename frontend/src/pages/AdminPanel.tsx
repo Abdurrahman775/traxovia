@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/client'
 
@@ -456,48 +456,53 @@ const BOOL_FEATURES: { key: string; label: string }[] = [
 
 function PlanEditor({ plan, onSaved }: { plan: PlanConfig; onSaved: () => void }) {
   const qc = useQueryClient()
+  const [name,     setName]    = useState(plan.name)
   const [price,    setPrice]   = useState(plan.price)
+  const [color,    setColor]   = useState(plan.color)
+  const [popular,  setPopular] = useState(plan.popular)
   const [isActive, setActive]  = useState(plan.is_active)
   const [feats,    setFeats]   = useState<Record<string, boolean | number>>({ ...plan.features })
   const [dirty,    setDirty]   = useState(false)
 
   useEffect(() => {
+    setName(plan.name)
     setPrice(plan.price)
+    setColor(plan.color)
+    setPopular(plan.popular)
     setActive(plan.is_active)
     setFeats({ ...plan.features })
     setDirty(false)
   }, [plan.plan_id])
 
   const save = useMutation({
-    mutationFn: () => api.patch(`/admin/plans/${plan.plan_id}`, { price, is_active: isActive, features: feats }),
+    mutationFn: () => api.patch(`/admin/plans/${plan.plan_id}`, {
+      name, price, color, popular, is_active: isActive, features: feats,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-plans'] })
-      qc.invalidateQueries({ queryKey: ['billing-plans'] })
+      qc.invalidateQueries({ queryKey: ['plans'] })
       setDirty(false)
       onSaved()
     },
   })
 
-  const setFeat = (key: string, val: boolean | number) => {
-    setFeats(p => ({ ...p, [key]: val }))
-    setDirty(true)
-  }
+  const mark = () => setDirty(true)
+  const setFeat = (key: string, val: boolean | number) => { setFeats(p => ({ ...p, [key]: val })); mark() }
 
   return (
     <div className="bg-s1 border border-s3 rounded-xl p-4 flex flex-col gap-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded tracking-widest"
-            style={{ background: `${plan.color}22`, color: plan.color, border: `1px solid ${plan.color}44` }}>
+            style={{ background: `${color}22`, color, border: `1px solid ${color}44` }}>
             {plan.plan_id.toUpperCase()}
           </span>
-          {plan.popular && (
-            <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-cy/10 text-cy border border-cy/20">
-              POPULAR
-            </span>
+          {popular && (
+            <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-cy/10 text-cy border border-cy/20">POPULAR</span>
           )}
         </div>
-        {dirty && (
+        {dirty ? (
           <button
             onClick={() => save.mutate()}
             disabled={save.isPending}
@@ -505,29 +510,53 @@ function PlanEditor({ plan, onSaved }: { plan: PlanConfig; onSaved: () => void }
           >
             {save.isPending ? 'Saving…' : 'Save'}
           </button>
+        ) : (
+          <span className="text-[10px] font-mono text-tx3">No changes</span>
         )}
       </div>
 
+      {/* Display name */}
       <div>
-        <div className="text-[10px] font-mono text-tx2 uppercase tracking-widest mb-1">Price / month</div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-tx2 text-sm">$</span>
-          <input
-            type="number" min={0} step={1}
-            value={price}
-            onChange={e => { setPrice(parseFloat(e.target.value) || 0); setDirty(true) }}
-            className="w-20 bg-s2 border border-s3 rounded-lg px-2 py-1.5 text-sm text-tx font-mono focus:outline-none focus:border-cy/50"
-          />
-          <span className="text-tx2 text-xs">/mo</span>
+        <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">Display Name</div>
+        <input
+          value={name}
+          onChange={e => { setName(e.target.value); mark() }}
+          className="w-full bg-s2 border border-s3 rounded-lg px-2 py-1.5 text-sm text-tx focus:outline-none focus:border-cy/50"
+        />
+      </div>
+
+      {/* Price + color + popular */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">Price / mo</div>
+          <div className="flex items-center gap-1">
+            <span className="text-tx3 text-sm">$</span>
+            <input
+              type="number" min={0} step={1}
+              value={price}
+              onChange={e => { setPrice(parseFloat(e.target.value) || 0); mark() }}
+              className="w-full bg-s2 border border-s3 rounded-lg px-2 py-1.5 text-sm text-tx font-mono focus:outline-none focus:border-cy/50"
+            />
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">Badge Color</div>
+          <div className="flex items-center gap-2">
+            <input type="color" value={color}
+              onChange={e => { setColor(e.target.value); mark() }}
+              className="w-9 h-8 rounded cursor-pointer bg-s2 border border-s3" />
+            <span className="text-[10px] font-mono text-tx3">{color}</span>
+          </div>
         </div>
       </div>
 
+      {/* Pairs + MT5 */}
       <div className="grid grid-cols-2 gap-2">
-        {[{ key: 'pairs', label: 'Pairs' }, { key: 'mt5_accounts', label: 'MT5 Accts' }].map(f => (
+        {[{ key: 'pairs', label: 'Max Pairs' }, { key: 'mt5_accounts', label: 'MT5 Accts' }].map(f => (
           <div key={f.key}>
-            <div className="text-[10px] font-mono text-tx2 uppercase tracking-widest mb-1">{f.label}</div>
+            <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">{f.label}</div>
             <input
-              type="number" min={0} max={20} step={1}
+              type="number" min={0} step={1}
               value={Number(feats[f.key] ?? 0)}
               onChange={e => setFeat(f.key, parseInt(e.target.value) || 0)}
               className="w-full bg-s2 border border-s3 rounded-lg px-2 py-1.5 text-sm text-tx font-mono focus:outline-none focus:border-cy/50"
@@ -536,28 +565,31 @@ function PlanEditor({ plan, onSaved }: { plan: PlanConfig; onSaved: () => void }
         ))}
       </div>
 
-      <label className="flex items-center justify-between cursor-pointer select-none">
-        <span className="text-xs text-tx2">Active (visible in billing)</span>
-        <div
-          onClick={() => { setActive(v => !v); setDirty(true) }}
-          className={`w-8 h-4 rounded-full transition-colors flex items-center ${isActive ? 'bg-cy' : 'bg-s3'}`}
-        >
-          <div className={`w-3 h-3 bg-white rounded-full shadow transition-transform mx-0.5 ${isActive ? 'translate-x-4' : 'translate-x-0'}`} />
-        </div>
-      </label>
+      {/* Active + Popular toggles */}
+      <div className="flex flex-col gap-1.5">
+        {[
+          { label: 'Active (visible in billing)', val: isActive, set: (v: boolean) => { setActive(v); mark() } },
+          { label: 'Mark as Popular',             val: popular,  set: (v: boolean) => { setPopular(v); mark() } },
+        ].map(row => (
+          <div key={row.label} className="flex items-center justify-between cursor-pointer select-none" onClick={() => row.set(!row.val)}>
+            <span className="text-xs text-tx2">{row.label}</span>
+            <div className={`w-8 h-4 rounded-full transition-colors flex items-center ${row.val ? 'bg-cy' : 'bg-s3'}`}>
+              <div className={`w-3 h-3 bg-white rounded-full shadow transition-transform mx-0.5 ${row.val ? 'translate-x-4' : 'translate-x-0'}`} />
+            </div>
+          </div>
+        ))}
+      </div>
 
+      {/* Feature toggles */}
       <div className="space-y-1.5">
-        <div className="text-[10px] font-mono text-tx2 uppercase tracking-widest">Features</div>
+        <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest">Features</div>
         {BOOL_FEATURES.map(f => (
-          <label key={f.key} className="flex items-center justify-between cursor-pointer select-none">
+          <div key={f.key} className="flex items-center justify-between cursor-pointer select-none" onClick={() => setFeat(f.key, !feats[f.key])}>
             <span className="text-xs text-tx2">{f.label}</span>
-            <div
-              onClick={() => setFeat(f.key, !feats[f.key])}
-              className={`w-8 h-4 rounded-full transition-colors flex items-center ${feats[f.key] ? 'bg-cy' : 'bg-s3'}`}
-            >
+            <div className={`w-8 h-4 rounded-full transition-colors flex items-center ${feats[f.key] ? 'bg-cy' : 'bg-s3'}`}>
               <div className={`w-3 h-3 bg-white rounded-full shadow transition-transform mx-0.5 ${feats[f.key] ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
-          </label>
+          </div>
         ))}
       </div>
     </div>
@@ -583,7 +615,7 @@ function CreatePlanModal({ onClose }: { onClose: () => void }) {
     mutationFn: () => api.post('/admin/plans', { ...form, features: feats }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-plans'] })
-      qc.invalidateQueries({ queryKey: ['billing-plans'] })
+      qc.invalidateQueries({ queryKey: ['plans'] })
       onClose()
     },
     onError: (e: any) => setErr(e?.response?.data?.detail ?? 'Failed to create plan'),
@@ -693,13 +725,19 @@ function PlansEditor() {
     mutationFn: (planId: string) => api.delete(`/admin/plans/${planId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-plans'] })
-      qc.invalidateQueries({ queryKey: ['billing-plans'] })
+      qc.invalidateQueries({ queryKey: ['plans'] })
       setConfirmDel(null)
     },
     onError: (e: any) => alert(e?.response?.data?.detail ?? 'Failed to delete plan'),
   })
 
   if (isLoading) return <p className="text-tx2 text-sm animate-pulse">Loading plans…</p>
+  if (!data) return (
+    <div className="bg-s1 border border-rd/20 rounded-xl p-6 text-center">
+      <div className="text-rd text-sm font-mono mb-1">Could not load plans</div>
+      <div className="text-tx3 text-xs">The /admin/plans endpoint returned no data. Restart the server to apply the latest routes, then refresh.</div>
+    </div>
+  )
 
   return (
     <div className="space-y-4">
@@ -835,6 +873,149 @@ function ConfigInput({
     </div>
   )
 }
+
+// ─── Branding Config ──────────────────────────────────────────────────────────
+
+function BrandingConfig() {
+  const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [appName,  setAppName]  = useState('')
+  const [logoUrl,  setLogoUrl]  = useState('')
+  const [preview,  setPreview]  = useState('')
+  const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['branding'],
+    queryFn: () => api.get('/config/branding').then(r => r.data),
+  })
+
+  useEffect(() => {
+    if (!data) return
+    setAppName(data.app_name ?? '')
+    setLogoUrl(data.app_logo_url ?? '')
+    setPreview(data.app_logo_url ?? '')
+  }, [data])
+
+  const notify = (ok: boolean, msg: string) => {
+    setFeedback({ ok, msg })
+    setTimeout(() => setFeedback(null), 3000)
+  }
+
+  const save = useMutation({
+    mutationFn: () => api.patch('/admin/config', { app_name: appName, app_logo_url: logoUrl }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['branding'] })
+      notify(true, 'Branding saved — changes are live across the app.')
+    },
+    onError: () => notify(false, 'Failed to save branding'),
+  })
+
+  const uploadLogo = async (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const res = await api.post('/admin/config/logo', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setLogoUrl(res.data.app_logo_url)
+      setPreview(res.data.app_logo_url)
+      qc.invalidateQueries({ queryKey: ['branding'] })
+      notify(true, 'Logo uploaded successfully.')
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Upload failed')
+    }
+  }
+
+  if (isLoading) return null
+
+  return (
+    <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold text-tx">Branding</h3>
+        <p className="text-xs text-tx3 mt-0.5">App name and logo shown in the sidebar and login page</p>
+      </div>
+
+      {feedback && (
+        <div className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-mono ${feedback.ok ? 'bg-cy/5 border border-cy/20 text-cy' : 'bg-rd/5 border border-rd/20 text-rd'}`}>
+          <span>{feedback.ok ? '✓' : '✗'} {feedback.msg}</span>
+          <button onClick={() => setFeedback(null)} className="opacity-50 hover:opacity-100 ml-4">✕</button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        {/* App name */}
+        <div>
+          <label className="block text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1.5">App Name</label>
+          <input
+            value={appName}
+            onChange={e => setAppName(e.target.value)}
+            placeholder="Trading AI"
+            className="w-full bg-s2 border border-s3 rounded-lg px-3 py-2 text-sm text-tx font-mono focus:outline-none focus:border-cy/50 transition-colors"
+          />
+          <p className="text-[10px] text-tx3 font-mono mt-1">Displayed in sidebar and login page.</p>
+        </div>
+
+        {/* Logo */}
+        <div>
+          <label className="block text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1.5">Logo</label>
+          <div className="flex items-center gap-3">
+
+            {/* Preview */}
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+              {preview
+                ? <img src={preview} alt="logo" className="w-10 h-10 object-contain rounded-lg" />
+                : <span className="text-tx3 text-xl">⬛</span>
+              }
+            </div>
+
+            <div className="flex-1 space-y-2">
+              {/* Upload file */}
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="w-full px-3 py-2 rounded-lg text-xs font-mono text-tx2 transition-colors text-left"
+                style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+                📁 Upload image (PNG/SVG/JPG, max 2 MB)
+              </button>
+              <input
+                ref={fileRef} type="file" accept="image/*" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f) }}
+              />
+              {/* Or paste URL */}
+              <input
+                value={logoUrl.startsWith('data:') ? '' : logoUrl}
+                onChange={e => { setLogoUrl(e.target.value); setPreview(e.target.value) }}
+                placeholder="…or paste image URL"
+                className="w-full bg-s2 border border-s3 rounded-lg px-3 py-2 text-xs text-tx font-mono focus:outline-none focus:border-cy/50 transition-colors"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 pt-1">
+        <button
+          onClick={() => save.mutate()}
+          disabled={save.isPending}
+          className="px-5 py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50"
+        >
+          {save.isPending ? 'Saving…' : 'Save Branding'}
+        </button>
+        {preview && (
+          <button
+            onClick={() => { setLogoUrl(''); setPreview('') }}
+            className="text-xs font-mono text-rd/60 hover:text-rd transition-colors"
+          >
+            Remove logo
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Telegram Config ──────────────────────────────────────────────────────────
 
 function TelegramConfig() {
   const qc = useQueryClient()
@@ -1075,6 +1256,10 @@ export default function AdminPanel() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
+          style={{ background: 'rgba(0,229,204,0.12)', border: '1px solid rgba(0,229,204,0.25)', color: 'var(--color-cy)' }}>
+          ◈
+        </div>
         <div>
           <h1 className="text-xl font-bold text-tx font-head flex items-center gap-2">
             Admin Panel
@@ -1086,12 +1271,12 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      <div className="flex gap-1 bg-s1 border border-s3 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-s1 border border-s3 rounded-xl p-1 w-full">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               tab === t.key ? 'bg-cy text-bg' : 'text-tx2 hover:text-tx hover:bg-s2'
             }`}
           >
@@ -1167,7 +1352,12 @@ export default function AdminPanel() {
       {tab === 'users'    && <UsersTable />}
       {tab === 'plans'    && <PlansEditor />}
       {tab === 'audit'    && <AuditLog />}
-      {tab === 'config'   && <TelegramConfig />}
+      {tab === 'config'   && (
+        <div className="space-y-6">
+          <BrandingConfig />
+          <TelegramConfig />
+        </div>
+      )}
     </div>
   )
 }

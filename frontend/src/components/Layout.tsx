@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 import { useAdminUser } from '../hooks/useAdminUser'
 import { useTheme } from '../contexts/ThemeContext'
+import { useBranding } from '../hooks/useBranding'
 
 const NAV_GROUPS = [
   {
@@ -28,7 +29,7 @@ const NAV_GROUPS = [
 ]
 
 const ADMIN_ITEMS = [
-  { to: '/admin',     label: 'Admin Panel',    icon: '●' },
+  { to: '/admin',     label: 'Admin Panel',    icon: '◈' },
   { to: '/model',     label: 'Model & Retrain', icon: '◉' },
   { to: '/community', label: 'Community',      icon: '⬡' },
   { to: '/bridge',    label: 'Bridge Monitor', icon: '▲' },
@@ -61,6 +62,8 @@ export default function Layout() {
   const navigate = useNavigate()
   const { isAdmin, email } = useAdminUser()
   const { theme, toggle } = useTheme()
+  const { app_name, app_logo_url } = useBranding()
+
   function logout() {
     localStorage.removeItem('access_token')
     navigate('/login')
@@ -70,9 +73,11 @@ export default function Layout() {
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <aside className="w-56 bg-s1 border-r border-s3 flex flex-col shrink-0">
-        <div className="px-5 py-5 border-b border-s3">
-          <span className="font-head font-bold text-cy text-lg tracking-wide">TRADING AI</span>
-          <span className="text-tx2 text-xs ml-1">V3</span>
+        <div className="px-5 py-5 border-b border-s3 flex items-center gap-3">
+          {app_logo_url && (
+            <img src={app_logo_url} alt="logo" className="w-7 h-7 rounded object-contain shrink-0" />
+          )}
+          <span className="font-head font-bold text-cy text-lg tracking-wide truncate">{app_name}</span>
         </div>
         <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
           {NAV_GROUPS.map(g => (

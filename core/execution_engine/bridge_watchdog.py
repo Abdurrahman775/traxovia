@@ -120,7 +120,7 @@ async def _failover_to_standby():
     async with httpx.AsyncClient() as client:
         await client.post(
             f'{STANDBY_URL}/mt5/initialize',
-            headers={'X-Api-Key': os.getenv('MT5_BRIDGE_API_KEY')},
+            headers=sign_request("POST", "/mt5/initialize"),
         )
 
     await _resume_trading()

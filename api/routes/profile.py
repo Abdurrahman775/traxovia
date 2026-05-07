@@ -1,18 +1,38 @@
 """api/routes/profile.py — User profile read/update + password change."""
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from passlib.context import CryptContext
+import bcrypt
 
 from database.connection import get_db, set_rls_user
 from api.auth import get_current_user
 
 router = APIRouter(prefix="/profile", tags=["profile"])
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _verify(plain: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    except Exception:
+        return False
+
+
+def _hash(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+
+def _validate_password(password: str) -> None:
+    if len(password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+    if not re.search(r"[A-Z]", password):
+        raise HTTPException(400, "Password must contain at least one uppercase letter")
+    if not re.search(r"[0-9]", password):
+        raise HTTPException(400, "Password must contain at least one digit")
 
 
 class ProfilePatch(BaseModel):
     display_name: str | None = None
-    avatar_url:   str | None = None   # base64 data-URL or https URL
+    avatar_url:   str | None = None   # https URL only (base64 no longer accepted)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -50,9 +70,8 @@ async def update_profile(
         updates.append(f"display_name=${i}"); params.append(display_name); i += 1
 
     if body.avatar_url is not None:
-        # Accept base64 data-URLs (max ~300 KB encoded) or plain https URLs
-        if len(body.avatar_url) > 400_000:
-            raise HTTPException(413, "Avatar too large (max ~300 KB)")
+        if not body.avatar_url.startswith("https://"):
+            raise HTTPException(400, "avatar_url must be an https URL")
         updates.append(f"avatar_url=${i}"); params.append(body.avatar_url); i += 1
 
     if updates:
@@ -74,12 +93,11 @@ async def change_password(
     row = await db.fetchrow(
         "SELECT password_hash FROM users WHERE id = $1", user["sub"]
     )
-    if not row or not _pwd.verify(body.current_password, row["password_hash"]):
+    if not row or not _verify(body.current_password, row["password_hash"]):
         raise HTTPException(400, "Current password is incorrect")
-    if len(body.new_password) < 8:
-        raise HTTPException(400, "New password must be at least 8 characters")
+    _validate_password(body.new_password)
 
-    new_hash = _pwd.hash(body.new_password)
+    new_hash = _hash(body.new_password)
     await db.execute(
         "UPDATE users SET password_hash=$1, updated_at=NOW() WHERE id=$2",
         new_hash, user["sub"],

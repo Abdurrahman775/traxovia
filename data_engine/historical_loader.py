@@ -93,10 +93,12 @@ async def _fetch_ohlc(
     Returns the list of bar dicts, or raises on HTTP/network error.
     """
     url = f"{_BRIDGE_URL}/ohlc/{symbol}/{timeframe}"
+    path = f"/ohlc/{symbol}/{timeframe}"
+    from core.execution_engine.mt5_executor import _sign
     resp = await client.get(
         url,
         params={"count": count},
-        headers={"X-Api-Key": _API_KEY},
+        headers=_sign("GET", path),
         timeout=_TIMEOUT,
     )
     resp.raise_for_status()
@@ -209,9 +211,10 @@ async def _check_bridge(client: httpx.AsyncClient) -> None:
         sys.exit(1)
 
     try:
+        from core.execution_engine.mt5_executor import _sign
         resp = await client.get(
             f"{_BRIDGE_URL}/health",
-            headers={"X-Api-Key": _API_KEY},
+            headers=_sign("GET", "/health"),
             timeout=10.0,
         )
         resp.raise_for_status()

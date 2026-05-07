@@ -1,11 +1,11 @@
 """
 api/routes/prices.py — Live bid prices for the ticker.
 """
-import os
 import asyncio
 import httpx
 from fastapi import APIRouter, Depends
 from api.auth import get_current_user
+from config import settings
 from core.execution_engine.mt5_executor import _sign
 
 router = APIRouter(tags=["prices"])
@@ -27,7 +27,7 @@ async def _fetch_price(client: httpx.AsyncClient, bridge: str, pair: str) -> tup
 
 @router.get("/prices")
 async def get_prices(user=Depends(get_current_user)):
-    bridge = os.getenv("MT5_BRIDGE_PRIMARY_URL", "http://127.0.0.1:8001")
+    bridge = settings.mt5_bridge_primary_url or "http://127.0.0.1:8001"
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             results = await asyncio.gather(*[_fetch_price(client, bridge, p) for p in PAIRS])

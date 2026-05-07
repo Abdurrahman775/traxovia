@@ -1,8 +1,11 @@
+import pathlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
+from config import settings
 from database.connection import create_pool, close_pool
 from database.migrate import run_migrations
 from api.auth import router as auth_router
@@ -22,6 +25,9 @@ from api.routes.prices import router as prices_router
 from api.routes.profile import router as profile_router
 
 
+pathlib.Path("static/logos").mkdir(parents=True, exist_ok=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_pool()
@@ -34,11 +40,13 @@ app = FastAPI(title="Trading AI SaaS", version="3.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth_router)
 app.include_router(billing_router)

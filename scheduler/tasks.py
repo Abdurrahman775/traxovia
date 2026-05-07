@@ -122,10 +122,10 @@ def check_feature_drift():
     if drifted:
         notify_admin(f'Feature drift detected: {drifted} — consider early retrain')
 
-    # Log drift check to audit_log (sync)
+    # Log drift check to audit_log (sync) — user_id is NULL for system events
     sync_execute(
         "INSERT INTO audit_log(user_id, action, detail) VALUES(%s,%s,%s)",
-        ('system', 'feature_drift_check',
+        (None, 'feature_drift_check',
          f'drifted={drifted}' if drifted else 'stable'),
     )
 
@@ -191,19 +191,20 @@ def expire_trials():
         return
 
     expired_ids = [str(u['id']) for u in expired_users]
-    id_list     = ', '.join(f"'{uid}'" for uid in expired_ids)
 
     with get_sync_db() as conn:
         with conn.cursor() as cur:
-            # 1. Downgrade plan
+            # 1. Downgrade plan — use ANY with a UUID array (no string interpolation)
             cur.execute(
                 "UPDATE users SET plan='community', is_paper_mode=FALSE "
-                f"WHERE id IN ({id_list})"
+                "WHERE id = ANY(%s::uuid[])",
+                (expired_ids,)
             )
             # 2. FIX-6: revoke demo MT5 account binding
             cur.execute(
-                f"UPDATE mt5_accounts SET active=FALSE "
-                f"WHERE user_id IN ({id_list}) AND account_type='demo'"
+                "UPDATE mt5_accounts SET active=FALSE "
+                "WHERE user_id = ANY(%s::uuid[]) AND account_type='demo'",
+                (expired_ids,)
             )
             # 3. Log to audit trail
             for uid in expired_ids:
@@ -276,5 +277,5 @@ async def trigger_retrain_if_needed(user_id: str, db) -> None:
         retrain_model.delay()  # enqueue Celery task
         await db.execute(
             "INSERT INTO audit_log(user_id, action, detail) VALUES($1,$2,$3)",
-            (user_id, 'retrain_triggered', f'Early retrain: {count} new labeled samples'),
+            user_id, 'retrain_triggered', f'Early retrain: {count} new labeled samples',
         )

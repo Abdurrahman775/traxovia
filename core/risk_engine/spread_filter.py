@@ -20,6 +20,7 @@ import os
 import httpx
 
 from core.execution_engine.bridge_watchdog import bridge_state
+from core.execution_engine.mt5_executor import _sign
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,6 @@ SPREAD_BASELINES: dict[str, float] = {
 
 SPREAD_MULTIPLIER = 1.5   # block if current > baseline × this
 
-_API_KEY = os.getenv("MT5_BRIDGE_API_KEY", "")
 _TIMEOUT = 5.0            # seconds — fail fast; a slow bridge is itself a risk signal
 
 
@@ -90,9 +90,10 @@ async def check_spread(symbol: str) -> dict:
 
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            path = f"/spread/{sym}"
             resp = await client.get(
-                f"{active_url}/spread/{sym}",
-                headers={"X-Api-Key": _API_KEY},
+                f"{active_url}{path}",
+                headers=_sign("GET", path),
             )
         resp.raise_for_status()
         data = resp.json()

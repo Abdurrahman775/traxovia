@@ -24,22 +24,35 @@ Route handlers that read/write user-owned rows must also call:
 at the top of the handler so PostgreSQL RLS policies see the user context.
 """
 
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
+
+import bcrypt
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, field_validator
 
+from api.middleware.rate_limit import rate_limit
 from config import settings
 from database.connection import get_db, set_rls_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _bearer = HTTPBearer()
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def _verify_password(password: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode(), hashed.encode())
+    except Exception:
+        return False
 
 _ACCESS_TTL  = lambda: timedelta(minutes=settings.jwt_expire_minutes)
 _REFRESH_TTL = timedelta(days=30)
@@ -55,6 +68,10 @@ class RegisterRequest(BaseModel):
     def password_strength(cls, v: str) -> str:
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one digit")
         return v
 
 
@@ -74,6 +91,7 @@ class TokenResponse(BaseModel):
     user_id: str
     email: str
     plan: str
+    is_admin: bool = False
 
 
 # ── Token helpers ──────────────────────────────────────────────────────────────
@@ -84,29 +102,32 @@ def _build_token(
     plan: str,
     token_type: str,
     ttl: timedelta,
+    is_admin: bool = False,
 ) -> str:
     now = datetime.now(timezone.utc)
     return jwt.encode(
         {
-            "sub":   user_id,
-            "email": email,
-            "plan":  plan,
-            "type":  token_type,
-            "iat":   now,
-            "exp":   now + ttl,
+            "sub":      user_id,
+            "email":    email,
+            "plan":     plan,
+            "is_admin": is_admin,
+            "type":     token_type,
+            "iat":      now,
+            "exp":      now + ttl,
         },
         settings.jwt_secret,
         algorithm=settings.jwt_algorithm,
     )
 
 
-def _issue_pair(user_id: str, email: str, plan: str) -> TokenResponse:
+def _issue_pair(user_id: str, email: str, plan: str, is_admin: bool = False) -> TokenResponse:
     return TokenResponse(
-        access_token=_build_token(user_id, email, plan, "access",  _ACCESS_TTL()),
-        refresh_token=_build_token(user_id, email, plan, "refresh", _REFRESH_TTL),
+        access_token=_build_token(user_id, email, plan, "access",  _ACCESS_TTL(), is_admin),
+        refresh_token=_build_token(user_id, email, plan, "refresh", _REFRESH_TTL, is_admin),
         user_id=user_id,
         email=email,
         plan=plan,
+        is_admin=is_admin,
     )
 
 
@@ -118,38 +139,49 @@ def _issue_pair(user_id: str, email: str, plan: str) -> TokenResponse:
     status_code=status.HTTP_201_CREATED,
     summary="Register a new account",
 )
-async def register(body: RegisterRequest, request: Request, db=Depends(get_db)):
+async def register(
+    body: RegisterRequest,
+    request: Request,
+    db=Depends(get_db),
+    _=Depends(rate_limit(limit=10, window=60)),
+):
     existing = await db.fetchrow("SELECT id FROM users WHERE email = $1", body.email)
     if existing:
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
 
     referral_code = "TRADER-" + secrets.token_hex(3).upper()
-    client_ip = request.client.host if request.client else None
+    client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (
+        request.client.host if request.client else None
+    )
 
+    # Use INSERT with a subquery to atomically grant elite to the very first user,
+    # avoiding the COUNT→INSERT race condition.
     user = await db.fetchrow(
         """
-        INSERT INTO users (email, password_hash, referral_code, signup_ip)
-        VALUES ($1, $2, $3, $4::inet)
-        RETURNING id, email, plan
+        INSERT INTO users (email, password_hash, referral_code, signup_ip, plan, is_admin)
+        VALUES ($1, $2, $3, $4::inet,
+                CASE WHEN (SELECT COUNT(*) FROM users) = 0 THEN 'elite' ELSE 'community' END,
+                CASE WHEN (SELECT COUNT(*) FROM users) = 0 THEN TRUE ELSE FALSE END)
+        RETURNING id, email, plan, is_admin
         """,
         body.email,
-        _pwd.hash(body.password),
+        _hash_password(body.password),
         referral_code,
         client_ip,
     )
 
-    # Set RLS context so the audit_log INSERT policy passes within this
-    # transaction. We now know the user_id from the INSERT above.
     await set_rls_user(db, str(user["id"]))
     await db.execute(
         """
         INSERT INTO audit_log (user_id, action, detail, ip_address)
         VALUES ($1, $2, $3, $4::inet)
         """,
-        user["id"], "register", "Account created", client_ip,
+        user["id"], "register",
+        f"Account created{' (first user — admin granted)' if user['plan'] == 'elite' else ''}",
+        client_ip,
     )
 
-    return _issue_pair(str(user["id"]), user["email"], user["plan"])
+    return _issue_pair(str(user["id"]), user["email"], user["plan"], bool(user["is_admin"]))
 
 
 @router.post(
@@ -157,19 +189,26 @@ async def register(body: RegisterRequest, request: Request, db=Depends(get_db)):
     response_model=TokenResponse,
     summary="Log in and receive a token pair",
 )
-async def login(body: LoginRequest, request: Request, db=Depends(get_db)):
+async def login(
+    body: LoginRequest,
+    request: Request,
+    db=Depends(get_db),
+    _=Depends(rate_limit(limit=10, window=60)),
+):
     user = await db.fetchrow(
-        "SELECT id, email, password_hash, plan FROM users WHERE email = $1",
+        "SELECT id, email, password_hash, plan, is_admin FROM users WHERE email = $1",
         body.email,
     )
 
     # Constant-time failure path: always call verify even when user is None
     # to prevent timing-based user enumeration.
-    password_ok = _pwd.verify(body.password, user["password_hash"]) if user else False
+    password_ok = _verify_password(body.password, user["password_hash"]) if user else False
     if not user or not password_ok:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
 
-    client_ip = request.client.host if request.client else None
+    client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (
+        request.client.host if request.client else None
+    )
 
     await set_rls_user(db, str(user["id"]))
     await db.execute(
@@ -182,7 +221,7 @@ async def login(body: LoginRequest, request: Request, db=Depends(get_db)):
         client_ip,
     )
 
-    return _issue_pair(str(user["id"]), user["email"], user["plan"])
+    return _issue_pair(str(user["id"]), user["email"], user["plan"], bool(user["is_admin"]))
 
 
 @router.post(
@@ -206,13 +245,13 @@ async def refresh(body: RefreshRequest, db=Depends(get_db)):
     # Re-fetch the user so the new token pair reflects any plan changes
     # that happened since the refresh token was issued.
     user = await db.fetchrow(
-        "SELECT id, email, plan FROM users WHERE id = $1::uuid",
+        "SELECT id, email, plan, is_admin FROM users WHERE id = $1::uuid",
         payload["sub"],
     )
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
 
-    return _issue_pair(str(user["id"]), user["email"], user["plan"])
+    return _issue_pair(str(user["id"]), user["email"], user["plan"], bool(user["is_admin"]))
 
 
 # ── FastAPI dependency ─────────────────────────────────────────────────────────

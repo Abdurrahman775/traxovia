@@ -93,19 +93,22 @@ export default function Billing() {
 
   const plans = plansData ?? FALLBACK_PLANS
   const plan: PlanId = (sub?.plan as PlanId) ?? 'community'
+  const isAdmin = plan === 'elite'
   const p = plans.find(x => x.plan_id === plan) ?? plans[0]
 
   const upgrade = async (planId: string) => {
     try {
       const res = await api.post('/billing/create-checkout-session', { plan: planId })
-      if (res.data.url) window.location.href = res.data.url
+      const url = res.data.checkout_url || res.data.url
+      if (url) window.location.href = url
     } catch { /* handled */ }
   }
 
   const openPortal = async () => {
     try {
       const res = await api.post('/billing/customer-portal')
-      if (res.data.url) window.location.href = res.data.url
+      const url = res.data.portal_url || res.data.url
+      if (url) window.location.href = url
     } catch { /* handled */ }
   }
 
@@ -149,7 +152,9 @@ export default function Billing() {
                   ${p?.price ?? 0}/mo
                 </span>
                 <span className="font-mono text-[10px]" style={{ color: 'var(--color-tx3)' }}>
-                  Next billing: May 19, 2026
+                  {sub?.current_period_end
+                    ? `Next billing: ${new Date(sub.current_period_end * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                    : ''}
                 </span>
               </div>
             </div>
@@ -230,7 +235,7 @@ export default function Billing() {
 
                   {/* Feature checklist */}
                   {FEATURE_LIST.map(f => {
-                    const has = !!pl.features[f.key]
+                    const has = isCurrent && isAdmin ? true : !!pl.features[f.key]
                     return (
                       <div key={f.key} style={{
                         display: 'flex', gap: 6, padding: '4px 0', fontSize: 11,
@@ -242,7 +247,7 @@ export default function Billing() {
                     )
                   })}
 
-                  {!isCurrent && (
+                  {!isCurrent && !isAdmin && (
                     <button
                       onClick={() => upgrade(pl.plan_id)}
                       className="font-mono text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-lg cursor-pointer transition-all"
@@ -333,10 +338,10 @@ export default function Billing() {
       {tab === 'usage' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           {[
-            { l: 'Signals Generated',   v: usageData?.signals_generated ?? 34,                                   max: 100,   unit: 'this month' },
-            { l: 'Trades Executed',      v: usageData?.trades_executed   ?? 12,                                   max: 30,    unit: 'this month' },
-            { l: 'API Calls',            v: p?.features.api_access ? (usageData?.api_calls ?? 0) : 0,  max: 10000, unit: 'this month' },
-            { l: 'MT5 Accounts Bound',   v: usageData?.mt5_accounts ?? 0,                                max: Number(p?.features.mt5_accounts) || 1, unit: 'of plan limit' },
+            { l: 'Signals Generated',   v: usageData?.signals_generated ?? 0,  max: isAdmin ? 99999 : 100,   unit: 'this month' },
+            { l: 'Trades Executed',     v: usageData?.trades_executed   ?? 0,  max: isAdmin ? 99999 : 30,    unit: 'this month' },
+            { l: 'API Calls',           v: (isAdmin || p?.features.api_access) ? (usageData?.api_calls ?? 0) : 0,  max: isAdmin ? 99999 : 10000, unit: 'this month' },
+            { l: 'MT5 Accounts Bound',  v: usageData?.mt5_accounts ?? 0,       max: isAdmin ? 99 : (Number(p?.features.mt5_accounts) || 1), unit: 'of plan limit' },
           ].map(m => (
             <div
               key={m.l}

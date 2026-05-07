@@ -3,18 +3,20 @@ api/routes/community.py — Community channel management, manual drops, and invi
 Admin-only (elite plan) except invite-link generation which is admin-initiated for members.
 """
 from __future__ import annotations
+import logging
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Any
 from database.connection import get_db
 from api.auth import get_current_user
 
 router = APIRouter(prefix="/community", tags=["community"])
+logger = logging.getLogger(__name__)
 
 
 def _require_admin(user):
-    if user["plan"] not in {"elite"}:
+    if not user.get("is_admin") and user.get("plan") != "elite":
         raise HTTPException(403, "Admin access required")
 
 
@@ -78,7 +80,7 @@ async def list_drops(user=Depends(get_current_user), db=Depends(get_db)):
 # ── Manual drops ──────────────────────────────────────────────────────────────
 
 @router.post("/drop-signal")
-async def drop_signal(user=Depends(get_current_user), db=Depends(get_db)):
+async def drop_signal(background_tasks: BackgroundTasks, user=Depends(get_current_user), db=Depends(get_db)):
     _require_admin(user)
     signal = await db.fetchrow(
         """SELECT id, pair, direction, entry_price, stop_loss, take_profit,
@@ -97,16 +99,15 @@ async def drop_signal(user=Depends(get_current_user), db=Depends(get_db)):
 
     try:
         from telegram.community_drops import post_signal_drop
-        import asyncio
-        asyncio.create_task(post_signal_drop(dict(signal)))
-    except Exception:
-        pass
+        background_tasks.add_task(post_signal_drop, dict(signal))
+    except Exception as e:
+        logger.warning("community signal drop failed: %s", e)
 
     return {"status": "dropped", "pair": signal["pair"], "direction": signal["direction"]}
 
 
 @router.post("/drop-result")
-async def drop_result(user=Depends(get_current_user), db=Depends(get_db)):
+async def drop_result(background_tasks: BackgroundTasks, user=Depends(get_current_user), db=Depends(get_db)):
     _require_admin(user)
     trade = await db.fetchrow(
         """SELECT t.id, t.pair, t.direction, t.pnl_r AS result_r, t.exit_time,
@@ -127,11 +128,10 @@ async def drop_result(user=Depends(get_current_user), db=Depends(get_db)):
 
     try:
         from telegram.community_drops import post_result_drop
-        import asyncio
         trade_d = dict(trade)
-        asyncio.create_task(post_result_drop(trade_d, trade_d))
-    except Exception:
-        pass
+        background_tasks.add_task(post_result_drop, trade_d, trade_d)
+    except Exception as e:
+        logger.warning("community result drop failed: %s", e)
 
     return {
         "status": "dropped",

@@ -30,7 +30,8 @@ async def get_my_referral_code(user=Depends(get_current_user), db=Depends(get_db
         code = "TRADER-" + secrets.token_hex(3).upper()
         await set_rls_user(db, user_id)
         await db.execute("UPDATE users SET referral_code=$1 WHERE id=$2", code, user_id)
-    return {"referral_code": code, "referral_url": f"https://tradingai.com/?ref={code}"}
+    from config import settings
+    return {"referral_code": code, "referral_url": f"{settings.frontend_url}/?ref={code}"}
 
 
 @router.post("/referral/apply")

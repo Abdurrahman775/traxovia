@@ -25,13 +25,14 @@ import os
 import asyncio
 import logging
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Literal
 
 import MetaTrader5 as mt5
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Security, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Security, status
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel, Field
 
@@ -152,9 +153,13 @@ app = FastAPI(
 # ── Authentication ─────────────────────────────────────────────────────────────
 
 _api_key_header = APIKeyHeader(name="X-Api-Key", auto_error=False)
+_TIMESTAMP_TOLERANCE = 30  # seconds
 
 
-async def _verify_api_key(key: str = Security(_api_key_header)) -> None:
+async def _verify_api_key(
+    request: Request,
+    key: str = Security(_api_key_header),
+) -> None:
     if not _API_KEY:
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -165,6 +170,14 @@ async def _verify_api_key(key: str = Security(_api_key_header)) -> None:
             status.HTTP_403_FORBIDDEN,
             "Invalid or missing X-Api-Key header",
         )
+    # Replay protection: reject requests with a stale or missing timestamp
+    ts_header = request.headers.get("X-Timestamp", "")
+    try:
+        ts = int(ts_header)
+    except (ValueError, TypeError):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Missing or invalid X-Timestamp header")
+    if abs(int(time.time()) - ts) > _TIMESTAMP_TOLERANCE:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Request timestamp expired")
 
 
 _auth = Depends(_verify_api_key)

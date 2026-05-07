@@ -76,6 +76,52 @@ MIGRATIONS = [
         "seed bot_config singleton row",
         "INSERT INTO bot_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING",
     ),
+    # ── Branding columns on bot_config ──────────────────────────────────────
+    (
+        "add app_name and app_logo_url to bot_config",
+        """
+        ALTER TABLE bot_config
+          ADD COLUMN IF NOT EXISTS app_name     TEXT NOT NULL DEFAULT 'Trading AI',
+          ADD COLUMN IF NOT EXISTS app_logo_url TEXT NOT NULL DEFAULT ''
+        """,
+    ),
+    # ── Cache bot username to avoid per-request Telegram API calls ──────────
+    (
+        "add telegram_bot_username cache column to bot_config",
+        """
+        ALTER TABLE bot_config
+          ADD COLUMN IF NOT EXISTS telegram_bot_username TEXT NOT NULL DEFAULT ''
+        """,
+    ),
+    # ── Ensure is_admin column exists (may already be in base schema) ────────
+    (
+        "ensure is_admin column on users",
+        """
+        ALTER TABLE users
+          ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE
+        """,
+    ),
+    # ── Sync is_admin flag for all elite plan users ──────────────────────────
+    (
+        "set is_admin=true for elite plan users",
+        "UPDATE users SET is_admin = TRUE WHERE plan = 'elite' AND is_admin = FALSE",
+    ),
+    # ── Elite plan — full unlimited access ──────────────────────────────────
+    (
+        "update elite plan to unlimited features",
+        """
+        INSERT INTO plan_config (plan_id, name, price, color, popular, sort_order, features)
+        VALUES (
+          'elite', 'Elite', 299, '#8b5cf6', false, 4,
+          '{"pairs":999,"mt5_accounts":99,"dashboard":true,"signals_web":true,
+            "signals_tg_drops":true,"tg_bot_approve":true,"tg_bot_settings":true,
+            "auto_execute":true,"copy_trade":true,"api_access":true,
+            "mobile_app":true,"priority_support":true}'
+        )
+        ON CONFLICT (plan_id) DO UPDATE SET
+          features = EXCLUDED.features
+        """,
+    ),
     # ── User notification prefs + copy trade flag ────────────────────────────
     (
         "add notification_prefs and copy_trade_enabled to users",

@@ -402,10 +402,7 @@ async def get_subscription(
     "/plans",
     summary="Return all active plan definitions (prices + features)",
 )
-async def get_plans(
-    user: dict = Depends(get_current_user),
-    db=Depends(get_db),
-):
+async def get_plans(db=Depends(get_db)):
     rows = await db.fetch(
         "SELECT plan_id, name, price, color, popular, sort_order, features "
         "FROM plan_config WHERE is_active = TRUE ORDER BY sort_order"

@@ -86,7 +86,14 @@ class BacktestEngine:
         net_r  = sum(t.pnl_r for t in trades)
         wins   = sum(1 for t in trades if t.outcome == "win")
         wr     = (wins / total * 100) if total > 0 else 0.0
-        sharpe = (net_r / (total ** 0.5)) if total > 0 else 0.0
+
+        if total > 1:
+            mean_r = net_r / total
+            variance = sum((t.pnl_r - mean_r) ** 2 for t in trades) / (total - 1)
+            std_r = variance ** 0.5
+            sharpe = (mean_r / std_r) if std_r > 0 else 0.0
+        else:
+            sharpe = 0.0
 
         return BacktestResult(
             total_trades=total,

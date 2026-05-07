@@ -13,9 +13,11 @@ interface RegimeResponse {
   bridge_online: boolean
 }
 
-const PAIR_MAP: Record<string, string> = {
-  EURUSD: 'EUR/USD', GBPUSD: 'GBP/USD', USDJPY: 'USD/JPY',
-  XAUUSD: 'XAU/USD', US30: 'US30',
+function formatPair(raw: string): string {
+  // EURUSD → EUR/USD, XAUUSD → XAU/USD, already-slashed pass through
+  if (raw.includes('/')) return raw
+  if (raw.length === 6) return `${raw.slice(0, 3)}/${raw.slice(3)}`
+  return raw
 }
 
 function regimeMeta(regime: string) {
@@ -57,7 +59,7 @@ export default function RegimeDetector() {
   })
 
   const pairs   = data?.pairs   ?? {}
-  const entries = Object.entries(pairs).map(([k, v]) => ({ key: k, display: PAIR_MAP[k] ?? k, ...v }))
+  const entries = Object.entries(pairs).map(([k, v]) => ({ key: k, display: formatPair(k), ...v }))
 
   const trendingCount = entries.filter(e => e.regime === 'trending').length
   const rangingCount  = entries.filter(e => e.regime === 'ranging').length

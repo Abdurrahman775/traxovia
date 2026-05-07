@@ -138,7 +138,12 @@ def check_and_close_positions() -> int:
                     _close_trade_in_db(db_conn, trade, close_price, hit)
                 try:
                     from core.ai_engine.feedback_loop import on_trade_closed
-                    asyncio.run(on_trade_closed(trade["id"], trade["user_id"]))
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    try:
+                        loop.run_until_complete(on_trade_closed(trade["id"], trade["user_id"]))
+                    finally:
+                        loop.close()
                 except Exception:
                     pass
                 closed += 1

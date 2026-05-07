@@ -4,7 +4,7 @@ Only accessible to users with plan='elite'.
 """
 import json
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from typing import Any
 from database.connection import get_db
@@ -14,7 +14,7 @@ router = APIRouter(tags=["admin"])
 
 
 def _require_admin(user):
-    if user["plan"] not in {"elite"}:
+    if not user.get("is_admin") and user.get("plan") != "elite":
         raise HTTPException(403, "Admin access required")
 
 
@@ -74,20 +74,19 @@ async def admin_users(
             "SELECT COUNT(*) FROM users WHERE email ILIKE $1", f"%{search}%"
         )
         rows = await db.fetch(
-            """SELECT id, email, plan, is_paper_mode, created_at, trial_expires_at
+            """SELECT id, email, plan, is_admin, is_paper_mode, created_at, trial_expires_at
                FROM users WHERE email ILIKE $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3""",
             f"%{search}%", limit, offset,
         )
     else:
         total = await db.fetchval("SELECT COUNT(*) FROM users")
         rows = await db.fetch(
-            """SELECT id, email, plan, is_paper_mode, created_at, trial_expires_at
+            """SELECT id, email, plan, is_admin, is_paper_mode, created_at, trial_expires_at
                FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2""",
             limit, offset,
         )
     users = [dict(r) for r in rows]
     for u in users:
-        u["is_admin"] = u["plan"] == "elite"
         if u.get("created_at"):
             u["created_at"] = u["created_at"].isoformat()
         if u.get("trial_expires_at"):
@@ -95,25 +94,50 @@ async def admin_users(
     return {"total": total, "users": users}
 
 
+_VALID_PLANS = {"community", "starter", "trader", "pro", "elite", "trial"}
+
+
+class UserPatch(BaseModel):
+    plan:          str  | None = None
+    is_paper_mode: bool | None = None
+    is_admin:      bool | None = None
+
+
 @router.patch("/admin/users/{user_id}")
 async def admin_update_user(
     user_id: str,
-    body: dict,
+    body: UserPatch,
     user=Depends(get_current_user),
     db=Depends(get_db),
 ):
     _require_admin(user)
+
+    if body.plan is not None and body.plan not in _VALID_PLANS:
+        raise HTTPException(400, f"Invalid plan '{body.plan}'. Must be one of: {', '.join(sorted(_VALID_PLANS))}")
+
+    # Validate user_id is a valid UUID
+    import uuid as _uuid
+    try:
+        _uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid user_id format")
+
     updates, params, i = [], [], 1
-    if "plan" in body:
-        updates.append(f"plan=${i}"); params.append(body["plan"]); i += 1
-    if "is_paper_mode" in body:
-        updates.append(f"is_paper_mode=${i}"); params.append(bool(body["is_paper_mode"])); i += 1
+    for col, val in [
+        ("plan",          body.plan),
+        ("is_paper_mode", body.is_paper_mode),
+        ("is_admin",      body.is_admin),
+    ]:
+        if val is not None:
+            updates.append(f"{col}=${i}"); params.append(val); i += 1
     if not updates:
         return {"status": "nothing_to_update"}
     params.append(user_id)
-    await db.execute(
+    result = await db.execute(
         f"UPDATE users SET {', '.join(updates)} WHERE id=${i}", *params
     )
+    if result == "UPDATE 0":
+        raise HTTPException(404, "User not found")
     return {"status": "updated"}
 
 
@@ -322,6 +346,8 @@ class BotConfigPatch(BaseModel):
     notify_on_approve:          bool | None = None
     notify_on_reject:           bool | None = None
     bridge_alerts_enabled:      bool | None = None
+    app_name:                   str  | None = None
+    app_logo_url:               str  | None = None
 
 
 @router.get("/admin/config")
@@ -360,6 +386,8 @@ async def update_bot_config(
         ("notify_on_approve",          body.notify_on_approve),
         ("notify_on_reject",           body.notify_on_reject),
         ("bridge_alerts_enabled",      body.bridge_alerts_enabled),
+        ("app_name",                   body.app_name),
+        ("app_logo_url",               body.app_logo_url),
     ]
     for col, val in scalar_fields:
         if val is not None:
@@ -393,6 +421,11 @@ async def test_telegram(user=Depends(get_current_user), db=Depends(get_db)):
         raise HTTPException(400, data.get("description", "Invalid bot token"))
 
     bot = data["result"]
+    # Cache username so GET /settings doesn't need a live Telegram call
+    await db.execute(
+        "UPDATE bot_config SET telegram_bot_username=$1 WHERE id=1",
+        bot["username"],
+    )
     return {
         "ok":           True,
         "username":     bot["username"],
@@ -445,3 +478,52 @@ async def test_message(
         raise HTTPException(400, data.get("description", "Failed to send message. Check the channel ID and make sure the bot is an admin of the channel."))
 
     return {"ok": True, "chat_id": chat_id}
+
+
+# ── Branding ───────────────────────────────────────────────────────────────────
+
+@router.get("/config/branding")
+async def get_branding(db=Depends(get_db)):
+    """Public — no auth required. Returns app name and logo for the UI."""
+    row = await db.fetchrow(
+        "SELECT app_name, app_logo_url FROM bot_config WHERE id=1"
+    )
+    if not row:
+        return {"app_name": "Trading AI", "app_logo_url": ""}
+    return {
+        "app_name":     row["app_name"] or "Trading AI",
+        "app_logo_url": row["app_logo_url"] or "",
+    }
+
+
+@router.post("/admin/config/logo")
+async def upload_logo(
+    file: UploadFile = File(...),
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Upload a logo image — saved to disk, URL stored in the DB."""
+    _require_admin(user)
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(400, "File must be an image (PNG, JPG, SVG, etc.)")
+
+    data = await file.read()
+    if len(data) > 2 * 1024 * 1024:  # 2 MB limit
+        raise HTTPException(400, "Image must be under 2 MB")
+
+    import uuid, pathlib
+    ALLOWED_EXTS = {"png", "jpg", "jpeg", "gif", "webp", "svg"}
+    ext = (file.filename or "logo").rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_EXTS:
+        raise HTTPException(400, f"Invalid file type '.{ext}'. Allowed: {', '.join(sorted(ALLOWED_EXTS))}")
+    static_dir = pathlib.Path("static/logos")
+    static_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    (static_dir / filename).write_bytes(data)
+
+    logo_url = f"/static/logos/{filename}"
+    await db.execute(
+        "UPDATE bot_config SET app_logo_url=$1, updated_at=NOW() WHERE id=1",
+        logo_url,
+    )
+    return {"app_logo_url": logo_url}

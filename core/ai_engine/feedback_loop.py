@@ -2,6 +2,9 @@
 FIX-2: audit_log INSERT supplies all 3 bind values.
 """
 from __future__ import annotations
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_db_direct():
@@ -49,7 +52,10 @@ async def on_trade_closed(trade_id: str, user_id: str) -> None:
             try:
                 from telegram.community_drops import post_result_drop
                 await post_result_drop(dict(trade), dict(signal))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("feedback_loop: community drop failed: %s", e)
 
-        await trigger_retrain_if_needed(user_id, db)
+        try:
+            await trigger_retrain_if_needed(user_id, db)
+        except Exception as e:
+            logger.warning("feedback_loop: trigger_retrain_if_needed failed: %s", e)

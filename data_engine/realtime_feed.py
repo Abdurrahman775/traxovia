@@ -19,6 +19,9 @@ import os
 from datetime import datetime, timezone
 
 import psycopg2.extras
+import hashlib
+import hmac
+import time
 import requests
 
 from database.sync_connection import get_sync_db
@@ -58,7 +61,7 @@ def _fetch_bars(symbol: str, timeframe: str, count: int) -> list[dict]:
     resp = requests.get(
         f"{_BRIDGE_URL}/ohlc/{symbol}/{timeframe}",
         params={"count": count},
-        headers={"X-Api-Key": _API_KEY},
+        headers=_sign_sync("GET", f"/ohlc/{symbol}/{timeframe}"),
         timeout=_TIMEOUT,
     )
     resp.raise_for_status()

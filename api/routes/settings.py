@@ -59,24 +59,20 @@ async def get_settings(user=Depends(get_current_user), db=Depends(get_db)):
         if d.get(key) is not None:
             d[key] = float(d[key])
 
-    # Include bot username so Telegram tab can show it without an admin-only call
+    # Include bot username from cached column (set when admin tests the connection)
     try:
         cfg = await db.fetchrow(
-            "SELECT telegram_bot_token FROM bot_config WHERE id=1"
+            "SELECT telegram_bot_username FROM bot_config WHERE id=1"
         )
-        token = cfg["telegram_bot_token"] if cfg else ""
-        if token:
-            import httpx
-            async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
-            data = resp.json()
-            if data.get("ok"):
-                d["telegram_bot_username"] = data["result"]["username"]
+        if cfg and cfg["telegram_bot_username"]:
+            d["telegram_bot_username"] = cfg["telegram_bot_username"]
     except Exception:
         pass
 
     return d
 
+
+_VALID_TRADING_MODES = {"signal_approval", "auto_trade", "paper"}
 
 @router.patch("/settings")
 async def update_settings(
@@ -85,6 +81,43 @@ async def update_settings(
     db=Depends(get_db),
 ):
     await set_rls_user(db, user["sub"])
+
+    # ── Fetch user plan for server-side feature gating ────────────────────────
+    row = await db.fetchrow("SELECT plan FROM users WHERE id=$1", user["sub"])
+    plan = row["plan"] if row else "community"
+    is_elite = plan == "elite"
+
+    # ── Input validation ──────────────────────────────────────────────────────
+    from fastapi import HTTPException
+    if body.trading_mode is not None:
+        if body.trading_mode not in _VALID_TRADING_MODES:
+            raise HTTPException(400, f"Invalid trading_mode. Must be one of: {', '.join(_VALID_TRADING_MODES)}")
+        if body.trading_mode == "auto_trade" and not is_elite:
+            # auto_execute is a plan feature — fetch from plan_config
+            feat = await db.fetchval(
+                "SELECT features->>'auto_execute' FROM plan_config WHERE plan_id=$1", plan
+            )
+            if feat != "true":
+                raise HTTPException(403, "Auto-execute trading requires a higher plan")
+
+    if body.copy_trade_enabled is True and not is_elite:
+        feat = await db.fetchval(
+            "SELECT features->>'copy_trade' FROM plan_config WHERE plan_id=$1", plan
+        )
+        if feat != "true":
+            raise HTTPException(403, "Copy Trade requires Trader plan or above")
+
+    if body.base_risk_pct is not None and not (0.1 <= body.base_risk_pct <= 10):
+        raise HTTPException(400, "base_risk_pct must be between 0.1 and 10")
+    if body.risk_max_pct is not None and not (0.1 <= body.risk_max_pct <= 10):
+        raise HTTPException(400, "risk_max_pct must be between 0.1 and 10")
+    if body.risk_max_drawdown_pct is not None and not (1 <= body.risk_max_drawdown_pct <= 50):
+        raise HTTPException(400, "risk_max_drawdown_pct must be between 1 and 50")
+    if body.risk_daily_pct is not None and not (0.5 <= body.risk_daily_pct <= 20):
+        raise HTTPException(400, "risk_daily_pct must be between 0.5 and 20")
+    if body.max_trades_per_day is not None and not (1 <= body.max_trades_per_day <= 50):
+        raise HTTPException(400, "max_trades_per_day must be between 1 and 50")
+
     updates, params, i = [], [], 1
 
     scalar_fields = [

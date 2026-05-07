@@ -9,7 +9,7 @@ router = APIRouter(prefix="/model", tags=["model"])
 
 
 def _require_admin(user):
-    if user["plan"] not in {"elite"}:
+    if not user.get("is_admin"):
         raise HTTPException(403, "Admin access required")
 
 

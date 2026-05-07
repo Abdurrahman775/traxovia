@@ -17,12 +17,15 @@ from database.connection import get_db_direct
 
 _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-ADMIN_EMAIL = "admin@tradingai.com"
-ADMIN_PASSWORD = "admin1234"
+ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "admin@tradingai.com")
+ADMIN_PASSWORD = os.environ.get("SEED_ADMIN_PASSWORD")
 ADMIN_PLAN = "elite"
 
 
 async def seed():
+    if not ADMIN_PASSWORD:
+        print("ERROR: SEED_ADMIN_PASSWORD environment variable is required.")
+        sys.exit(1)
     async with get_db_direct() as db:
         result = await db.fetchrow("SELECT id FROM users WHERE email = $1", ADMIN_EMAIL)
         if result:

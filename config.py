@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     secret_key: str = ""
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
 
 settings = Settings()
