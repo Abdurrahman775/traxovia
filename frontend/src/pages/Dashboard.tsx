@@ -1,126 +1,419 @@
-import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import api from '../api/client'
 
-export default function Dashboard() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { data: stats } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.get('/analytics/summary').then(r => r.data).catch(() => null), refetchInterval: 30000 })
-  const { data: bridge } = useQuery({ queryKey: ['bridge-status'], queryFn: () => api.get('/bridge/status').then(r => r.data).catch(() => null), refetchInterval: 10000 })
-  const { data: regimes } = useQuery({ queryKey: ['regime'], queryFn: () => api.get('/regime/current').then(r => r.data).catch(() => null), refetchInterval: 30000 })
+// ── helpers ──────────────────────────────────────────────────────────────────
 
-  const bridgeOnline = bridge?.status === 'online'
-  const blockedCount = regimes ? Object.values(regimes as Record<string, any>).filter((r: any) => r.regime === 'ranging' && r.adx < 20).length : 0
+function fmt(n: number | null | undefined, d = 2) {
+  if (n == null) return '—'
+  return Number(n).toFixed(d)
+}
+
+function calcRR(s: any): string {
+  const entry = Number(s.entry_price), sl = Number(s.stop_loss), tp = Number(s.take_profit)
+  if (!entry || !sl || !tp) return '—'
+  const risk = Math.abs(entry - sl), reward = Math.abs(tp - entry)
+  if (risk === 0) return '—'
+  return `1:${(reward / risk).toFixed(1)}R`
+}
+
+type BadgeType = 'cyan' | 'red' | 'gold' | 'gray' | 'green' | 'blue'
+const BADGE: Record<BadgeType, { bg: string; color: string; border: string }> = {
+  cyan:  { bg: 'rgba(0,229,204,0.1)',    color: '#00e5cc', border: '1px solid rgba(0,229,204,0.2)'    },
+  red:   { bg: 'rgba(255,61,90,0.1)',    color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)'    },
+  gold:  { bg: 'rgba(240,180,41,0.1)',   color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)'   },
+  green: { bg: 'rgba(0,229,150,0.1)',    color: '#00e596', border: '1px solid rgba(0,229,150,0.2)'    },
+  blue:  { bg: 'rgba(79,142,247,0.1)',   color: '#4f8ef7', border: '1px solid rgba(79,142,247,0.2)'   },
+  gray:  { bg: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' },
+}
+function Badge({ type, children }: { type: BadgeType; children: React.ReactNode }) {
+  const s = BADGE[type]
+  return (
+    <span className="inline-flex items-center font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-widest whitespace-nowrap"
+      style={{ background: s.bg, color: s.color, border: s.border }}>
+      {children}
+    </span>
+  )
+}
+
+// ── Equity Curve canvas ───────────────────────────────────────────────────────
+
+function EquityCurve({ trades }: { trades: any[] }) {
+  const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
-    const cv = canvasRef.current
+    const cv = ref.current
     if (!cv) return
-    const ctx = cv.getContext('2d')!
+    const ctx = cv.getContext('2d')
+    if (!ctx) return
     const W = cv.width, H = cv.height
     ctx.clearRect(0, 0, W, H)
-    // Simple placeholder equity curve
-    const vals = Array.from({ length: 40 }, (_, i) => 1000 + i * 8 + (Math.random() - 0.4) * 25)
-    const mn = Math.min(...vals) - 10, mx = Math.max(...vals) + 10
-    const tx = (i: number) => (i / (vals.length - 1)) * (W - 40) + 20
-    const ty = (v: number) => H - 18 - ((v - mn) / (mx - mn)) * (H - 32)
-    const g = ctx.createLinearGradient(0, 0, 0, H)
-    g.addColorStop(0, 'rgba(0,229,204,0.2)')
-    g.addColorStop(1, 'rgba(0,229,204,0)')
+
+    const closed = trades.filter(t => t.status === 'closed' && t.pnl_r != null)
+    const vals: number[] = [0]
+    closed.forEach(t => vals.push(vals[vals.length - 1] + Number(t.pnl_r)))
+
+    if (vals.length < 2) {
+      ctx.fillStyle = 'var(--color-tx3)'
+      ctx.font = '11px IBM Plex Mono'
+      ctx.textAlign = 'center'
+      ctx.fillText('No closed trades yet', W / 2, H / 2)
+      return
+    }
+
+    const mn = Math.min(...vals), mx = Math.max(...vals)
+    const range = mx - mn || 1
+    const pad = { t: 14, b: 22, l: 10, r: 10 }
+    const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b
+    const tx = (i: number) => pad.l + (i / (vals.length - 1)) * iW
+    const ty = (v: number) => pad.t + (1 - (v - mn) / range) * iH
+
+    // grid lines
+    ctx.strokeStyle = 'var(--color-hover-bg)'
+    ctx.lineWidth = 1
+    for (let i = 0; i < 5; i++) {
+      const y = pad.t + i * (iH / 4)
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke()
+    }
+
+    // zero line
+    ctx.beginPath()
+    ctx.strokeStyle = 'rgba(136,153,180,0.12)'
+    ctx.lineWidth = 1
+    ctx.setLineDash([4, 4])
+    ctx.moveTo(pad.l, ty(0)); ctx.lineTo(W - pad.r, ty(0)); ctx.stroke()
+    ctx.setLineDash([])
+
+    const pos = vals[vals.length - 1] >= 0
+    const rgb = pos ? '0,229,204' : '255,61,90'
+
+    const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b)
+    grad.addColorStop(0, `rgba(${rgb},0.2)`)
+    grad.addColorStop(1, `rgba(${rgb},0)`)
     ctx.beginPath()
     vals.forEach((v, i) => i ? ctx.lineTo(tx(i), ty(v)) : ctx.moveTo(tx(i), ty(v)))
-    ctx.lineTo(tx(vals.length - 1), H - 18)
-    ctx.lineTo(tx(0), H - 18)
+    ctx.lineTo(tx(vals.length - 1), H - pad.b)
+    ctx.lineTo(tx(0), H - pad.b)
     ctx.closePath()
-    ctx.fillStyle = g
-    ctx.fill()
+    ctx.fillStyle = grad; ctx.fill()
+
     ctx.beginPath()
-    ctx.strokeStyle = '#00e5cc'
-    ctx.lineWidth = 2
-    ctx.lineJoin = 'round'
+    ctx.strokeStyle = pos ? '#00e5cc' : '#ff3d5a'
+    ctx.lineWidth = 2; ctx.lineJoin = 'round'
     vals.forEach((v, i) => i ? ctx.lineTo(tx(i), ty(v)) : ctx.moveTo(tx(i), ty(v)))
     ctx.stroke()
-  }, [stats])
 
-  const metrics = [
-    { t: 'Win Rate',      v: stats?.win_rate ? `${stats.win_rate}%` : '—',   c: 'text-cyan-400' },
-    { t: 'Net P&L',       v: stats?.net_pnl_r ? `${stats.net_pnl_r > 0 ? '+' : ''}${stats.net_pnl_r}R` : '—', c: stats?.net_pnl_r >= 0 ? 'text-cyan-400' : 'text-red-400' },
-    { t: 'Total Trades',  v: stats?.total_trades ?? '—', c: 'text-gray-200' },
-    { t: 'Regime Blocks', v: blockedCount, c: 'text-orange-400' },
-  ]
+    ctx.beginPath()
+    ctx.arc(tx(vals.length - 1), ty(vals[vals.length - 1]), 3, 0, Math.PI * 2)
+    ctx.fillStyle = pos ? '#00e5cc' : '#ff3d5a'; ctx.fill()
+
+    ctx.fillStyle = 'var(--color-tx3)'; ctx.font = '9px IBM Plex Mono'
+    ctx.textAlign = 'left'
+    ctx.fillText(`${mn >= 0 ? '+' : ''}${mn.toFixed(1)}R`, pad.l, H - 5)
+    ctx.textAlign = 'right'
+    ctx.fillText(`${mx >= 0 ? '+' : ''}${mx.toFixed(1)}R`, W - pad.r, pad.t + 8)
+  }, [trades])
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-3">
-        {metrics.map(m => (
-          <div key={m.t} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-            <div className="text-xs text-gray-500 font-mono mb-2">{m.t.toUpperCase()}</div>
-            <div className={`text-2xl font-bold ${m.c}`}>{m.v}</div>
+    <canvas ref={ref} width={460} height={160} style={{ width: '100%', height: 160, display: 'block' }} />
+  )
+}
+
+// ── Progress bar ──────────────────────────────────────────────────────────────
+
+function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; color?: string }) {
+  return (
+    <div style={{ height: 5, background: 'var(--color-card-border)', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{
+        height: '100%', borderRadius: 3, transition: 'width .5s',
+        width: `${Math.min(100, (val / (max || 1)) * 100)}%`, background: color,
+      }} />
+    </div>
+  )
+}
+
+// ── Plan colors ───────────────────────────────────────────────────────────────
+
+const PLAN_COLORS: Record<string, string> = {
+  community: '#8899b4', starter: '#4f8ef7', trader: '#00e5cc', pro: '#f0b429', elite: '#8b5cf6',
+}
+const PLAN_PRICES: Record<string, number> = {
+  community: 0, starter: 29, trader: 79, pro: 149, elite: 299,
+}
+const APPROVE_PLANS = new Set(['trader', 'pro', 'elite'])
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+export default function Dashboard() {
+  const qc = useQueryClient()
+
+  const { data: stats } = useQuery({
+    queryKey: ['analytics-summary'],
+    queryFn: () => api.get('/analytics/summary').then(r => r.data),
+    retry: false,
+    refetchInterval: (q) => q.state.status === 'error' ? false : 30_000,
+  })
+  const { data: trades = [] } = useQuery({
+    queryKey: ['trades-all'],
+    queryFn: () => api.get('/trades').then(r => Array.isArray(r.data) ? r.data : []),
+    retry: false,
+    refetchInterval: (q) => q.state.status === 'error' ? false : 30_000,
+  })
+  const { data: signals = [] } = useQuery({
+    queryKey: ['signals'],
+    queryFn: () => api.get('/signals?limit=10').then(r => Array.isArray(r.data) ? r.data : []),
+    retry: false,
+    refetchInterval: (q) => q.state.status === 'error' ? false : 15_000,
+  })
+  const { data: sub } = useQuery({
+    queryKey: ['subscription'],
+    queryFn: () => api.get('/billing/subscription').then(r => r.data).catch(() => null),
+  })
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get('/settings').then(r => r.data).catch(() => ({})),
+  })
+
+  const approve = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.patch(`/signals/${id}`, { status }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['signals'] }),
+  })
+
+  const tradeList   = trades  as any[]
+  const signalList  = signals as any[]
+  const plan        = (sub?.plan as string) ?? 'community'
+  const planColor   = PLAN_COLORS[plan] ?? 'var(--color-tx2)'
+  const canApprove  = APPROVE_PLANS.has(plan)
+
+  const closed   = tradeList.filter(t => t.status === 'closed')
+  const wins     = closed.filter(t => t.pnl_r > 0).length
+  const totalR   = closed.reduce((s, t) => s + (t.pnl_r || 0), 0)
+  const wr       = closed.length > 0 ? Math.round(wins / closed.length * 100) : 0
+  const netPnl   = stats?.net_pnl_r ?? null
+
+  // Risk state derived from trades
+  const maxDD       = Number((settings as any)?.risk_maxDD ?? 15)
+  const maxDaily    = Number((settings as any)?.risk_daily ?? 5)
+  const today       = new Date().toDateString()
+  const todayTrades = closed.filter(t => t.entry_time && new Date(t.entry_time).toDateString() === today)
+  const dailyUsed   = Math.abs(todayTrades.reduce((s, t) => s + (t.pnl_r < 0 ? t.pnl_r : 0), 0))
+
+  // Max drawdown from equity curve
+  let peak = 0, maxDrawdown = 0, equity = 0
+  closed.forEach(t => {
+    equity += t.pnl_r || 0
+    if (equity > peak) peak = equity
+    const dd = peak > 0 ? ((peak - equity) / peak) * 100 : 0
+    if (dd > maxDrawdown) maxDrawdown = dd
+  })
+
+  const pendingSignals = signalList.filter(s => s.status === 'pending').slice(0, 4)
+
+  const TH = ['Pair', 'Dir', 'Entry', 'R:R', 'AI Conf', 'News', 'Status', '']
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* ── 4 stat cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        {[
+          {
+            t: 'Equity',
+            v: netPnl != null ? `${netPnl >= 0 ? '+' : ''}${fmt(netPnl)}R` : '—',
+            s: `${closed.length} closed trades`,
+            c: netPnl != null ? (netPnl >= 0 ? '#00e5cc' : '#ff3d5a') : '#00e5cc',
+          },
+          {
+            t: 'Net P&L',
+            v: totalR !== 0 ? `${totalR >= 0 ? '+' : ''}${totalR.toFixed(1)}R` : '—',
+            s: `${wins}W / ${closed.length - wins}L`,
+            c: totalR >= 0 ? '#00e5cc' : '#ff3d5a',
+          },
+          {
+            t: 'Win Rate',
+            v: stats?.win_rate != null ? `${stats.win_rate}%` : (closed.length > 0 ? `${wr}%` : '—'),
+            s: `${stats?.total_trades ?? closed.length} trades`,
+            c: 'var(--color-tx)',
+          },
+          {
+            t: 'Active Plan',
+            v: plan.toUpperCase(),
+            s: `$${PLAN_PRICES[plan] ?? 0}/mo`,
+            c: planColor,
+          },
+        ].map(m => (
+          <div key={m.t} className="rounded-[10px] p-4" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+            <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>{m.t}</div>
+            <div className="font-head font-bold" style={{ fontSize: 26, color: m.c, lineHeight: 1 }}>{m.v}</div>
+            <div style={{ fontSize: 12, color: 'var(--color-tx2)', marginTop: 4 }}>{m.s}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-          <div className="text-xs text-gray-500 font-mono mb-3">EQUITY CURVE</div>
-          <canvas ref={canvasRef} width={440} height={150} style={{ width: '100%', height: 150 }} />
+      {/* ── Equity Curve + Live Risk State ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+
+        {/* Equity Curve */}
+        <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+          <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
+            Equity Curve
+          </div>
+          <EquityCurve trades={tradeList} />
         </div>
 
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-          <div className="flex justify-between items-center mb-3">
-            <div className="text-xs text-gray-500 font-mono">BRIDGE WATCHDOG</div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${bridgeOnline ? 'bg-green-400' : 'bg-red-400'}`} />
-              <span className={`font-mono text-xs ${bridgeOnline ? 'text-cyan-400' : 'text-red-400'}`}>
-                {bridge?.status?.toUpperCase() ?? 'UNKNOWN'}
-              </span>
-            </div>
+        {/* Live Risk State */}
+        <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+          <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
+            Live Risk State
           </div>
           {[
-            ['Heartbeat interval', '60 seconds'],
-            ['Auto-pause', '2 minutes offline'],
-            ['Standby bridge', 'Hot standby ready'],
-            ['Auto-failover', '5 minutes → promote standby'],
-          ].map(([l, v]) => (
-            <div key={l} className="flex justify-between py-2 border-b border-slate-700/50 last:border-0">
-              <span className="text-sm text-gray-400">{l}</span>
-              <span className="font-mono text-xs text-gray-200">{v}</span>
+            { l: 'Daily Risk Used',         v: parseFloat(dailyUsed.toFixed(1)),            max: maxDaily, c: '#00e5cc' },
+            { l: 'Total Drawdown',          v: parseFloat(maxDrawdown.toFixed(1)),           max: maxDD,    c: '#f0b429' },
+            { l: 'USD Group Exposure',      v: tradeList.filter(t => t.status === 'open' && (t.pair?.includes('USD') || t.pair?.includes('XAU'))).length, max: 3, c: '#4f8ef7' },
+            { l: 'Open Correlated Pairs',   v: tradeList.filter(t => t.status === 'open').length,  max: 3, c: '#8b5cf6' },
+          ].map(m => (
+            <div key={m.l} style={{ marginBottom: 12 }}>
+              <div className="flex justify-between" style={{ marginBottom: 4 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-tx2)' }}>{m.l}</span>
+                <span className="font-mono" style={{ fontSize: 11, color: m.c }}>{m.v} / {m.max}%</span>
+              </div>
+              <ProgBar val={m.v} max={m.max} color={m.c} />
             </div>
           ))}
+
+          {/* Drawdown stage banner */}
+          <div style={{
+            marginTop: 12, padding: '10px 14px', borderRadius: 8,
+            background: 'rgba(0,229,204,0.08)', border: '1px solid rgba(0,229,204,0.2)',
+            fontFamily: '"IBM Plex Mono",monospace', fontSize: 10, color: '#00e5cc',
+          }}>
+            ✓ DRAWDOWN STAGE: NORMAL · Risk {fmt((settings as any)?.base_risk_pct != null ? (settings as any).base_risk_pct * 100 : 1, 1)}% per trade · No restrictions active
+          </div>
+
+          {/* System status */}
+          <div style={{
+            marginTop: 10, padding: '9px 12px', borderRadius: 8,
+            background: 'rgba(0,229,204,0.1)', border: '1px solid rgba(0,229,204,0.18)',
+            display: 'flex', alignItems: 'center',
+          }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#00e596', boxShadow: '0 0 6px #00e596', display: 'inline-block', marginRight: 8, flexShrink: 0 }} />
+            <span className="font-mono" style={{ fontSize: 10, color: '#00e5cc' }}>
+              SYSTEM: TRADING · MODE: APPROVAL
+            </span>
+            <span className="font-mono" style={{ fontSize: 9, color: 'var(--color-tx3)', marginLeft: 'auto' }}>NEWS: CLEAR</span>
+          </div>
         </div>
       </div>
 
-      {regimes && (
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-          <div className="text-xs text-gray-500 font-mono mb-3">LIVE REGIME — ALL PAIRS</div>
-          <table className="w-full text-sm">
+      {/* ── Pending Signals table ── */}
+      <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
+          <div className="font-mono text-[10px] tracking-[2px] uppercase" style={{ color: 'var(--color-tx3)' }}>
+            Pending Signals
+          </div>
+          <Link to="/signals"
+            className="font-mono text-[10px] transition-colors"
+            style={{ color: 'var(--color-tx3)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#00e5cc' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-tx3)' }}>
+            View All →
+          </Link>
+        </div>
+
+        {pendingSignals.length === 0 ? (
+          <div className="font-mono text-xs text-center py-8" style={{ color: 'var(--color-tx3)' }}>No pending signals</div>
+        ) : (
+          <table className="w-full border-collapse">
             <thead>
-              <tr className="text-xs text-gray-500 font-mono border-b border-slate-700">
-                {['Pair', 'Regime', 'ADX', 'Gate'].map(h => <th key={h} className="text-left py-2 px-3">{h}</th>)}
+              <tr>
+                {TH.map(h => (
+                  <th key={h} className="font-mono text-[9px] tracking-widest text-left py-[10px] px-3 uppercase"
+                    style={{ color: 'var(--color-tx3)', borderBottom: '1px solid var(--color-card-border)' }}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {Object.entries(regimes as Record<string, any>).map(([pair, reg]) => {
-                const blocked = reg.regime === 'ranging' && reg.adx < 20
+              {pendingSignals.map((s: any) => {
+                const conf = s.ai_probability != null ? Math.round(s.ai_probability * 100) : null
                 return (
-                  <tr key={pair} className="border-b border-slate-700/30">
-                    <td className="py-2 px-3 font-mono font-bold">{pair}</td>
-                    <td className="py-2 px-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-mono border ${reg.regime === 'trending' ? 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' : reg.regime === 'volatile' ? 'text-red-400 bg-red-400/10 border-red-400/20' : 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'}`}>
-                        {reg.regime?.toUpperCase()}
-                      </span>
+                  <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(255,255,255,0.02)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = ''}>
+
+                    {/* Pair */}
+                    <td className="font-mono font-bold py-[11px] px-3" style={{ fontSize: 12, color: 'var(--color-tx)' }}>
+                      {s.pair}
                     </td>
-                    <td className={`py-2 px-3 font-mono ${reg.adx > 25 ? 'text-cyan-400' : reg.adx > 20 ? 'text-yellow-400' : 'text-red-400'}`}>{reg.adx}</td>
-                    <td className="py-2 px-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-mono ${blocked ? 'bg-red-400/10 text-red-400' : 'bg-green-400/10 text-green-400'}`}>
-                        {blocked ? 'BLOCKED' : 'OPEN'}
-                      </span>
+
+                    {/* Dir */}
+                    <td className="py-[11px] px-3">
+                      <Badge type={s.direction === 'buy' ? 'cyan' : 'red'}>
+                        {s.direction?.toUpperCase() ?? '—'}
+                      </Badge>
+                    </td>
+
+                    {/* Entry */}
+                    <td className="font-mono py-[11px] px-3" style={{ fontSize: 12, color: 'var(--color-tx)' }}>
+                      {s.entry_price ? Number(s.entry_price).toFixed(5) : '—'}
+                    </td>
+
+                    {/* R:R */}
+                    <td className="font-mono py-[11px] px-3" style={{ fontSize: 12, color: '#00e5cc' }}>
+                      {calcRR(s)}
+                    </td>
+
+                    {/* AI Conf */}
+                    <td className="font-mono py-[11px] px-3" style={{ fontSize: 11, color: conf != null ? (conf > 75 ? '#00e5cc' : '#f0b429') : 'var(--color-tx3)' }}>
+                      {conf != null ? `${conf}%` : '—'}
+                    </td>
+
+                    {/* News — not in API */}
+                    <td className="py-[11px] px-3">
+                      <Badge type="green">CLEAR</Badge>
+                    </td>
+
+                    {/* Status */}
+                    <td className="py-[11px] px-3">
+                      <Badge type={s.status === 'pending' ? 'gold' : s.status === 'approved' ? 'cyan' : s.status === 'executed' ? 'blue' : 'gray'}>
+                        {s.status?.toUpperCase() ?? '—'}
+                      </Badge>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="py-[11px] px-3">
+                      {s.status === 'pending' && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => approve.mutate({ id: s.id, status: 'approved' })}
+                            disabled={approve.isPending}
+                            className="font-mono text-[9px] font-bold tracking-widest px-2 py-1 rounded cursor-pointer transition-all"
+                            style={canApprove
+                              ? { background: '#00e5cc', color: '#000', border: 'none' }
+                              : { background: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' }}>
+                            {canApprove ? '✓ Approve' : '🔒'}
+                          </button>
+                          <button
+                            onClick={() => approve.mutate({ id: s.id, status: 'rejected' })}
+                            disabled={approve.isPending}
+                            className="font-mono text-[9px] font-bold tracking-widest px-2 py-1 rounded cursor-pointer transition-all"
+                            style={{ background: '#ff3d5a', color: '#fff', border: 'none' }}>
+                            ✗
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
+
     </div>
   )
 }

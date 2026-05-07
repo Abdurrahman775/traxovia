@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { ThemeProvider } from './contexts/ThemeContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -15,6 +16,7 @@ import ModelRetrain from './pages/ModelRetrain'
 import Referral from './pages/Referral'
 import AuditLog from './pages/AuditLog'
 import Community from './pages/Community'
+import Profile from './pages/Profile'
 import { useAdminUser } from './hooks/useAdminUser'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -29,6 +31,7 @@ function RequireAdmin({ children }: { children: JSX.Element }) {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/login"    element={<Login />} />
@@ -40,16 +43,18 @@ export default function App() {
           <Route path="signals"   element={<Signals />} />
           <Route path="trades"    element={<Trades />} />
           <Route path="analytics" element={<Analytics />} />
-          <Route path="model"     element={<ModelRetrain />} />
+          <Route path="model"     element={<RequireAdmin><ModelRetrain /></RequireAdmin>} />
           <Route path="billing"   element={<Billing />} />
           <Route path="referral"  element={<Referral />} />
           <Route path="auditlog"  element={<AuditLog />} />
           <Route path="settings"  element={<Settings />} />
+          <Route path="profile"   element={<Profile />} />
           <Route path="bridge"    element={<BridgeMonitor />} />
           <Route path="community" element={<RequireAdmin><Community /></RequireAdmin>} />
           <Route path="admin"     element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
         </Route>
       </Routes>
     </BrowserRouter>
+    </ThemeProvider>
   )
 }

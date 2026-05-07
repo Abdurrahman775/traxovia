@@ -8,10 +8,18 @@ api.interceptors.request.use(cfg => {
   return cfg
 })
 
+let redirecting = false
+
 api.interceptors.response.use(
   r => r,
   err => {
-    if (err.response?.status === 401) {
+    if (
+      err.response?.status === 401 &&
+      !redirecting &&
+      !window.location.pathname.startsWith('/login') &&
+      !window.location.pathname.startsWith('/register')
+    ) {
+      redirecting = true
       localStorage.removeItem('access_token')
       window.location.href = '/login'
     }

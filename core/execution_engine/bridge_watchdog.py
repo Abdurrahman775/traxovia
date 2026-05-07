@@ -25,6 +25,39 @@ bridge_state = {
 }
 
 
+async def _persist_state():
+    """Write current in-memory bridge_state to the DB so the API can read it."""
+    try:
+        db = await get_db()
+        args = (
+            bridge_state['active_url'],
+            PRIMARY_URL or 'http://127.0.0.1:8001',
+            STANDBY_URL or 'not configured',
+            bridge_state['last_heartbeat'],
+            bridge_state['offline_since'],
+            bridge_state['trading_paused'],
+            bridge_state.get('failover_count', 0),
+        )
+        updated = await db.fetchval(
+            """UPDATE bridge_state SET
+                   active_url=$1, primary_url=$2, standby_url=$3,
+                   last_heartbeat=$4, offline_since=$5,
+                   trading_paused=$6, failover_count=$7, updated_at=NOW()
+               RETURNING id""",
+            *args,
+        )
+        if not updated:
+            await db.execute(
+                """INSERT INTO bridge_state
+                       (active_url, primary_url, standby_url,
+                        last_heartbeat, offline_since, trading_paused, failover_count)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7)""",
+                *args,
+            )
+    except Exception:
+        pass  # Don't let DB write failure break the watchdog loop
+
+
 async def heartbeat_check():
     """Called every 60 seconds by Celery beat."""
     try:
@@ -38,6 +71,7 @@ async def heartbeat_check():
                 bridge_state['offline_since']  = None
                 if bridge_state['trading_paused']:
                     await _resume_trading()
+                await _persist_state()
                 return
     except Exception:
         pass
@@ -54,6 +88,8 @@ async def heartbeat_check():
 
     if offline_secs >= OFFLINE_FAILOVER_SECS and bridge_state['active_url'] == PRIMARY_URL:
         await _failover_to_standby()
+
+    await _persist_state()
 
 
 async def _pause_trading():

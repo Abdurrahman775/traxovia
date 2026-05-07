@@ -4,16 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg:  '#05080f',
-        s1:  '#080d18',
-        s2:  '#0c1220',
-        s3:  '#101828',
+        bg:  'var(--color-bg)',
+        s1:  'var(--color-s1)',
+        s2:  'var(--color-s2)',
+        s3:  'var(--color-s3)',
         cy:  '#00e5cc',
         gd:  '#f0b429',
         rd:  '#ff3d5a',
         bl:  '#4f8ef7',
-        tx:  '#dde4f0',
-        tx2: '#8899b4',
+        tx:  'var(--color-tx)',
+        tx2: 'var(--color-tx2)',
       },
       fontFamily: {
         sans:  ['Figtree', 'sans-serif'],

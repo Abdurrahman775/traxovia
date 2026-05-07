@@ -23,7 +23,9 @@ Phase 1 quality gate: trigger subscription.created via Stripe CLI and confirm
 the user's plan column updates within 5 seconds.
 """
 
+import json
 import logging
+from datetime import datetime, timezone
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -391,4 +393,124 @@ async def get_subscription(
             # Non-fatal: return DB plan even if Stripe API is unreachable.
             logger.warning("billing: Stripe API error fetching subscription: %s", exc)
 
+    return result
+
+
+# ── Public plan catalogue ──────────────────────────────────────────────────────
+
+@router.get(
+    "/plans",
+    summary="Return all active plan definitions (prices + features)",
+)
+async def get_plans(
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    rows = await db.fetch(
+        "SELECT plan_id, name, price, color, popular, sort_order, features "
+        "FROM plan_config WHERE is_active = TRUE ORDER BY sort_order"
+    )
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["price"] = float(d["price"])
+        if isinstance(d.get("features"), str):
+            try:
+                d["features"] = json.loads(d["features"])
+            except (ValueError, TypeError):
+                d["features"] = {}
+        result.append(d)
+    return result
+
+
+# ── Usage stats ────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/usage",
+    summary="Return the current user's monthly usage counters",
+)
+async def get_usage(
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await set_rls_user(db, user["sub"])
+    month_start = datetime.now(timezone.utc).replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+
+    signals_generated = await db.fetchval(
+        "SELECT COUNT(*) FROM trade_signals WHERE user_id=$1 AND created_at >= $2",
+        user["sub"], month_start,
+    ) or 0
+
+    trades_executed = await db.fetchval(
+        "SELECT COUNT(*) FROM trades WHERE user_id=$1 AND entry_time >= $2",
+        user["sub"], month_start,
+    ) or 0
+
+    row = await db.fetchrow(
+        "SELECT mt5_accounts FROM users WHERE id=$1::uuid", user["sub"]
+    )
+    mt5_raw = row["mt5_accounts"] if row else None
+    if isinstance(mt5_raw, str):
+        try:
+            mt5_raw = json.loads(mt5_raw)
+        except (ValueError, TypeError):
+            mt5_raw = []
+    mt5_count = len(mt5_raw) if isinstance(mt5_raw, list) else 0
+
+    return {
+        "signals_generated": int(signals_generated),
+        "trades_executed":   int(trades_executed),
+        "api_calls":         0,
+        "mt5_accounts":      mt5_count,
+    }
+
+
+# ── Invoice history ────────────────────────────────────────────────────────────
+
+@router.get(
+    "/invoices",
+    summary="Return the last 12 Stripe invoices for the current user",
+)
+async def get_invoices(
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    row = await db.fetchrow(
+        "SELECT stripe_customer_id FROM users WHERE id=$1::uuid", user["sub"]
+    )
+    if not row or not row["stripe_customer_id"]:
+        return []
+
+    try:
+        invoices = stripe.Invoice.list(
+            customer=row["stripe_customer_id"],
+            limit=12,
+        )
+    except stripe.error.StripeError as exc:
+        logger.warning("billing: Stripe invoice list error: %s", exc)
+        return []
+
+    price_to_plan = {v: k for k, v in _price_to_plan_map().items()}
+
+    result = []
+    for inv in invoices.data:
+        # Derive plan name from first line item price ID
+        plan_name = "—"
+        try:
+            price_id = inv["lines"]["data"][0]["price"]["id"]
+            plan_name = price_to_plan.get(price_id, plan_name)
+        except (KeyError, IndexError):
+            pass
+
+        result.append({
+            "id":     inv["id"],
+            "date":   datetime.fromtimestamp(inv["created"], tz=timezone.utc)
+                      .strftime("%b %d, %Y"),
+            "plan":   plan_name,
+            "amount": f"${inv['amount_paid'] / 100:.2f}",
+            "status": inv["status"].upper(),
+            "pdf":    inv.get("invoice_pdf"),
+        })
     return result

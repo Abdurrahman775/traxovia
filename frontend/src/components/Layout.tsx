@@ -2,6 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 import { useAdminUser } from '../hooks/useAdminUser'
+import { useTheme } from '../contexts/ThemeContext'
 
 const NAV_GROUPS = [
   {
@@ -15,14 +16,9 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: 'AI Engine',
-    items: [
-      { to: '/model', label: 'Model & Retrain', icon: '◉' },
-    ],
-  },
-  {
     label: 'Account',
     items: [
+      { to: '/profile',   label: 'Profile',   icon: '◉' },
       { to: '/billing',   label: 'Billing',   icon: '◎' },
       { to: '/referral',  label: 'Referral',  icon: '★' },
       { to: '/auditlog',  label: 'Audit Log', icon: '≡' },
@@ -33,6 +29,7 @@ const NAV_GROUPS = [
 
 const ADMIN_ITEMS = [
   { to: '/admin',     label: 'Admin Panel',    icon: '●' },
+  { to: '/model',     label: 'Model & Retrain', icon: '◉' },
   { to: '/community', label: 'Community',      icon: '⬡' },
   { to: '/bridge',    label: 'Bridge Monitor', icon: '▲' },
 ]
@@ -40,14 +37,15 @@ const ADMIN_ITEMS = [
 function Ticker() {
   const { data } = useQuery({
     queryKey: ['prices'],
-    queryFn: () => api.get('/prices').then(r => r.data).catch(() => null),
-    refetchInterval: 2000,
+    queryFn: () => api.get('/prices').then(r => r.data),
+    retry: false,
+    refetchInterval: (query) => query.state.status === 'error' ? 30_000 : 2_000,
   })
   const pairs = data ? Object.entries(data).slice(0, 5) : []
   return (
     <div className="flex gap-6 text-xs font-mono text-tx2 overflow-hidden">
       {pairs.length === 0
-        ? <span className="text-tx2/40">— prices unavailable —</span>
+        ? <span style={{ color: 'var(--color-tx2)', opacity: 0.4 }}>— prices unavailable —</span>
         : pairs.map(([pair, price]: [string, unknown]) => (
             <span key={pair}>
               <span className="text-tx2">{pair}</span>{' '}
@@ -62,6 +60,7 @@ function Ticker() {
 export default function Layout() {
   const navigate = useNavigate()
   const { isAdmin, email } = useAdminUser()
+  const { theme, toggle } = useTheme()
   function logout() {
     localStorage.removeItem('access_token')
     navigate('/login')
@@ -135,7 +134,21 @@ export default function Layout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar */}
         <header className="h-12 bg-s1 border-b border-s3 flex items-center px-6 gap-6 shrink-0">
-          <Ticker />
+          <div className="flex-1 min-w-0">
+            <Ticker />
+          </div>
+          <button
+            onClick={toggle}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="shrink-0 flex items-center gap-1.5 font-mono text-[10px] tracking-widest px-3 py-1.5 rounded-lg transition-colors"
+            style={{
+              background: 'var(--color-s2)',
+              border: '1px solid var(--color-card-border)',
+              color: 'var(--color-tx2)',
+            }}
+          >
+            {theme === 'dark' ? '☀ LIGHT' : '☾ DARK'}
+          </button>
         </header>
         {/* Page content */}
         <main className="flex-1 overflow-y-auto bg-bg p-6">

@@ -77,4 +77,4 @@ async def set_rls_user(conn: asyncpg.Connection, user_id: str) -> None:
             await set_rls_user(db, user["sub"])
             rows = await db.fetch("SELECT * FROM trades")  # RLS now active
     """
-    await conn.execute("SET LOCAL app.current_user_id = $1", user_id)
+    await conn.execute(f"SET LOCAL app.current_user_id = '{user_id}'")

@@ -29,4 +29,15 @@ async def list_trades(
             ORDER BY entry_time DESC LIMIT {limit}""",
         *params,
     )
-    return [dict(r) for r in rows]
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["id"] = str(d["id"]) if d.get("id") else None
+        for ts in ("entry_time", "exit_time"):
+            if d.get(ts) and hasattr(d[ts], "isoformat"):
+                d[ts] = d[ts].isoformat()
+        for num in ("entry_price", "exit_price", "stop_loss", "take_profit", "lot_size", "pnl_r", "pips", "duration_hours"):
+            if d.get(num) is not None:
+                d[num] = float(d[num])
+        result.append(d)
+    return result

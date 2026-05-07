@@ -1,142 +1,199 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 
-const PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'XAU/USD', 'US30']
-const PAIR_MAP: Record<string, string> = {
-  'EURUSD': 'EUR/USD', 'GBPUSD': 'GBP/USD', 'USDJPY': 'USD/JPY',
-  'XAUUSD': 'XAU/USD', 'US30': 'US30',
+interface RegimeData {
+  regime:      'trending' | 'ranging' | 'volatile' | 'unknown' | 'bridge_offline'
+  adx:         number
+  atr_ratio:   number
+  signal_gate: 'open' | 'blocked' | 'reduced'
 }
 
-interface RegimeData {
-  regime: 'trending' | 'ranging' | 'volatile'
-  adx: number
-  atr_ratio: number
-  blocked: boolean
+interface RegimeResponse {
+  pairs:         Record<string, RegimeData>
+  bridge_online: boolean
+}
+
+const PAIR_MAP: Record<string, string> = {
+  EURUSD: 'EUR/USD', GBPUSD: 'GBP/USD', USDJPY: 'USD/JPY',
+  XAUUSD: 'XAU/USD', US30: 'US30',
+}
+
+function regimeMeta(regime: string) {
+  switch (regime) {
+    case 'trending':      return { label: 'TRENDING',      color: 'var(--color-cy)',  bg: 'rgba(0,229,204,0.08)',  border: 'rgba(0,229,204,0.2)' }
+    case 'volatile':      return { label: 'VOLATILE',      color: '#f0b429',           bg: 'rgba(240,180,41,0.08)', border: 'rgba(240,180,41,0.2)' }
+    case 'ranging':       return { label: 'RANGING',        color: '#ff3d5a',           bg: 'rgba(255,61,90,0.08)',  border: 'rgba(255,61,90,0.2)' }
+    case 'bridge_offline':return { label: 'BRIDGE OFFLINE', color: 'var(--color-tx3)', bg: 'transparent',           border: 'var(--color-s3)' }
+    default:              return { label: 'UNKNOWN',        color: 'var(--color-tx3)', bg: 'transparent',           border: 'var(--color-s3)' }
+  }
+}
+
+function gateMeta(gate: string) {
+  if (gate === 'open')    return { label: 'OPEN',         color: 'var(--color-cy)' }
+  if (gate === 'reduced') return { label: 'OPEN (0.5×)',  color: '#f0b429' }
+  return                         { label: 'BLOCKED',      color: '#ff3d5a' }
+}
+
+function adxColor(adx: number) {
+  if (adx > 25) return 'var(--color-cy)'
+  if (adx > 20) return '#f0b429'
+  return '#ff3d5a'
+}
+
+function MiniBar({ pct, color }: { pct: number; color: string }) {
+  return (
+    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-s3)' }}>
+      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: color }} />
+    </div>
+  )
 }
 
 export default function RegimeDetector() {
-  const [regimes, setRegimes] = useState<Record<string, RegimeData>>({})
-  const [loading, setLoading] = useState(true)
+  const { data, isLoading, isError, refetch, dataUpdatedAt } = useQuery({
+    queryKey: ['regime-current'],
+    queryFn: () => api.get('/regime/current').then(r => r.data as RegimeResponse),
+    refetchInterval: 30_000,
+    retry: 1,
+  })
 
-  useEffect(() => {
-    fetchRegimes()
-    const iv = setInterval(fetchRegimes, 30000)
-    return () => clearInterval(iv)
-  }, [])
+  const pairs   = data?.pairs   ?? {}
+  const entries = Object.entries(pairs).map(([k, v]) => ({ key: k, display: PAIR_MAP[k] ?? k, ...v }))
 
-  const fetchRegimes = async () => {
-    try {
-      const res = await api.get('/regime/current', {
-      })
-      // remap MT5 keys (EURUSD) to display keys (EUR/USD)
-      const mapped: Record<string, RegimeData> = {}
-      for (const [k, v] of Object.entries(res.data as Record<string, RegimeData>)) {
-        const display = PAIR_MAP[k] ?? k
-        mapped[display] = { ...v, blocked: v.regime === 'ranging' && v.adx < 20 }
-      }
-      setRegimes(mapped)
-      setLoading(false)
-    } catch (err) {
-      console.error('Failed to fetch regimes:', err)
-      setLoading(false)
-    }
-  }
+  const trendingCount = entries.filter(e => e.regime === 'trending').length
+  const rangingCount  = entries.filter(e => e.regime === 'ranging').length
+  const volatileCount = entries.filter(e => e.regime === 'volatile').length
+  const blockedCount  = entries.filter(e => e.signal_gate === 'blocked').length
 
-  const blockedCount = Object.values(regimes).filter(r => r.blocked).length
-  const trendingCount = Object.values(regimes).filter(r => r.regime === 'trending').length
-  const rangingCount = Object.values(regimes).filter(r => r.regime === 'ranging').length
-  const volatileCount = Object.values(regimes).filter(r => r.regime === 'volatile').length
-
-  const getRegimeColor = (regime: string) => {
-    if (regime === 'trending') return 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20'
-    if (regime === 'ranging') return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'
-    return 'text-red-400 bg-red-400/10 border-red-400/20'
-  }
-
-  const getAdxColor = (adx: number) => {
-    if (adx > 25) return 'text-cyan-400'
-    if (adx > 20) return 'text-yellow-400'
-    return 'text-red-400'
-  }
-
-  if (loading) return <div className="text-gray-400">Loading...</div>
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : null
 
   return (
-    <div className="space-y-4">
-      <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 font-mono text-xs text-orange-400">
-        REGIME FILTER ACTIVE — Signals suppressed when ADX &lt; 20. Only takes price action signals in trending/volatile markets.
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-          <div className="text-xs text-gray-500 font-mono mb-2">TRENDING PAIRS</div>
-          <div className="text-2xl font-bold text-cyan-400">{trendingCount}</div>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-tx font-head">Regime Detector</h1>
+          <p className="text-tx2 text-sm mt-0.5">Live market condition classification per pair</p>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-          <div className="text-xs text-gray-500 font-mono mb-2">RANGING (BLOCKED)</div>
-          <div className="text-2xl font-bold text-yellow-400">{rangingCount}</div>
-        </div>
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-          <div className="text-xs text-gray-500 font-mono mb-2">VOLATILE (HALF SIZE)</div>
-          <div className="text-2xl font-bold text-red-400">{volatileCount}</div>
-        </div>
-      </div>
-
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-        <div className="flex justify-between items-center mb-4">
-          <div className="text-xs text-gray-500 font-mono">PER-PAIR ANALYSIS</div>
-          <button onClick={fetchRegimes} className="px-3 py-1 bg-slate-700/50 border border-slate-600 rounded text-xs font-mono hover:bg-slate-700">
-            ↻ REFRESH
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="font-mono text-[10px] text-tx3">updated {lastUpdated}</span>
+          )}
+          <button
+            onClick={() => refetch()}
+            className="px-3 py-1.5 rounded-lg border border-s3 text-tx2 text-xs font-mono hover:bg-s2 transition-colors"
+          >
+            ↻ Refresh
           </button>
         </div>
+      </div>
 
-        {PAIRS.map(pair => {
-          const reg = regimes[pair]
-          if (!reg) return null
-          const adxColor = getAdxColor(reg.adx)
+      {/* Bridge offline warning */}
+      {data && !data.bridge_online && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl font-mono text-xs"
+          style={{ background: 'rgba(255,61,90,0.06)', border: '1px solid rgba(255,61,90,0.2)', color: '#ff3d5a' }}>
+          ✗ MT5 bridge unreachable — showing last known regime state. All signals blocked.
+        </div>
+      )}
+
+      {/* Active filter notice */}
+      {(!data || data.bridge_online) && (
+        <div className="px-4 py-3 rounded-xl font-mono text-[11px]"
+          style={{ background: 'rgba(240,180,41,0.06)', border: '1px solid rgba(240,180,41,0.2)', color: '#f0b429' }}>
+          REGIME FILTER ACTIVE — Signals suppressed when ADX &lt; 20. Only price-action signals pass in trending/volatile markets.
+        </div>
+      )}
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Trending',        value: trendingCount,  color: 'var(--color-cy)' },
+          { label: 'Ranging',         value: rangingCount,   color: '#ff3d5a' },
+          { label: 'Volatile',        value: volatileCount,  color: '#f0b429' },
+          { label: 'Signals Blocked', value: blockedCount,   color: 'var(--color-tx2)' },
+        ].map(c => (
+          <div key={c.label} className="bg-s1 border border-s3 rounded-xl p-4">
+            <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">{c.label}</div>
+            <div className="text-3xl font-bold font-head" style={{ color: c.color }}>
+              {isLoading ? '—' : c.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Per-pair table */}
+      <div className="bg-s1 border border-s3 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-s3">
+          <span className="text-[10px] font-mono text-tx3 uppercase tracking-widest">Per-Pair Analysis</span>
+        </div>
+
+        {isLoading && (
+          <div className="px-5 py-8 text-center text-tx2 text-sm animate-pulse">Classifying regimes…</div>
+        )}
+        {isError && (
+          <div className="px-5 py-8 text-center font-mono text-xs" style={{ color: '#ff3d5a' }}>
+            Failed to load regime data. Check API connection.
+          </div>
+        )}
+
+        {!isLoading && !isError && entries.map(e => {
+          const rm   = regimeMeta(e.regime)
+          const gm   = gateMeta(e.signal_gate)
+          const adc  = adxColor(e.adx)
+          const atrColor = e.atr_ratio > 2 ? '#f0b429' : 'var(--color-cy)'
+          const offline  = e.regime === 'bridge_offline' || e.regime === 'unknown'
 
           return (
-            <div key={pair} className="bg-slate-900/50 rounded-lg p-4 mb-3">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="font-mono font-bold text-sm">{pair}</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-mono border ${getRegimeColor(reg.regime)}`}>
-                  {reg.regime.toUpperCase()}
+            <div key={e.key} className="px-5 py-4 border-b border-s3 last:border-0"
+              style={{ opacity: offline ? 0.5 : 1 }}>
+
+              {/* Row header */}
+              <div className="flex items-center gap-3 mb-4">
+                <span className="font-mono font-bold text-sm text-tx">{e.display}</span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold"
+                  style={{ background: rm.bg, color: rm.color, border: `1px solid ${rm.border}` }}>
+                  {rm.label}
                 </span>
-                {reg.blocked && (
-                  <span className="px-2 py-1 rounded text-xs font-mono bg-red-400/10 text-red-400 border border-red-400/20">
-                    SIGNALS BLOCKED
-                  </span>
-                )}
+                <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold"
+                  style={{ color: gm.color }}>
+                  {gm.label}
+                </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <div className="text-xs text-gray-500 font-mono mb-1">ADX</div>
-                  <div className={`font-mono text-lg font-bold ${adxColor}`}>{reg.adx}</div>
-                  <div className="h-1 bg-slate-700 rounded mt-2">
-                    <div className={`h-full rounded ${adxColor.replace('text-', 'bg-')}`} style={{ width: `${Math.min(100, (reg.adx / 60) * 100)}%` }} />
+              {/* Metrics */}
+              {!offline && (
+                <div className="grid grid-cols-3 gap-5">
+                  {/* ADX */}
+                  <div>
+                    <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">ADX</div>
+                    <div className="font-mono text-lg font-bold" style={{ color: adc }}>{e.adx.toFixed(1)}</div>
+                    <MiniBar pct={(e.adx / 60) * 100} color={adc} />
+                    <div className="text-[10px] text-tx3 font-mono mt-1">&lt;20 = ranging</div>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">&lt; 20 = ranging</div>
-                </div>
 
-                <div>
-                  <div className="text-xs text-gray-500 font-mono mb-1">ATR RATIO</div>
-                  <div className={`font-mono text-lg font-bold ${reg.atr_ratio > 1.5 ? 'text-red-400' : 'text-cyan-400'}`}>
-                    {reg.atr_ratio.toFixed(2)}
+                  {/* ATR Ratio */}
+                  <div>
+                    <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">ATR Ratio</div>
+                    <div className="font-mono text-lg font-bold" style={{ color: atrColor }}>
+                      {e.atr_ratio.toFixed(2)}
+                    </div>
+                    <MiniBar pct={(e.atr_ratio / 4) * 100} color={atrColor} />
+                    <div className="text-[10px] text-tx3 font-mono mt-1">&gt;2.0 = volatile</div>
                   </div>
-                  <div className="h-1 bg-slate-700 rounded mt-2">
-                    <div className={`h-full rounded ${reg.atr_ratio > 1.5 ? 'bg-red-400' : 'bg-cyan-400'}`} style={{ width: `${Math.min(100, (reg.atr_ratio * 50))}%` }} />
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">&gt; 2.0 = volatile (half size)</div>
-                </div>
 
-                <div>
-                  <div className="text-xs text-gray-500 font-mono mb-1">SIGNAL GATE</div>
-                  <div className={`font-mono text-sm mt-2 ${reg.blocked ? 'text-red-400' : reg.regime === 'volatile' ? 'text-yellow-400' : 'text-cyan-400'}`}>
-                    {reg.blocked ? 'BLOCKED' : 'OPEN' + (reg.regime === 'volatile' ? ' (0.5x size)' : '')}
+                  {/* Signal Gate */}
+                  <div>
+                    <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">Signal Gate</div>
+                    <div className="font-mono text-base font-bold mt-1" style={{ color: gm.color }}>
+                      {gm.label}
+                    </div>
+                    <div className="text-[10px] text-tx3 font-mono mt-1">
+                      {e.signal_gate === 'open'    ? 'full position size' :
+                       e.signal_gate === 'reduced' ? 'half position size' :
+                       'no new signals'}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )
         })}

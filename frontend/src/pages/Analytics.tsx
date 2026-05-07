@@ -1,68 +1,147 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 
-export default function Analytics() {
-  const { data: summary } = useQuery({ queryKey: ['analytics-summary'], queryFn: () => api.get('/analytics/summary').then(r => r.data).catch(() => null) })
-  const { data: byPair = [] } = useQuery({ queryKey: ['analytics-pair'], queryFn: () => api.get('/analytics/by-pair').then(r => r.data).catch(() => []) })
-  const { data: byRegime = [] } = useQuery({ queryKey: ['analytics-regime'], queryFn: () => api.get('/analytics/by-regime').then(r => r.data).catch(() => []) })
+function fmt(n: number | null | undefined, d = 2) {
+  if (n == null) return '—'
+  return Number(n).toFixed(d)
+}
 
-  const regimeColor = (r: string) => r === 'trending' ? 'text-cyan-400' : r === 'volatile' ? 'text-red-400' : 'text-yellow-400'
+function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; color?: string }) {
+  return (
+    <div style={{ height: 5, background: 'var(--color-card-border)', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{
+        height: '100%', borderRadius: 3, transition: 'width 0.5s',
+        width: `${Math.min(100, (val / (max || 1)) * 100)}%`,
+        background: color,
+      }} />
+    </div>
+  )
+}
+
+function regimeBadge(regime: string) {
+  if (regime === 'trending')  return { bg: 'rgba(0,229,204,0.08)',   color: '#00e5cc', border: '1px solid rgba(0,229,204,0.2)' }
+  if (regime === 'ranging')   return { bg: 'rgba(240,180,41,0.08)',  color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)' }
+  return                             { bg: 'rgba(255,61,90,0.08)',   color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)'  }
+}
+
+export default function Analytics() {
+  const { data: summary } = useQuery({
+    queryKey: ['analytics-summary'],
+    queryFn: () => api.get('/analytics/summary').then(r => r.data),
+    retry: false,
+    refetchInterval: (q) => q.state.status === 'error' ? false : 30_000,
+  })
+
+  const { data: byPair = [] } = useQuery({
+    queryKey: ['analytics-pair'],
+    queryFn: () => api.get('/analytics/by-pair').then(r => Array.isArray(r.data) ? r.data : []),
+    retry: false,
+    refetchInterval: (q) => q.state.status === 'error' ? false : 60_000,
+  })
+
+  const { data: byRegime = [] } = useQuery({
+    queryKey: ['analytics-regime'],
+    queryFn: () => api.get('/analytics/by-regime').then(r => Array.isArray(r.data) ? r.data : []),
+    retry: false,
+    refetchInterval: (q) => q.state.status === 'error' ? false : 60_000,
+  })
+
+  const pairList  = byPair  as any[]
+  const regList   = byRegime as any[]
+
+  const bestPair = pairList.length > 0 ? pairList[0].pair : '—'
+  const netPnl   = summary?.net_pnl_r ?? null
+
+  const topStats = [
+    { l: 'Win Rate',      v: summary?.win_rate  != null ? `${summary.win_rate}%`                          : '—', c: '#00e5cc' },
+    { l: 'Net P&L',       v: netPnl             != null ? `${netPnl >= 0 ? '+' : ''}${fmt(netPnl)}R`     : '—', c: netPnl != null ? (netPnl >= 0 ? '#00e5cc' : '#ff3d5a') : 'var(--color-tx)' },
+    { l: 'Total Trades',  v: summary?.total_trades != null ? String(summary.total_trades)                 : '—', c: 'var(--color-tx)' },
+    { l: 'Profit Factor', v: '—', c: '#00e5cc' },
+    { l: 'Avg Duration',  v: '—', c: 'var(--color-tx)' },
+    { l: 'Best Pair',     v: bestPair,                                                                         c: '#4f8ef7' },
+  ]
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { l: 'Win Rate',     v: summary ? `${summary.win_rate}%` : '—' },
-          { l: 'Net P&L',      v: summary ? `${summary.net_pnl_r >= 0 ? '+' : ''}${summary.net_pnl_r}R` : '—' },
-          { l: 'Total Trades', v: summary?.total_trades ?? '—' },
-        ].map(m => (
-          <div key={m.l} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-            <div className="text-xs text-gray-500 font-mono mb-2">{m.l.toUpperCase()}</div>
-            <div className="text-2xl font-bold text-cyan-400">{m.v}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* ── 6 stat cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+        {topStats.map(m => (
+          <div key={m.l}
+            className="rounded-[10px] p-4"
+            style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+            <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
+              {m.l}
+            </div>
+            <div className="font-head font-bold" style={{ fontSize: 22, color: m.c }}>
+              {m.v}
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-          <div className="text-xs text-gray-500 font-mono mb-3">BY PAIR</div>
-          {byPair.length === 0 ? <div className="text-sm text-gray-500">No data yet.</div> : byPair.map((p: any) => (
-            <div key={p.pair} className="py-2.5 border-b border-slate-700/50 last:border-0">
-              <div className="flex justify-between mb-1.5">
-                <span className="font-mono text-sm">{p.pair}</span>
-                <div className="flex gap-4">
-                  <span className={`font-mono text-xs ${p.net_r >= 0 ? 'text-cyan-400' : 'text-red-400'}`}>
-                    {p.net_r >= 0 ? '+' : ''}{p.net_r}R
+      {/* ── By Pair + By Regime ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+
+        {/* By Pair */}
+        <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+          <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
+            By Pair
+          </div>
+          {pairList.length === 0 ? (
+            <div className="font-mono text-xs text-center py-8" style={{ color: 'var(--color-tx3)' }}>No closed trades yet</div>
+          ) : pairList.map((p: any) => (
+            <div key={p.pair} style={{ padding: '10px 0', borderBottom: '1px solid var(--color-card-border)' }}>
+              <div className="flex justify-between mb-[5px]">
+                <span className="font-mono" style={{ fontSize: 12 }}>{p.pair}</span>
+                <div className="flex gap-3">
+                  <span className="font-mono" style={{ fontSize: 11, color: p.net_r >= 0 ? '#00e5cc' : '#ff3d5a' }}>
+                    {p.net_r >= 0 ? '+' : ''}{fmt(p.net_r)}R
                   </span>
-                  <span className="font-mono text-xs text-gray-400">{p.win_rate}%</span>
+                  <span className="font-mono" style={{ fontSize: 11, color: 'var(--color-tx3)' }}>
+                    {p.win_rate}%
+                  </span>
                 </div>
               </div>
-              <div className="h-1 bg-slate-700 rounded">
-                <div className={`h-full rounded ${p.net_r >= 0 ? 'bg-cyan-400' : 'bg-red-400'}`} style={{ width: `${p.win_rate}%` }} />
-              </div>
+              <ProgBar val={p.win_rate} max={100} color={p.net_r >= 0 ? '#00e5cc' : '#ff3d5a'} />
             </div>
           ))}
         </div>
 
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-          <div className="text-xs text-gray-500 font-mono mb-3">BY REGIME</div>
-          {byRegime.length === 0 ? <div className="text-sm text-gray-500">No data yet.</div> : byRegime.map((r: any) => (
-            <div key={r.regime} className="py-3 border-b border-slate-700/50 last:border-0">
-              <div className="flex justify-between mb-1">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-mono border ${r.regime === 'trending' ? 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' : r.regime === 'volatile' ? 'text-red-400 bg-red-400/10 border-red-400/20' : 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'}`}>
-                  {r.regime?.toUpperCase()}
-                </span>
-                <div className="flex gap-4">
-                  <span className={`font-mono text-xs ${regimeColor(r.regime)}`}>{r.win_rate}% WR</span>
-                  <span className={`font-mono text-xs ${r.net_r >= 0 ? 'text-cyan-400' : 'text-red-400'}`}>{r.net_r >= 0 ? '+' : ''}{r.net_r}R</span>
+        {/* By Regime */}
+        <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+          <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
+            By Regime
+          </div>
+          {regList.length === 0 ? (
+            <div className="font-mono text-xs text-center py-8" style={{ color: 'var(--color-tx3)' }}>No closed trades yet</div>
+          ) : regList.map((r: any) => {
+            const badge = regimeBadge(r.regime)
+            return (
+              <div key={r.regime} style={{ padding: '12px 0', borderBottom: '1px solid var(--color-card-border)' }}>
+                <div className="flex justify-between mb-[5px]">
+                  <span className="inline-flex items-center gap-1 font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-widest"
+                    style={{ background: badge.bg, color: badge.color, border: badge.border }}>
+                    {(r.regime ?? '—').toUpperCase()}
+                  </span>
+                  <div className="flex gap-[10px]">
+                    <span className="font-mono" style={{ fontSize: 11, color: r.net_r >= 0 ? '#00e5cc' : '#ff3d5a' }}>
+                      {r.net_r >= 0 ? '+' : ''}{fmt(r.net_r)}R
+                    </span>
+                    <span className="font-mono" style={{ fontSize: 11, color: 'var(--color-tx3)' }}>
+                      {r.win_rate}%
+                    </span>
+                    <span className="font-mono" style={{ fontSize: 11, color: 'var(--color-tx3)' }}>
+                      {r.total}tr
+                    </span>
+                  </div>
                 </div>
+                <ProgBar val={r.win_rate} max={100} color={r.net_r >= 0 ? '#00e5cc' : '#ff3d5a'} />
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {r.regime === 'ranging' ? 'Regime filter blocks most ranging signals' : 'Normal signal generation applied'}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
+
       </div>
     </div>
   )
