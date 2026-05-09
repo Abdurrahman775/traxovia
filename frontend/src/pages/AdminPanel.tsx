@@ -800,6 +800,456 @@ function PlansEditor() {
   )
 }
 
+// ─── Email Config ─────────────────────────────────────────────────────────────
+
+function EmailConfig() {
+  const qc = useQueryClient()
+  const [form, setForm] = useState({
+    smtp_host: '', smtp_port: 587, smtp_user: '', smtp_password: '',
+    smtp_from_email: '', smtp_from_name: '', smtp_enabled: false,
+  })
+  const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [testing, setTesting] = useState(false)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-config'],
+    queryFn: () => api.get('/admin/config').then(r => r.data),
+  })
+
+  useEffect(() => {
+    if (!data) return
+    setForm({
+      smtp_host:       data.smtp_host       ?? '',
+      smtp_port:       data.smtp_port       ?? 587,
+      smtp_user:       data.smtp_user       ?? '',
+      smtp_password:   data.smtp_password   ?? '',
+      smtp_from_email: data.smtp_from_email ?? '',
+      smtp_from_name:  data.smtp_from_name  ?? '',
+      smtp_enabled:    data.smtp_enabled    ?? false,
+    })
+  }, [data])
+
+  const notify = (ok: boolean, msg: string) => {
+    setFeedback({ ok, msg })
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  const save = useMutation({
+    mutationFn: () => api.patch('/admin/config', form),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-config'] }); notify(true, 'Email settings saved.') },
+    onError: () => notify(false, 'Failed to save.'),
+  })
+
+  async function testEmail() {
+    setTesting(true); setFeedback(null)
+    try {
+      const res = await api.post('/admin/config/test-email')
+      notify(true, res.data.message)
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Test failed.')
+    } finally { setTesting(false) }
+  }
+
+  const set = (k: keyof typeof form) => (v: string | number | boolean) =>
+    setForm(p => ({ ...p, [k]: v }))
+
+  if (isLoading) return null
+
+  return (
+    <div className="space-y-4">
+      {feedback && (
+        <div className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-mono ${feedback.ok ? 'bg-cy/5 border border-cy/20 text-cy' : 'bg-rd/5 border border-rd/20 text-rd'}`}>
+          <span>{feedback.ok ? '✓' : '✗'} {feedback.msg}</span>
+          <button onClick={() => setFeedback(null)} className="opacity-50 hover:opacity-100 ml-4">✕</button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left: SMTP config */}
+        <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-tx">Email / SMTP</h3>
+              <p className="text-xs text-tx3 mt-0.5">Used for daily summaries, trade reports, and transactional emails</p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <span className="text-xs text-tx2">Enable</span>
+              <div onClick={() => set('smtp_enabled')(!form.smtp_enabled)}
+                className={`w-9 h-5 rounded-full flex items-center transition-colors ${form.smtp_enabled ? 'bg-cy' : 'bg-s3'}`}>
+                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow mx-0.5 transition-transform ${form.smtp_enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+              </div>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <ConfigInput label="SMTP Host" value={form.smtp_host} onChange={set('smtp_host') as any}
+                placeholder="smtp.gmail.com" hint="e.g. smtp.gmail.com · smtp.sendgrid.net" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1.5">Port</label>
+              <input type="number" value={form.smtp_port}
+                onChange={e => set('smtp_port')(parseInt(e.target.value) || 587)}
+                className="w-full bg-s2 border border-s3 rounded-lg px-3 py-2 text-sm text-tx font-mono focus:outline-none focus:border-cy/50 transition-colors"
+              />
+            </div>
+          </div>
+
+          <ConfigInput label="Username / Email" value={form.smtp_user} onChange={set('smtp_user') as any}
+            placeholder="you@gmail.com" />
+          <ConfigInput label="Password / App Password" type="password"
+            value={form.smtp_password} onChange={set('smtp_password') as any}
+            placeholder="••••••••" hint="Gmail: use an App Password, not your account password." />
+
+          <div className="grid grid-cols-2 gap-3">
+            <ConfigInput label="From Email" value={form.smtp_from_email} onChange={set('smtp_from_email') as any}
+              placeholder="noreply@yourdomain.com" />
+            <ConfigInput label="From Name" value={form.smtp_from_name} onChange={set('smtp_from_name') as any}
+              placeholder="Traxovia AI" />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => save.mutate()} disabled={save.isPending}
+              className="px-5 py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50">
+              {save.isPending ? 'Saving…' : 'Save Settings'}
+            </button>
+            <button onClick={testEmail} disabled={testing}
+              className="px-4 py-2.5 rounded-lg border border-s3 text-xs font-mono text-tx2 hover:bg-s2 transition-colors disabled:opacity-50">
+              {testing ? '…' : 'Send Test Email'}
+            </button>
+          </div>
+        </div>
+
+        {/* Right: provider guide */}
+        <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-tx">Provider Quick-Start</h3>
+          {[
+            { name: 'Gmail', host: 'smtp.gmail.com', port: '587', note: 'Enable 2FA → create App Password at myaccount.google.com/apppasswords' },
+            { name: 'SendGrid', host: 'smtp.sendgrid.net', port: '587', note: 'Username: apikey · Password: your SendGrid API key' },
+            { name: 'Mailgun', host: 'smtp.mailgun.org', port: '587', note: 'Credentials in Sending → Domain Settings → SMTP credentials' },
+            { name: 'Outlook/365', host: 'smtp.office365.com', port: '587', note: 'Use your Microsoft account email and password (or app password)' },
+          ].map(p => (
+            <div key={p.name} className="px-3 py-2.5 bg-s2 border border-s3 rounded-lg">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-tx">{p.name}</span>
+                <span className="font-mono text-[10px] text-tx3">{p.host}:{p.port}</span>
+              </div>
+              <p className="text-[11px] text-tx3">{p.note}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Payment Config ───────────────────────────────────────────────────────────
+
+function PaymentConfig() {
+  const qc = useQueryClient()
+  const [gateway, setGateway] = useState<'stripe' | 'paystack'>('stripe')
+  const [stripe, setStripe] = useState({
+    stripe_secret_key: '', stripe_webhook_secret: '',
+    stripe_price_starter: '', stripe_price_trader: '',
+    stripe_price_pro: '', stripe_price_elite: '',
+  })
+  const [paystack, setPaystack] = useState({
+    paystack_secret_key: '', paystack_public_key: '',
+    paystack_plan_starter: '', paystack_plan_trader: '',
+    paystack_plan_pro: '', paystack_plan_elite: '',
+  })
+  const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [testing, setTesting] = useState(false)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-config'],
+    queryFn: () => api.get('/admin/config').then(r => r.data),
+  })
+
+  useEffect(() => {
+    if (!data) return
+    setGateway((data.payment_gateway as 'stripe' | 'paystack') ?? 'stripe')
+    setStripe({
+      stripe_secret_key:    data.stripe_secret_key    ?? '',
+      stripe_webhook_secret: data.stripe_webhook_secret ?? '',
+      stripe_price_starter: data.stripe_price_starter  ?? '',
+      stripe_price_trader:  data.stripe_price_trader   ?? '',
+      stripe_price_pro:     data.stripe_price_pro      ?? '',
+      stripe_price_elite:   data.stripe_price_elite    ?? '',
+    })
+    setPaystack({
+      paystack_secret_key:   data.paystack_secret_key   ?? '',
+      paystack_public_key:   data.paystack_public_key   ?? '',
+      paystack_plan_starter: data.paystack_plan_starter ?? '',
+      paystack_plan_trader:  data.paystack_plan_trader  ?? '',
+      paystack_plan_pro:     data.paystack_plan_pro     ?? '',
+      paystack_plan_elite:   data.paystack_plan_elite   ?? '',
+    })
+  }, [data])
+
+  const notify = (ok: boolean, msg: string) => {
+    setFeedback({ ok, msg }); setTimeout(() => setFeedback(null), 4000)
+  }
+
+  const save = useMutation({
+    mutationFn: () => api.patch('/admin/config', {
+      payment_gateway: gateway,
+      ...(gateway === 'stripe' ? stripe : paystack),
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-config'] }); notify(true, 'Payment settings saved.') },
+    onError: () => notify(false, 'Failed to save.'),
+  })
+
+  async function testGateway() {
+    setTesting(true); setFeedback(null)
+    try {
+      const res = await api.post('/admin/config/test-payment')
+      notify(true, res.data.message)
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Test failed.')
+    } finally { setTesting(false) }
+  }
+
+  const setS = (k: keyof typeof stripe) => (v: string) => setStripe(p => ({ ...p, [k]: v }))
+  const setP = (k: keyof typeof paystack) => (v: string) => setPaystack(p => ({ ...p, [k]: v }))
+
+  if (isLoading) return null
+
+  return (
+    <div className="space-y-4">
+      {feedback && (
+        <div className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-mono ${feedback.ok ? 'bg-cy/5 border border-cy/20 text-cy' : 'bg-rd/5 border border-rd/20 text-rd'}`}>
+          <span>{feedback.ok ? '✓' : '✗'} {feedback.msg}</span>
+          <button onClick={() => setFeedback(null)} className="opacity-50 hover:opacity-100 ml-4">✕</button>
+        </div>
+      )}
+
+      {/* Gateway selector */}
+      <div className="bg-s1 border border-s3 rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-tx mb-3">Payment Gateway</h3>
+        <div className="flex gap-3">
+          {(['stripe', 'paystack'] as const).map(gw => (
+            <button key={gw} onClick={() => setGateway(gw)}
+              className={`flex-1 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+                gateway === gw ? 'border-cy/50 bg-cy/5 text-cy' : 'border-s3 text-tx2 hover:bg-s2'
+              }`}>
+              <div className="font-mono text-base mb-0.5">{gw === 'stripe' ? '⚡' : '✦'}</div>
+              {gw.charAt(0).toUpperCase() + gw.slice(1)}
+              {gateway === gw && <div className="text-[10px] font-mono mt-0.5 opacity-70">ACTIVE</div>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {gateway === 'stripe' ? (
+          <>
+            {/* Stripe keys */}
+            <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-semibold text-tx">Stripe Keys</h3>
+              <ConfigInput label="Secret Key" type="password" value={stripe.stripe_secret_key}
+                onChange={setS('stripe_secret_key')} placeholder="sk_live_••••" hint="From Stripe Dashboard → Developers → API Keys" />
+              <ConfigInput label="Webhook Secret" type="password" value={stripe.stripe_webhook_secret}
+                onChange={setS('stripe_webhook_secret')} placeholder="whsec_••••"
+                hint="From Stripe Dashboard → Developers → Webhooks → your endpoint → Signing secret" />
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => save.mutate()} disabled={save.isPending}
+                  className="px-5 py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50">
+                  {save.isPending ? 'Saving…' : 'Save Keys'}
+                </button>
+                <button onClick={testGateway} disabled={testing}
+                  className="px-4 py-2.5 rounded-lg border border-s3 text-xs font-mono text-tx2 hover:bg-s2 transition-colors disabled:opacity-50">
+                  {testing ? '…' : 'Test Connection'}
+                </button>
+              </div>
+            </div>
+
+            {/* Stripe price IDs */}
+            <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-tx">Price IDs</h3>
+                <p className="text-xs text-tx3 mt-0.5">Stripe Dashboard → Products → each plan → copy the price ID</p>
+              </div>
+              {(['starter', 'trader', 'pro', 'elite'] as const).map(plan => (
+                <ConfigInput key={plan} label={plan.toUpperCase()}
+                  value={(stripe as any)[`stripe_price_${plan}`]}
+                  onChange={setS(`stripe_price_${plan}` as any)}
+                  placeholder={`price_${plan.slice(0,3)}••••`} />
+              ))}
+              <button onClick={() => save.mutate()} disabled={save.isPending}
+                className="w-full py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50 mt-1">
+                {save.isPending ? 'Saving…' : 'Save Price IDs'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Paystack keys */}
+            <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-semibold text-tx">Paystack Keys</h3>
+              <ConfigInput label="Secret Key" type="password" value={paystack.paystack_secret_key}
+                onChange={setP('paystack_secret_key')} placeholder="sk_live_••••"
+                hint="From Paystack Dashboard → Settings → API Keys & Webhooks" />
+              <ConfigInput label="Public Key" value={paystack.paystack_public_key}
+                onChange={setP('paystack_public_key')} placeholder="pk_live_••••"
+                hint="Used on the frontend for Paystack Inline popup (optional)" />
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => save.mutate()} disabled={save.isPending}
+                  className="px-5 py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50">
+                  {save.isPending ? 'Saving…' : 'Save Keys'}
+                </button>
+                <button onClick={testGateway} disabled={testing}
+                  className="px-4 py-2.5 rounded-lg border border-s3 text-xs font-mono text-tx2 hover:bg-s2 transition-colors disabled:opacity-50">
+                  {testing ? '…' : 'Test Connection'}
+                </button>
+              </div>
+            </div>
+
+            {/* Paystack plan codes */}
+            <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-tx">Plan Codes</h3>
+                <p className="text-xs text-tx3 mt-0.5">Paystack Dashboard → Products → Plans → copy each plan code. Leave blank to use one-time payments.</p>
+              </div>
+              {(['starter', 'trader', 'pro', 'elite'] as const).map(plan => (
+                <ConfigInput key={plan} label={plan.toUpperCase()}
+                  value={(paystack as any)[`paystack_plan_${plan}`]}
+                  onChange={setP(`paystack_plan_${plan}` as any)}
+                  placeholder={`PLN_••••`} />
+              ))}
+              <button onClick={() => save.mutate()} disabled={save.isPending}
+                className="w-full py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50 mt-1">
+                {save.isPending ? 'Saving…' : 'Save Plan Codes'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Finnhub Config ───────────────────────────────────────────────────────────
+
+function FinnhubConfig() {
+  const qc = useQueryClient()
+  const [apiKey, setApiKey]     = useState('')
+  const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [testing, setTesting]   = useState(false)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-config'],
+    queryFn: () => api.get('/admin/config').then(r => r.data),
+  })
+
+  useEffect(() => {
+    if (data) setApiKey(data.finnhub_api_key ?? '')
+  }, [data])
+
+  const notify = (ok: boolean, msg: string) => {
+    setFeedback({ ok, msg })
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  const save = useMutation({
+    mutationFn: () => api.patch('/admin/config', { finnhub_api_key: apiKey }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-config'] })
+      notify(true, 'Finnhub API key saved.')
+    },
+    onError: () => notify(false, 'Failed to save.'),
+  })
+
+  async function testKey() {
+    setTesting(true)
+    setFeedback(null)
+    try {
+      const res = await api.post('/admin/config/test-finnhub')
+      notify(true, res.data.message)
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Connection failed.')
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  if (isLoading) return <p className="text-tx2 text-sm animate-pulse">Loading…</p>
+
+  return (
+    <div className="space-y-4">
+      {feedback && (
+        <div className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-mono ${feedback.ok ? 'bg-cy/5 border border-cy/20 text-cy' : 'bg-rd/5 border border-rd/20 text-rd'}`}>
+          <span>{feedback.ok ? '✓' : '✗'} {feedback.msg}</span>
+          <button onClick={() => setFeedback(null)} className="opacity-50 hover:opacity-100 ml-4">✕</button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Left: key input */}
+        <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-tx">Finnhub API Key</h3>
+              <p className="text-xs text-tx3 mt-0.5">Used for high-impact news event reminders sent 30 min before events</p>
+            </div>
+            {data?.finnhub_api_key_set && (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cy/10 text-cy border border-cy/20">KEY SET</span>
+            )}
+          </div>
+
+          <ConfigInput
+            label="API Key"
+            type="password"
+            value={apiKey}
+            onChange={setApiKey}
+            placeholder="d1a2b3c4d5e6f7…"
+            hint="Free tier: 60 calls/min. Get your key at finnhub.io → Dashboard → API Keys."
+            action={testKey}
+            actionLabel="Test Connection"
+            actionLoading={testing}
+          />
+
+          <button
+            onClick={() => save.mutate()}
+            disabled={save.isPending}
+            className="px-5 py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50"
+          >
+            {save.isPending ? 'Saving…' : 'Save Key'}
+          </button>
+        </div>
+
+        {/* Right: setup guide */}
+        <div className="bg-s1 border border-s3 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-tx mb-3">Setup Guide</h3>
+          <ol className="space-y-2 text-xs text-tx2 font-mono">
+            {[
+              'Go to finnhub.io and create a free account',
+              'Open the Dashboard → API Keys section',
+              'Copy your sandbox or production API key',
+              'Paste it above and click Save Key',
+              'Click Test Connection — it will show events for today',
+              'Users with news_reminder enabled in Settings → Notifications will receive a Telegram alert 30 min before every high-impact economic event',
+            ].map((step, i) => (
+              <li key={i} className="flex gap-3">
+                <span className="text-cy shrink-0">{i + 1}.</span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-4 px-3 py-2.5 rounded-lg bg-s2 border border-s3">
+            <p className="text-[10px] font-mono text-tx3">Free tier limits</p>
+            <p className="text-xs text-tx2 mt-0.5">60 API calls/minute · The news task runs every 10 min — 144 calls/day well within the free limit.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+
 // ─── Telegram Config ──────────────────────────────────────────────────────────
 
 interface BotConfig {
@@ -813,6 +1263,8 @@ interface BotConfig {
   notify_on_approve:          boolean
   notify_on_reject:           boolean
   bridge_alerts_enabled:      boolean
+  finnhub_api_key:            string
+  finnhub_api_key_set:        boolean
   updated_at:                 string | null
 }
 
@@ -950,7 +1402,7 @@ function BrandingConfig() {
           <input
             value={appName}
             onChange={e => setAppName(e.target.value)}
-            placeholder="Trading AI"
+            placeholder="Traxovia AI"
             className="w-full bg-s2 border border-s3 rounded-lg px-3 py-2 text-sm text-tx font-mono focus:outline-none focus:border-cy/50 transition-colors"
           />
           <p className="text-[10px] text-tx3 font-mono mt-1">Displayed in sidebar and login page.</p>
@@ -1224,9 +1676,409 @@ function TelegramConfig() {
   )
 }
 
+// ─── Backup Tab ───────────────────────────────────────────────────────────────
+
+interface BackupFile {
+  filename:   string
+  size:       number
+  created_at: string
+}
+
+function fmtBytes(b: number): string {
+  if (b > 1e9) return (b / 1e9).toFixed(2) + ' GB'
+  if (b > 1e6) return (b / 1e6).toFixed(2) + ' MB'
+  if (b > 1e3) return (b / 1e3).toFixed(1) + ' KB'
+  return b + ' B'
+}
+
+function BackupTab() {
+  const qc = useQueryClient()
+  const [creating,  setCreating]  = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const [scope,     setScope]     = useState('trading_data')
+  const [confirmTx, setConfirmTx] = useState('')
+  const [clearing,  setClearing]  = useState(false)
+  const [feedback,  setFeedback]  = useState<{ ok: boolean; msg: string } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const notify = (ok: boolean, msg: string) => {
+    setFeedback({ ok, msg })
+    setTimeout(() => setFeedback(null), 5000)
+  }
+
+  const { data: backups, isLoading } = useQuery({
+    queryKey: ['admin-backups'],
+    queryFn: () => api.get('/admin/backup/list').then(r => r.data as BackupFile[]),
+  })
+
+  async function createBackup() {
+    setCreating(true)
+    try {
+      const res = await api.post('/admin/backup/create')
+      qc.invalidateQueries({ queryKey: ['admin-backups'] })
+      notify(true, `Backup created: ${res.data.filename} (${fmtBytes(res.data.size)})`)
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Backup failed')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function deleteBackup(filename: string) {
+    if (!confirm(`Delete backup "${filename}"?`)) return
+    try {
+      await api.delete(`/admin/backup/${filename}`)
+      qc.invalidateQueries({ queryKey: ['admin-backups'] })
+      notify(true, 'Backup deleted')
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Delete failed')
+    }
+  }
+
+  async function restoreFile(file: File) {
+    if (!confirm(`Restore from "${file.name}"? This will overwrite existing data.`)) return
+    setRestoring(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      await api.post('/admin/backup/restore', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      notify(true, `Restore from "${file.name}" completed.`)
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Restore failed')
+    } finally {
+      setRestoring(false)
+    }
+  }
+
+  async function clearData() {
+    if (confirmTx !== 'CONFIRM') return
+    setClearing(true)
+    try {
+      const res = await api.post('/admin/backup/clear', { scope, confirm: 'CONFIRM' })
+      notify(true, `Cleared: ${res.data.tables.join(', ')}`)
+      setConfirmTx('')
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Clear failed')
+    } finally {
+      setClearing(false)
+    }
+  }
+
+  const scopeLabels: Record<string, string> = {
+    trading_data: 'Trading Data (trades + signals)',
+    audit_log:    'Audit Log only',
+    all_data:     'All Data (trades + signals + audit log)',
+  }
+
+  return (
+    <div className="space-y-5">
+      {feedback && (
+        <div className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-mono ${feedback.ok ? 'bg-cy/5 border border-cy/20 text-cy' : 'bg-rd/5 border border-rd/20 text-rd'}`}>
+          <span>{feedback.ok ? '✓' : '✗'} {feedback.msg}</span>
+          <button onClick={() => setFeedback(null)} className="opacity-50 hover:opacity-100 ml-4">✕</button>
+        </div>
+      )}
+
+      {/* Create backup */}
+      <div className="bg-s1 border border-s3 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-semibold text-tx">Create Backup</h3>
+            <p className="text-xs text-tx3 mt-0.5">Runs pg_dump and saves a .sql file on the server</p>
+          </div>
+          <button
+            onClick={createBackup}
+            disabled={creating}
+            className="px-4 py-2 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50"
+          >
+            {creating ? 'Creating…' : '↓ Create Backup'}
+          </button>
+        </div>
+        <div className="text-[10px] font-mono text-tx3 px-3 py-2 rounded-lg bg-s3">
+          Backups stored in: <span className="text-tx2">./backups/</span> on the server.
+          Download files from the list below.
+        </div>
+      </div>
+
+      {/* Backup list */}
+      <div className="bg-s1 border border-s3 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-s3">
+          <span className="text-[10px] font-mono text-tx3 uppercase tracking-widest">Saved Backups</span>
+          <span className="text-[10px] font-mono text-tx3">{backups?.length ?? 0} files</span>
+        </div>
+        {isLoading && <p className="px-5 py-4 text-tx2 text-sm animate-pulse">Loading…</p>}
+        {!isLoading && (!backups || backups.length === 0) && (
+          <p className="px-5 py-6 text-center text-tx3 text-sm">No backups yet — create one above.</p>
+        )}
+        {backups?.map(b => (
+          <div key={b.filename} className="flex items-center gap-3 px-5 py-3 border-b border-s3 last:border-0 hover:bg-s2/50 transition-colors">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-tx font-mono truncate">{b.filename}</p>
+              <p className="text-[11px] text-tx3 mt-0.5">
+                {fmtBytes(b.size)} · {new Date(b.created_at).toLocaleString()}
+              </p>
+            </div>
+            <a
+              href={`/api/admin/backup/download/${b.filename}`}
+              download={b.filename}
+              className="px-3 py-1.5 rounded-lg border border-s3 text-xs font-mono text-cy hover:bg-s3 transition-colors"
+            >
+              ↓ Download
+            </a>
+            <button
+              onClick={() => deleteBackup(b.filename)}
+              className="px-3 py-1.5 rounded-lg border border-rd/20 text-xs font-mono text-rd/60 hover:text-rd hover:bg-rd/5 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Restore */}
+      <div className="bg-s1 border border-s3 rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-tx mb-1">Restore from File</h3>
+        <p className="text-xs text-tx3 mb-4">Upload a .sql file previously exported by pg_dump. This pipes it through psql — existing data may be overwritten.</p>
+        <input
+          ref={fileRef} type="file" accept=".sql" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) restoreFile(f) }}
+        />
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={restoring}
+          className="px-4 py-2 rounded-lg border border-gd/30 text-gd text-xs font-mono hover:bg-gd/5 transition-colors disabled:opacity-50"
+        >
+          {restoring ? 'Restoring…' : '↑ Upload & Restore .sql'}
+        </button>
+      </div>
+
+      {/* Clear database */}
+      <div className="bg-s1 border border-rd/20 rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-rd text-sm">⚠</span>
+          <h3 className="text-sm font-semibold text-rd">Clear Database</h3>
+        </div>
+        <p className="text-xs text-tx3 mb-4">
+          Permanently truncate selected tables. <strong className="text-tx">Users, config, and billing are never touched.</strong> Always create a backup first.
+        </p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-[10px] font-mono text-tx3 uppercase tracking-widest block mb-1.5">Scope</label>
+            <select
+              value={scope}
+              onChange={e => setScope(e.target.value)}
+              className="w-full bg-s2 border border-s3 rounded-lg px-3 py-2 text-sm text-tx focus:outline-none focus:border-rd/40 transition-colors"
+            >
+              {Object.entries(scopeLabels).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-mono text-tx3 uppercase tracking-widest block mb-1.5">
+              Type CONFIRM to unlock
+            </label>
+            <input
+              value={confirmTx}
+              onChange={e => setConfirmTx(e.target.value)}
+              placeholder="CONFIRM"
+              className="w-full bg-s2 border border-s3 rounded-lg px-3 py-2 text-sm text-tx font-mono focus:outline-none focus:border-rd/40 transition-colors"
+            />
+          </div>
+          <button
+            onClick={clearData}
+            disabled={clearing || confirmTx !== 'CONFIRM'}
+            className="px-4 py-2 rounded-lg bg-rd text-white text-xs font-bold tracking-widest hover:bg-rd/80 transition-colors disabled:opacity-40"
+          >
+            {clearing ? 'Clearing…' : 'Clear Selected Data'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Info / Maintenance Tab ───────────────────────────────────────────────────
+
+interface SystemInfo {
+  python:       string
+  platform:     string
+  postgres:     string
+  db_name:      string
+  db_size:      string
+  db_size_bytes: number
+  tables:       { name: string; pretty_size: string; size_bytes: number }[]
+  row_counts:   Record<string, number>
+  disk:         { total_gb: number; used_gb: number; free_gb: number; used_pct: number }
+  backups:      { count: number; size_mb: number }
+}
+
+function InfoBar({ pct, color = 'var(--color-cy)' }: { pct: number; color?: string }) {
+  return (
+    <div className="h-1.5 rounded-full overflow-hidden mt-1" style={{ background: 'var(--color-s3)' }}>
+      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: color }} />
+    </div>
+  )
+}
+
+function InfoTab() {
+  const [vacuuming,   setVacuuming]   = useState(false)
+  const [reindexing,  setReindexing]  = useState(false)
+  const [feedback,    setFeedback]    = useState<{ ok: boolean; msg: string } | null>(null)
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['admin-system-info'],
+    queryFn: () => api.get('/admin/system/info').then(r => r.data as SystemInfo),
+    refetchInterval: 60_000,
+  })
+
+  const notify = (ok: boolean, msg: string) => {
+    setFeedback({ ok, msg })
+    setTimeout(() => setFeedback(null), 5000)
+  }
+
+  async function runVacuum() {
+    setVacuuming(true)
+    try {
+      const res = await api.post('/admin/system/vacuum')
+      notify(true, res.data.message)
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Vacuum failed')
+    } finally {
+      setVacuuming(false)
+    }
+  }
+
+  async function runReindex() {
+    setReindexing(true)
+    try {
+      const res = await api.post('/admin/system/reindex')
+      notify(true, `Reindexed ${res.data.reindexed?.length ?? 0} tables`)
+    } catch (e: any) {
+      notify(false, e?.response?.data?.detail ?? 'Reindex failed')
+    } finally {
+      setReindexing(false)
+    }
+  }
+
+  if (isLoading) return <p className="text-tx2 text-sm animate-pulse">Loading system info…</p>
+  if (!data)     return <p className="text-rd text-sm">Failed to load system info.</p>
+
+  const diskColor = data.disk.used_pct > 85 ? '#ff3d5a' : data.disk.used_pct > 65 ? '#f0b429' : 'var(--color-cy)'
+
+  return (
+    <div className="space-y-5">
+      {feedback && (
+        <div className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-mono ${feedback.ok ? 'bg-cy/5 border border-cy/20 text-cy' : 'bg-rd/5 border border-rd/20 text-rd'}`}>
+          <span>{feedback.ok ? '✓' : '✗'} {feedback.msg}</span>
+          <button onClick={() => setFeedback(null)} className="opacity-50 hover:opacity-100 ml-4">✕</button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        {/* System + DB info */}
+        <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-tx">System</h3>
+            <button onClick={() => refetch()} className="text-[10px] font-mono text-tx3 hover:text-tx2 transition-colors">↻ Refresh</button>
+          </div>
+
+          {[
+            { label: 'Python',     value: data.python },
+            { label: 'Platform',   value: data.platform },
+            { label: 'PostgreSQL', value: data.postgres },
+            { label: 'Database',   value: data.db_name },
+            { label: 'DB Size',    value: data.db_size },
+          ].map(row => (
+            <div key={row.label} className="flex items-center justify-between py-2 border-b border-s3 last:border-0">
+              <span className="text-xs text-tx2">{row.label}</span>
+              <span className="text-xs font-mono text-tx">{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Disk + Backups */}
+        <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-tx">Disk & Backups</h3>
+
+          <div>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-tx2">Disk Used</span>
+              <span className="font-mono" style={{ color: diskColor }}>
+                {data.disk.used_gb} GB / {data.disk.total_gb} GB ({data.disk.used_pct}%)
+              </span>
+            </div>
+            <InfoBar pct={data.disk.used_pct} color={diskColor} />
+            <p className="text-[10px] text-tx3 font-mono mt-1">{data.disk.free_gb} GB free</p>
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-t border-s3">
+            <span className="text-xs text-tx2">Saved Backups</span>
+            <span className="text-xs font-mono text-tx">{data.backups.count} files · {data.backups.size_mb} MB</span>
+          </div>
+
+          <div className="space-y-1 pt-1 border-t border-s3">
+            <p className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-2">Key Row Counts</p>
+            {Object.entries(data.row_counts).map(([tbl, cnt]) => (
+              <div key={tbl} className="flex justify-between text-xs">
+                <span className="text-tx2 font-mono">{tbl}</span>
+                <span className="text-tx font-mono">{cnt >= 0 ? cnt.toLocaleString() : '—'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Table sizes */}
+      <div className="bg-s1 border border-s3 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-s3">
+          <span className="text-[10px] font-mono text-tx3 uppercase tracking-widest">Table Sizes</span>
+        </div>
+        <div className="divide-y divide-s3">
+          {data.tables.map(t => {
+            const pct = data.db_size_bytes > 0 ? (t.size_bytes / data.db_size_bytes) * 100 : 0
+            return (
+              <div key={t.name} className="px-5 py-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono text-tx">{t.name}</span>
+                  <span className="text-[11px] font-mono text-tx2">{t.pretty_size}</span>
+                </div>
+                <InfoBar pct={pct} />
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Maintenance */}
+      <div className="bg-s1 border border-s3 rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-tx mb-1">Maintenance</h3>
+        <p className="text-xs text-tx3 mb-4">Run these periodically to keep the database healthy. VACUUM reclaims space; REINDEX rebuilds bloated indexes.</p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={runVacuum}
+            disabled={vacuuming}
+            className="px-4 py-2 rounded-lg border border-cy/30 text-cy text-xs font-mono hover:bg-cy/5 transition-colors disabled:opacity-50"
+          >
+            {vacuuming ? 'Running…' : '⟳ VACUUM ANALYZE'}
+          </button>
+          <button
+            onClick={runReindex}
+            disabled={reindexing}
+            className="px-4 py-2 rounded-lg border border-s3 text-tx2 text-xs font-mono hover:bg-s2 transition-colors disabled:opacity-50"
+          >
+            {reindexing ? 'Running…' : '⟳ REINDEX All Tables'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main AdminPanel ──────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'users' | 'plans' | 'audit' | 'config'
+type Tab = 'overview' | 'users' | 'plans' | 'audit' | 'config' | 'backup' | 'info'
 
 export default function AdminPanel() {
   const [tab, setTab] = useState<Tab>('overview')
@@ -1245,23 +2097,25 @@ export default function AdminPanel() {
 
   const planColorMap = Object.fromEntries((plans ?? []).map(p => [p.plan_id, p.color]))
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'users',    label: 'Users' },
-    { key: 'plans',    label: 'Plans' },
-    { key: 'audit',    label: 'Audit Log' },
-    { key: 'config',   label: 'Config' },
+  const tabs: { key: Tab; icon: string; label: string; short: string }[] = [
+    { key: 'overview', icon: '◈', label: 'Overview',    short: 'Overview' },
+    { key: 'users',    icon: '◉', label: 'Users',       short: 'Users'    },
+    { key: 'plans',    icon: '◇', label: 'Plans',       short: 'Plans'    },
+    { key: 'audit',    icon: '≡', label: 'Audit Log',   short: 'Audit'    },
+    { key: 'config',   icon: '⚙', label: 'Config',      short: 'Config'   },
+    { key: 'backup',   icon: '↓', label: 'Backup',      short: 'Backup'   },
+    { key: 'info',     icon: 'ℹ', label: 'System Info', short: 'System'   },
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
           style={{ background: 'rgba(0,229,204,0.12)', border: '1px solid rgba(0,229,204,0.25)', color: 'var(--color-cy)' }}>
           ◈
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-tx font-head flex items-center gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-tx font-head flex items-center gap-2 flex-wrap">
             Admin Panel
             <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide bg-cy/15 text-cy border border-cy/30">
               superuser
@@ -1271,18 +2125,39 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      <div className="flex gap-1 bg-s1 border border-s3 rounded-xl p-1 w-full">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === t.key ? 'bg-cy text-bg' : 'text-tx2 hover:text-tx hover:bg-s2'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Tab bar */}
+      <div className="bg-s1 border border-s3 rounded-xl p-1">
+        {/* Mobile: icon-only scrollable row */}
+        <div className="flex sm:hidden gap-1 overflow-x-auto">
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              title={t.label}
+              className={`shrink-0 flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg transition-colors ${
+                tab === t.key ? 'bg-cy text-bg' : 'text-tx2 hover:text-tx hover:bg-s2'
+              }`}
+            >
+              <span className="text-base leading-none">{t.icon}</span>
+              <span className="text-[9px] font-bold tracking-wide whitespace-nowrap">{t.short}</span>
+            </button>
+          ))}
+        </div>
+        {/* sm+: full label row */}
+        <div className="hidden sm:flex gap-1">
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                tab === t.key ? 'bg-cy text-bg' : 'text-tx2 hover:text-tx hover:bg-s2'
+              }`}
+            >
+              <span className="text-sm leading-none">{t.icon}</span>
+              <span>{t.short}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Overview ── */}
@@ -1356,8 +2231,25 @@ export default function AdminPanel() {
         <div className="space-y-6">
           <BrandingConfig />
           <TelegramConfig />
+          <FinnhubConfig />
+          <div className="border-t border-s3 pt-6">
+            <div className="mb-4">
+              <h2 className="text-base font-bold text-tx font-head">Email Configuration</h2>
+              <p className="text-xs text-tx3 mt-0.5">SMTP settings for transactional emails</p>
+            </div>
+            <EmailConfig />
+          </div>
+          <div className="border-t border-s3 pt-6">
+            <div className="mb-4">
+              <h2 className="text-base font-bold text-tx font-head">Payment Gateway</h2>
+              <p className="text-xs text-tx3 mt-0.5">Stripe or Paystack — switch at any time, keys are stored securely in the database</p>
+            </div>
+            <PaymentConfig />
+          </div>
         </div>
       )}
+      {tab === 'backup' && <BackupTab />}
+      {tab === 'info'   && <InfoTab />}
     </div>
   )
 }

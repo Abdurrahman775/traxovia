@@ -48,9 +48,35 @@ async def on_trade_closed(trade_id: str, user_id: str) -> None:
             user_id, "trade_closed", detail,
         )
 
+        # ── Trade execution notification ──────────────────────────────────────
+        try:
+            from notifications.telegram_handler import notify_user
+            pair      = signal["pair"]
+            direction = (trade["direction"] or "").upper()
+            pnl_sign  = "+" if pnl_r >= 0 else ""
+            emoji     = "✅" if pnl_r > 0.05 else ("❌" if pnl_r < -0.05 else "➖")
+            tg_msg = (
+                f"{emoji} <b>Trade Closed</b>\n"
+                f"Pair:  {pair}  {direction}\n"
+                f"P&L:   <code>{pnl_sign}{float(pnl_r):.2f}R</code>\n"
+                f"Result: {outcome.capitalize()}"
+            )
+            await notify_user(user_id, tg_msg, "trade_execution", db)
+        except Exception as e:
+            logger.warning("feedback_loop: trade_execution notify failed: %s", e)
+
+        # ── Re-evaluate drawdown after every trade close ─────────────────────
+        # Catches stage escalation from losing trades even when no new
+        # signals are being generated.
+        try:
+            from core.risk_engine.drawdown_monitor import evaluate_drawdown
+            await evaluate_drawdown(user_id, db)
+        except Exception as e:
+            logger.warning("feedback_loop: evaluate_drawdown failed: %s", e)
+
         if signal.get("community_visible"):
             try:
-                from telegram.community_drops import post_result_drop
+                from tg_bot.community_drops import post_result_drop
                 await post_result_drop(dict(trade), dict(signal))
             except Exception as e:
                 logger.warning("feedback_loop: community drop failed: %s", e)

@@ -17,6 +17,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         gcc \
         libpq-dev \
+        postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first so Docker can cache this layer independently of

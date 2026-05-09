@@ -17,6 +17,8 @@ def _classify_stage(dd_pct: float) -> int:
     return 0
 
 
+_STAGE_EMOJI = {1: "⚠️", 2: "🚨", 3: "🛑"}
+
 async def _apply_stage(user_id: str, stage: int, dd_pct: float, db) -> None:
     cfg = _STAGE_CFG[stage]
     await db.execute(
@@ -25,6 +27,20 @@ async def _apply_stage(user_id: str, stage: int, dd_pct: float, db) -> None:
            WHERE user_id=$4::uuid AND date=CURRENT_DATE""",
         stage, cfg["trading_allowed"], cfg["block_reason"], user_id,
     )
+    if stage >= 1:
+        try:
+            from notifications.telegram_handler import notify_user
+            emoji = _STAGE_EMOJI.get(stage, "⚠️")
+            status = "Trading <b>PAUSED</b>" if not cfg["trading_allowed"] else "Risk capped"
+            msg = (
+                f"{emoji} <b>Drawdown Warning — Stage {stage}</b>\n"
+                f"Drawdown: <code>{dd_pct:.2f}%</code>\n"
+                f"Status:   {status}\n"
+                f"{cfg['block_reason'] or ''}"
+            )
+            await notify_user(user_id, msg, "drawdown_warning", db)
+        except Exception:
+            pass
 
 
 async def evaluate_drawdown(user_id: str, db) -> dict:

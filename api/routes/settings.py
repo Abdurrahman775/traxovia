@@ -2,8 +2,11 @@
 api/routes/settings.py — User settings read/update.
 """
 import json
+import random
+import string
+from datetime import datetime, timedelta, timezone
 from typing import Any
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database.connection import get_db, set_rls_user
 from api.auth import get_current_user
@@ -152,3 +155,73 @@ async def update_settings(
             *params,
         )
     return {"status": "updated"}
+
+
+# ── Telegram linking ───────────────────────────────────────────────────────────
+
+def _generate_token() -> str:
+    """Generate a readable 8-char alphanumeric token, e.g. TRX-A3F9."""
+    chars = random.choices(string.ascii_uppercase + string.digits, k=6)
+    return "TRX-" + "".join(chars)
+
+
+@router.post("/settings/telegram/link-token")
+async def generate_telegram_link_token(
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Generate a short-lived token the user sends to the bot via /link TOKEN."""
+    await set_rls_user(db, user["sub"])
+
+    token      = _generate_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+    await db.execute(
+        """UPDATE users
+           SET telegram_link_token=$1, telegram_link_expires_at=$2, updated_at=NOW()
+           WHERE id=$3""",
+        token, expires_at, user["sub"],
+    )
+    return {
+        "token":      token,
+        "expires_at": expires_at.isoformat(),
+        "expires_in": 900,  # seconds
+    }
+
+
+@router.get("/settings/telegram/status")
+async def get_telegram_status(
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Return current Telegram link status for the logged-in user."""
+    await set_rls_user(db, user["sub"])
+    row = await db.fetchrow(
+        "SELECT telegram_chat_id, telegram_username FROM users WHERE id=$1",
+        user["sub"],
+    )
+    if not row or not row["telegram_chat_id"]:
+        return {"linked": False, "telegram_chat_id": None, "telegram_username": None}
+    return {
+        "linked":            True,
+        "telegram_chat_id":  row["telegram_chat_id"],
+        "telegram_username": row["telegram_username"],
+    }
+
+
+@router.delete("/settings/telegram/unlink")
+async def unlink_telegram(
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Unlink Telegram from the dashboard (same effect as /unlink in the bot)."""
+    await set_rls_user(db, user["sub"])
+    await db.execute(
+        "UPDATE users SET telegram_chat_id=NULL, telegram_username=NULL, "
+        "updated_at=NOW() WHERE id=$1",
+        user["sub"],
+    )
+    await db.execute(
+        "INSERT INTO audit_log(user_id, action, detail) VALUES($1,$2,$3)",
+        user["sub"], "mt5_binding", "Telegram unlinked via dashboard",
+    )

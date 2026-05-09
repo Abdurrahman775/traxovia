@@ -52,7 +52,7 @@ export default function AuditLog() {
           style={{ background: 'var(--color-s2)', borderBottom: '1px solid var(--color-card-border)', color: 'var(--color-tx3)' }}>
           Account Audit Log
         </div>
-        <div style={{ background: 'var(--color-s1)' }}>
+        <div style={{ background: 'var(--color-s1)' }} className="tbl-scroll">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] font-mono tracking-wide uppercase"

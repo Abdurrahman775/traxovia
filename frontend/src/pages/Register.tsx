@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { useBranding } from '../hooks/useBranding'
+import bgImage from '../bg-image.webp'
+import localLogo from '../logo.webp'
 
 export default function Register() {
   const [email,    setEmail]    = useState('')
@@ -32,13 +34,12 @@ export default function Register() {
   const LABEL = "text-[10px] font-mono tracking-widest uppercase"
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
-      <div className="w-full max-w-sm rounded-2xl p-8" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(2px)' }} />
+      <div className="w-full max-w-sm rounded-2xl p-8" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)', position: 'relative', zIndex: 1 }}>
 
         <div className="mb-7 flex items-center gap-3">
-          {app_logo_url && (
-            <img src={app_logo_url} alt="logo" className="w-10 h-10 rounded-xl object-contain shrink-0" />
-          )}
+          <img src={app_logo_url} alt="logo" className="w-10 h-10 rounded-xl object-contain shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).src = localLogo }} />
           <div>
             <div className="font-head font-bold text-xl" style={{ color: 'var(--color-cy)' }}>{app_name}</div>
             <div className="text-xs font-mono" style={{ color: 'var(--color-tx3)' }}>Create your account</div>

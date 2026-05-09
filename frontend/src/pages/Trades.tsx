@@ -64,7 +64,7 @@ export default function Trades() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* ── 4 stat cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+      <div className="rg4">
         {statCards.map(m => (
           <div key={m.t} className="rounded-[10px] p-4" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
             <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
@@ -86,6 +86,7 @@ export default function Trades() {
         {trades.length === 0 ? (
           <div className="font-mono text-xs text-center py-10" style={{ color: 'var(--color-tx3)' }}>No trades yet</div>
         ) : (
+          <div className="tbl-scroll">
           <table className="w-full border-collapse">
             <thead>
               <tr>
@@ -158,6 +159,7 @@ export default function Trades() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

@@ -65,7 +65,7 @@ const APPROVE_PLANS = new Set(['trader', 'pro', 'elite'])
 export default function Signals() {
   const qc = useQueryClient()
 
-  const { data: raw = [] } = useQuery({
+  const { data: raw = [], isFetching: signalsFetching } = useQuery({
     queryKey: ['signals'],
     queryFn: () => api.get('/signals').then(r => Array.isArray(r.data) ? r.data : []),
     retry: false,
@@ -98,11 +98,12 @@ export default function Signals() {
         </span>
         <button
           onClick={() => qc.invalidateQueries({ queryKey: ['signals'] })}
+          disabled={signalsFetching}
           className="font-mono text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-lg cursor-pointer transition-all ml-auto"
-          style={{ background: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.09)' }}
+          style={{ background: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)', opacity: signalsFetching ? 0.5 : 1 }}
+          onMouseEnter={e => { if (!signalsFetching) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.09)' }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-divider)' }}>
-          ↻ REFRESH
+          {signalsFetching ? '↻ REFRESHING…' : '↻ REFRESH'}
         </button>
         {!canApprove && (
           <div className="font-mono text-[10px]"
@@ -116,7 +117,7 @@ export default function Signals() {
       {signals.length === 0 ? (
         <div className="font-mono text-xs text-center py-16" style={{ color: 'var(--color-tx3)' }}>No signals yet</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="rg2">
           {signals.map((s: any) => {
             const conf    = s.ai_probability != null ? Math.round(s.ai_probability * 100) : null
             const isPending = s.status === 'pending'

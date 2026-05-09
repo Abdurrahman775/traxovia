@@ -98,7 +98,7 @@ async def drop_signal(background_tasks: BackgroundTasks, user=Depends(get_curren
     )
 
     try:
-        from telegram.community_drops import post_signal_drop
+        from tg_bot.community_drops import post_signal_drop
         background_tasks.add_task(post_signal_drop, dict(signal))
     except Exception as e:
         logger.warning("community signal drop failed: %s", e)
@@ -127,7 +127,7 @@ async def drop_result(background_tasks: BackgroundTasks, user=Depends(get_curren
     )
 
     try:
-        from telegram.community_drops import post_result_drop
+        from tg_bot.community_drops import post_result_drop
         trade_d = dict(trade)
         background_tasks.add_task(post_result_drop, trade_d, trade_d)
     except Exception as e:

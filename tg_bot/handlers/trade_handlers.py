@@ -1,5 +1,5 @@
 """
-telegram/handlers/trade_handlers.py — Trader+ trade action commands.
+tg_bot/handlers/trade_handlers.py — Trader+ trade action commands.
 
 Commands:
   /approve_<id>  — approve a pending signal (first 8 chars of UUID)
@@ -9,15 +9,15 @@ Commands:
 """
 from __future__ import annotations
 
-from telegram.handlers import _TRADER_PLANS, _bot_db, _upgrade_text
+from tg_bot.handlers import _TRADER_PLANS, _bot_db, _upgrade_text
 
 
 async def cmd_approve(update, context) -> None:
     """Handle /approve_<signal_prefix>"""
-    tg_id = str(update.effective_user.id)
+    tg_id = update.effective_user.id
     async with _bot_db() as db:
         user = await db.fetchrow(
-            "SELECT id, plan FROM users WHERE telegram_id=$1", tg_id
+            "SELECT id, plan FROM users WHERE telegram_chat_id=$1", tg_id
         )
         if not user or user["plan"] not in _TRADER_PLANS:
             await update.message.reply_text(
@@ -25,7 +25,6 @@ async def cmd_approve(update, context) -> None:
             )
             return
 
-        # Extract signal prefix from command text (e.g. "/approve_abc12345")
         text   = update.message.text or ""
         parts  = text.split("_", 1)
         prefix = parts[1].strip() if len(parts) > 1 else ""
@@ -61,10 +60,10 @@ async def cmd_approve(update, context) -> None:
 
 async def cmd_reject(update, context) -> None:
     """Handle /reject_<signal_prefix>"""
-    tg_id = str(update.effective_user.id)
+    tg_id = update.effective_user.id
     async with _bot_db() as db:
         user = await db.fetchrow(
-            "SELECT id, plan FROM users WHERE telegram_id=$1", tg_id
+            "SELECT id, plan FROM users WHERE telegram_chat_id=$1", tg_id
         )
         if not user or user["plan"] not in _TRADER_PLANS:
             await update.message.reply_text(
@@ -106,10 +105,10 @@ async def cmd_reject(update, context) -> None:
 
 
 async def cmd_pause(update, context) -> None:
-    tg_id = str(update.effective_user.id)
+    tg_id = update.effective_user.id
     async with _bot_db() as db:
         user = await db.fetchrow(
-            "SELECT id, plan FROM users WHERE telegram_id=$1", tg_id
+            "SELECT id, plan FROM users WHERE telegram_chat_id=$1", tg_id
         )
         if not user or user["plan"] not in _TRADER_PLANS:
             await update.message.reply_text(
@@ -118,9 +117,12 @@ async def cmd_pause(update, context) -> None:
             return
 
         await db.execute(
-            "UPDATE mt5_accounts SET trading_paused=TRUE, updated_at=NOW() "
+            "UPDATE risk_state SET trading_allowed=FALSE, updated_at=NOW() "
             "WHERE user_id=$1::uuid",
             user["id"],
+        )
+        await db.execute(
+            "UPDATE bridge_state SET trading_paused=TRUE, updated_at=NOW()"
         )
         await db.execute(
             "INSERT INTO audit_log(user_id, action, detail) VALUES($1::uuid,$2,$3)",
@@ -131,10 +133,10 @@ async def cmd_pause(update, context) -> None:
 
 
 async def cmd_resume(update, context) -> None:
-    tg_id = str(update.effective_user.id)
+    tg_id = update.effective_user.id
     async with _bot_db() as db:
         user = await db.fetchrow(
-            "SELECT id, plan FROM users WHERE telegram_id=$1", tg_id
+            "SELECT id, plan FROM users WHERE telegram_chat_id=$1", tg_id
         )
         if not user or user["plan"] not in _TRADER_PLANS:
             await update.message.reply_text(
@@ -143,9 +145,12 @@ async def cmd_resume(update, context) -> None:
             return
 
         await db.execute(
-            "UPDATE mt5_accounts SET trading_paused=FALSE, updated_at=NOW() "
+            "UPDATE risk_state SET trading_allowed=TRUE, updated_at=NOW() "
             "WHERE user_id=$1::uuid",
             user["id"],
+        )
+        await db.execute(
+            "UPDATE bridge_state SET trading_paused=FALSE, updated_at=NOW()"
         )
         await db.execute(
             "INSERT INTO audit_log(user_id, action, detail) VALUES($1::uuid,$2,$3)",

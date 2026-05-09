@@ -27,6 +27,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
+import httpx
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -39,9 +40,28 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
-# ── Stripe client initialisation ───────────────────────────────────────────────
 
-stripe.api_key = settings.stripe_secret_key
+# ── Dynamic payment config ─────────────────────────────────────────────────────
+
+async def _get_payment_config(db) -> dict:
+    """Read payment gateway config from DB; fall back to .env for each field."""
+    row = await db.fetchrow("SELECT * FROM bot_config WHERE id=1")
+    cfg = dict(row) if row else {}
+    return {
+        "gateway":               cfg.get("payment_gateway") or "stripe",
+        "stripe_secret_key":     cfg.get("stripe_secret_key")     or settings.stripe_secret_key,
+        "stripe_webhook_secret": cfg.get("stripe_webhook_secret") or settings.stripe_webhook_secret,
+        "stripe_price_starter":  cfg.get("stripe_price_starter")  or settings.stripe_price_starter,
+        "stripe_price_trader":   cfg.get("stripe_price_trader")   or settings.stripe_price_trader,
+        "stripe_price_pro":      cfg.get("stripe_price_pro")      or settings.stripe_price_pro,
+        "stripe_price_elite":    cfg.get("stripe_price_elite")    or settings.stripe_price_elite,
+        "paystack_secret_key":   cfg.get("paystack_secret_key")   or "",
+        "paystack_public_key":   cfg.get("paystack_public_key")   or "",
+        "paystack_plan_starter": cfg.get("paystack_plan_starter") or "",
+        "paystack_plan_trader":  cfg.get("paystack_plan_trader")  or "",
+        "paystack_plan_pro":     cfg.get("paystack_plan_pro")     or "",
+        "paystack_plan_elite":   cfg.get("paystack_plan_elite")   or "",
+    }
 
 # ── Plan definitions ───────────────────────────────────────────────────────────
 
@@ -61,29 +81,26 @@ PLAN_PRICES: dict[str, str] = {
 _ACTIVE_STATUSES = {"active", "trialing"}
 
 
-def _price_to_plan_map() -> dict[str, str]:
-    """
-    Build the Stripe price_id → plan name lookup at call time so changes to
-    settings (e.g. in tests) are always reflected.
-    """
+def _price_to_plan_map(cfg: dict) -> dict[str, str]:
     m: dict[str, str] = {}
-    if settings.stripe_price_starter:
-        m[settings.stripe_price_starter] = "starter"
-    if settings.stripe_price_trader:
-        m[settings.stripe_price_trader] = "trader"
-    if settings.stripe_price_pro:
-        m[settings.stripe_price_pro] = "pro"
-    if settings.stripe_price_elite:
-        m[settings.stripe_price_elite] = "elite"
+    for plan in ("starter", "trader", "pro", "elite"):
+        price_id = cfg.get(f"stripe_price_{plan}", "")
+        if price_id:
+            m[price_id] = plan
     return m
 
 
-def _plan_from_subscription(sub: stripe.Subscription) -> str | None:
-    """
-    Extract the plan name from a Stripe Subscription object.
-    Returns None if the price ID is not in our map (unknown/legacy price).
-    """
-    price_map = _price_to_plan_map()
+def _paystack_plan_map(cfg: dict) -> dict[str, str]:
+    m: dict[str, str] = {}
+    for plan in ("starter", "trader", "pro", "elite"):
+        code = cfg.get(f"paystack_plan_{plan}", "")
+        if code:
+            m[plan] = code
+    return m
+
+
+def _plan_from_subscription(sub: stripe.Subscription, cfg: dict) -> str | None:
+    price_map = _price_to_plan_map(cfg)
     try:
         price_id = sub["items"]["data"][0]["price"]["id"]
         return price_map.get(price_id)
@@ -190,10 +207,12 @@ def _plan_rank(plan: str) -> int:
 async def stripe_webhook(request: Request, db=Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("Stripe-Signature", "")
+    cfg = await _get_payment_config(db)
+    stripe.api_key = cfg["stripe_secret_key"]
 
     try:
         event = stripe.Webhook.construct_event(
-            payload, sig_header, settings.stripe_webhook_secret
+            payload, sig_header, cfg["stripe_webhook_secret"]
         )
     except stripe.error.SignatureVerificationError:
         logger.warning("stripe webhook: invalid signature")
@@ -207,10 +226,10 @@ async def stripe_webhook(request: Request, db=Depends(get_db)):
 
     try:
         if event_type == "customer.subscription.created":
-            await _handle_subscription_created(sub, db)
+            await _handle_subscription_created(sub, db, cfg)
 
         elif event_type == "customer.subscription.updated":
-            await _handle_subscription_updated(sub, db)
+            await _handle_subscription_updated(sub, db, cfg)
 
         elif event_type == "customer.subscription.deleted":
             await _handle_subscription_deleted(sub, db)
@@ -227,7 +246,7 @@ async def stripe_webhook(request: Request, db=Depends(get_db)):
 
 # ── Webhook sub-handlers ───────────────────────────────────────────────────────
 
-async def _handle_subscription_created(sub: stripe.Subscription, db) -> None:
+async def _handle_subscription_created(sub: stripe.Subscription, db, cfg: dict) -> None:
     """
     New subscription created.
     Only activate the plan if the subscription status is active or trialing.
@@ -243,7 +262,7 @@ async def _handle_subscription_created(sub: stripe.Subscription, db) -> None:
         )
         return
 
-    plan = _plan_from_subscription(sub)
+    plan = _plan_from_subscription(sub, cfg)
     if not plan:
         logger.warning("subscription.created: unrecognised price ID in subscription %s", sub["id"])
         return
@@ -251,7 +270,7 @@ async def _handle_subscription_created(sub: stripe.Subscription, db) -> None:
     await _apply_plan_change(sub["customer"], plan, "customer.subscription.created", db)
 
 
-async def _handle_subscription_updated(sub: stripe.Subscription, db) -> None:
+async def _handle_subscription_updated(sub: stripe.Subscription, db, cfg: dict) -> None:
     """
     Subscription changed — covers upgrades, downgrades, and reinstatements
     after a failed-payment recovery.
@@ -266,7 +285,7 @@ async def _handle_subscription_updated(sub: stripe.Subscription, db) -> None:
         )
         return
 
-    plan = _plan_from_subscription(sub)
+    plan = _plan_from_subscription(sub, cfg)
     if not plan:
         logger.warning("subscription.updated: unrecognised price ID in subscription %s", sub["id"])
         return
@@ -301,9 +320,38 @@ async def create_checkout_session(
     user: dict = Depends(get_current_user),
     db=Depends(get_db),
 ):
-    plan = body.plan.lower()
-    price_map = _price_to_plan_map()
-    plan_to_price = {v: k for k, v in price_map.items()}
+    cfg     = await _get_payment_config(db)
+    gateway = cfg["gateway"]
+    plan    = body.plan.lower()
+
+    if gateway == "paystack":
+        secret = cfg["paystack_secret_key"]
+        if not secret:
+            raise HTTPException(400, "Paystack secret key is not configured.")
+        plan_code = _paystack_plan_map(cfg).get(plan)
+        row = await db.fetchrow("SELECT email FROM users WHERE id=$1::uuid", user["sub"])
+        email = row["email"] if row else ""
+        payload: dict = {"email": email, "callback_url": f"{settings.frontend_url}/billing?checkout=success"}
+        if plan_code:
+            payload["plan"] = plan_code
+        else:
+            plan_prices = {"starter": 2900, "trader": 7900, "pro": 14900, "elite": 29900}
+            payload["amount"] = plan_prices.get(plan, 2900)
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                "https://api.paystack.co/transaction/initialize",
+                json=payload,
+                headers={"Authorization": f"Bearer {secret}"},
+            )
+        if resp.status_code != 200:
+            raise HTTPException(400, f"Paystack error: {resp.json().get('message', resp.text)}")
+        data = resp.json()
+        return {"checkout_url": data["data"]["authorization_url"]}
+
+    # Default: Stripe
+    stripe.api_key = cfg["stripe_secret_key"]
+    price_map      = _price_to_plan_map(cfg)
+    plan_to_price  = {v: k for k, v in price_map.items()}
 
     if plan not in plan_to_price:
         raise HTTPException(
@@ -312,7 +360,6 @@ async def create_checkout_session(
         )
 
     customer_id = await _get_or_create_stripe_customer(user, db)
-
     session = stripe.checkout.Session.create(
         customer=customer_id,
         mode="subscription",
@@ -321,7 +368,6 @@ async def create_checkout_session(
         cancel_url=f"{settings.frontend_url}/billing?checkout=cancelled",
         metadata={"user_id": user["sub"], "plan": plan},
     )
-
     return {"checkout_url": session["url"]}
 
 
@@ -335,6 +381,9 @@ async def customer_portal(
     user: dict = Depends(get_current_user),
     db=Depends(get_db),
 ):
+    cfg = await _get_payment_config(db)
+    stripe.api_key = cfg["stripe_secret_key"]
+
     row = await db.fetchrow(
         "SELECT stripe_customer_id FROM users WHERE id = $1::uuid", user["sub"]
     )
@@ -348,7 +397,6 @@ async def customer_portal(
         customer=row["stripe_customer_id"],
         return_url=f"{settings.frontend_url}/billing",
     )
-
     return {"portal_url": session["url"]}
 
 
@@ -379,6 +427,8 @@ async def get_subscription(
     # Optionally enrich with live Stripe subscription data if customer exists.
     if row["stripe_customer_id"]:
         try:
+            cfg = await _get_payment_config(db)
+            stripe.api_key = cfg["stripe_secret_key"]
             subs = stripe.Subscription.list(
                 customer=row["stripe_customer_id"],
                 status="active",

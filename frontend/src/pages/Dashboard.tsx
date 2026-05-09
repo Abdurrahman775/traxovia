@@ -45,78 +45,87 @@ function EquityCurve({ trades }: { trades: any[] }) {
   useEffect(() => {
     const cv = ref.current
     if (!cv) return
-    const ctx = cv.getContext('2d')
-    if (!ctx) return
-    const W = cv.width, H = cv.height
-    ctx.clearRect(0, 0, W, H)
 
-    const closed = trades.filter(t => t.status === 'closed' && t.pnl_r != null)
-    const vals: number[] = [0]
-    closed.forEach(t => vals.push(vals[vals.length - 1] + Number(t.pnl_r)))
+    function draw() {
+      if (!cv) return
+      const ctx = cv.getContext('2d')
+      if (!ctx) return
+      const W = cv.parentElement ? cv.parentElement.clientWidth : 460
+      const H = window.innerWidth <= 767 ? 100 : 160
+      cv.width = W; cv.height = H
+      ctx.clearRect(0, 0, W, H)
 
-    if (vals.length < 2) {
-      ctx.fillStyle = 'var(--color-tx3)'
-      ctx.font = '11px IBM Plex Mono'
-      ctx.textAlign = 'center'
-      ctx.fillText('No closed trades yet', W / 2, H / 2)
-      return
+      const closed = trades.filter(t => t.status === 'closed' && t.pnl_r != null)
+      const vals: number[] = [0]
+      closed.forEach(t => vals.push(vals[vals.length - 1] + Number(t.pnl_r)))
+
+      if (vals.length < 2) {
+        ctx.fillStyle = 'var(--color-tx3)'
+        ctx.font = '11px IBM Plex Mono'
+        ctx.textAlign = 'center'
+        ctx.fillText('No closed trades yet', W / 2, H / 2)
+        return
+      }
+
+      const mn = Math.min(...vals), mx = Math.max(...vals)
+      const range = mx - mn || 1
+      const pad = { t: 14, b: 22, l: 10, r: 10 }
+      const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b
+      const tx = (i: number) => pad.l + (i / (vals.length - 1)) * iW
+      const ty = (v: number) => pad.t + (1 - (v - mn) / range) * iH
+
+      ctx.strokeStyle = 'var(--color-hover-bg)'
+      ctx.lineWidth = 1
+      for (let i = 0; i < 5; i++) {
+        const y = pad.t + i * (iH / 4)
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke()
+      }
+
+      ctx.beginPath()
+      ctx.strokeStyle = 'rgba(136,153,180,0.12)'
+      ctx.lineWidth = 1
+      ctx.setLineDash([4, 4])
+      ctx.moveTo(pad.l, ty(0)); ctx.lineTo(W - pad.r, ty(0)); ctx.stroke()
+      ctx.setLineDash([])
+
+      const pos = vals[vals.length - 1] >= 0
+      const rgb = pos ? '0,229,204' : '255,61,90'
+
+      const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b)
+      grad.addColorStop(0, `rgba(${rgb},0.2)`)
+      grad.addColorStop(1, `rgba(${rgb},0)`)
+      ctx.beginPath()
+      vals.forEach((v, i) => i ? ctx.lineTo(tx(i), ty(v)) : ctx.moveTo(tx(i), ty(v)))
+      ctx.lineTo(tx(vals.length - 1), H - pad.b)
+      ctx.lineTo(tx(0), H - pad.b)
+      ctx.closePath()
+      ctx.fillStyle = grad; ctx.fill()
+
+      ctx.beginPath()
+      ctx.strokeStyle = pos ? '#00e5cc' : '#ff3d5a'
+      ctx.lineWidth = 2; ctx.lineJoin = 'round'
+      vals.forEach((v, i) => i ? ctx.lineTo(tx(i), ty(v)) : ctx.moveTo(tx(i), ty(v)))
+      ctx.stroke()
+
+      ctx.beginPath()
+      ctx.arc(tx(vals.length - 1), ty(vals[vals.length - 1]), 3, 0, Math.PI * 2)
+      ctx.fillStyle = pos ? '#00e5cc' : '#ff3d5a'; ctx.fill()
+
+      ctx.fillStyle = 'var(--color-tx3)'; ctx.font = '9px IBM Plex Mono'
+      ctx.textAlign = 'left'
+      ctx.fillText(`${mn >= 0 ? '+' : ''}${mn.toFixed(1)}R`, pad.l, H - 5)
+      ctx.textAlign = 'right'
+      ctx.fillText(`${mx >= 0 ? '+' : ''}${mx.toFixed(1)}R`, W - pad.r, pad.t + 8)
     }
 
-    const mn = Math.min(...vals), mx = Math.max(...vals)
-    const range = mx - mn || 1
-    const pad = { t: 14, b: 22, l: 10, r: 10 }
-    const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b
-    const tx = (i: number) => pad.l + (i / (vals.length - 1)) * iW
-    const ty = (v: number) => pad.t + (1 - (v - mn) / range) * iH
-
-    // grid lines
-    ctx.strokeStyle = 'var(--color-hover-bg)'
-    ctx.lineWidth = 1
-    for (let i = 0; i < 5; i++) {
-      const y = pad.t + i * (iH / 4)
-      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke()
-    }
-
-    // zero line
-    ctx.beginPath()
-    ctx.strokeStyle = 'rgba(136,153,180,0.12)'
-    ctx.lineWidth = 1
-    ctx.setLineDash([4, 4])
-    ctx.moveTo(pad.l, ty(0)); ctx.lineTo(W - pad.r, ty(0)); ctx.stroke()
-    ctx.setLineDash([])
-
-    const pos = vals[vals.length - 1] >= 0
-    const rgb = pos ? '0,229,204' : '255,61,90'
-
-    const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b)
-    grad.addColorStop(0, `rgba(${rgb},0.2)`)
-    grad.addColorStop(1, `rgba(${rgb},0)`)
-    ctx.beginPath()
-    vals.forEach((v, i) => i ? ctx.lineTo(tx(i), ty(v)) : ctx.moveTo(tx(i), ty(v)))
-    ctx.lineTo(tx(vals.length - 1), H - pad.b)
-    ctx.lineTo(tx(0), H - pad.b)
-    ctx.closePath()
-    ctx.fillStyle = grad; ctx.fill()
-
-    ctx.beginPath()
-    ctx.strokeStyle = pos ? '#00e5cc' : '#ff3d5a'
-    ctx.lineWidth = 2; ctx.lineJoin = 'round'
-    vals.forEach((v, i) => i ? ctx.lineTo(tx(i), ty(v)) : ctx.moveTo(tx(i), ty(v)))
-    ctx.stroke()
-
-    ctx.beginPath()
-    ctx.arc(tx(vals.length - 1), ty(vals[vals.length - 1]), 3, 0, Math.PI * 2)
-    ctx.fillStyle = pos ? '#00e5cc' : '#ff3d5a'; ctx.fill()
-
-    ctx.fillStyle = 'var(--color-tx3)'; ctx.font = '9px IBM Plex Mono'
-    ctx.textAlign = 'left'
-    ctx.fillText(`${mn >= 0 ? '+' : ''}${mn.toFixed(1)}R`, pad.l, H - 5)
-    ctx.textAlign = 'right'
-    ctx.fillText(`${mx >= 0 ? '+' : ''}${mx.toFixed(1)}R`, W - pad.r, pad.t + 8)
+    draw()
+    const ro = new ResizeObserver(draw)
+    if (cv.parentElement) ro.observe(cv.parentElement)
+    return () => ro.disconnect()
   }, [trades])
 
   return (
-    <canvas ref={ref} width={460} height={160} style={{ width: '100%', height: 160, display: 'block' }} />
+    <canvas ref={ref} width={460} height={160} style={{ width: '100%', display: 'block' }} />
   )
 }
 
@@ -217,7 +226,7 @@ export default function Dashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* ── 4 stat cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+      <div className="rg4">
         {[
           {
             t: 'Equity',
@@ -253,7 +262,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Equity Curve + Live Risk State ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div className="rg2">
 
         {/* Equity Curve */}
         <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
@@ -325,6 +334,7 @@ export default function Dashboard() {
         {pendingSignals.length === 0 ? (
           <div className="font-mono text-xs text-center py-8" style={{ color: 'var(--color-tx3)' }}>No pending signals</div>
         ) : (
+          <div className="tbl-scroll">
           <table className="w-full border-collapse">
             <thead>
               <tr>
@@ -411,6 +421,7 @@ export default function Dashboard() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

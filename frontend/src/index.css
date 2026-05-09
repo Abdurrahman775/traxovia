@@ -42,3 +42,125 @@ body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--color-s1); }
 ::-webkit-scrollbar-thumb { background: var(--color-s3); border-radius: 2px; }
+
+/* ── Responsive grid utilities ─────────────────────────────────────────── */
+.rg4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.rg3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.rg2 { display: grid; grid-template-columns: 1fr 1fr;       gap: 14px; }
+
+/* ── Animations ────────────────────────────────────────────────────────── */
+@keyframes pageIn  { from { opacity:0; transform:translateY(8px)  } to { opacity:1; transform:translateY(0) } }
+@keyframes cardIn  { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+@keyframes tickUp  { 0%{color:inherit} 30%{color:#00ffea} 100%{color:inherit} }
+@keyframes tickDn  { 0%{color:inherit} 30%{color:#ff6b7a} 100%{color:inherit} }
+
+.page-enter { animation: pageIn 200ms ease both; }
+.card-anim  { animation: cardIn 250ms ease both; }
+.tick-up    { animation: tickUp 400ms ease; }
+.tick-dn    { animation: tickDn 400ms ease; }
+
+/* ── Sidebar nav hover slide ───────────────────────────────────────────── */
+.nav-link-item { transition: transform 0.15s ease, color 0.15s, background 0.15s; }
+.nav-link-item:hover { transform: translateX(3px); }
+
+/* ── Button active press ───────────────────────────────────────────────── */
+button:active { transform: scale(0.96); }
+
+/* ── Hamburger button ──────────────────────────────────────────────────── */
+.hbg {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 7px;
+  background: none;
+  border: 1px solid var(--color-card-border);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.hbg span {
+  width: 14px; height: 2px;
+  background: var(--color-tx2);
+  border-radius: 2px;
+  display: block;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+.hbg.open span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.hbg.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.hbg.open span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+/* ── Sidebar overlay backdrop ──────────────────────────────────────────── */
+.sb-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 140;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.sb-overlay.open { opacity: 1; pointer-events: all; }
+
+/* ── Table scroll wrapper ──────────────────────────────────────────────── */
+.tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ── Tablet (768px – 1024px) ───────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .sidebar-desktop { width: 48px !important; }
+  .sidebar-desktop .nav-label-text,
+  .sidebar-desktop .nav-group-label,
+  .sidebar-desktop .sidebar-logo-text,
+  .sidebar-desktop .sidebar-footer { display: none !important; }
+  .sidebar-desktop .nav-link-item { justify-content: center; padding-left: 0; padding-right: 0; }
+  .sidebar-desktop .nav-link-item span.nav-icon { margin: 0; }
+
+  .rg4 { grid-template-columns: repeat(2,1fr); gap: 8px; }
+  .rg3 { grid-template-columns: repeat(2,1fr); gap: 8px; }
+  .rg2 { gap: 8px; }
+
+  main { padding: 14px !important; }
+}
+
+/* ── Mobile (≤ 767px) ──────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .hbg { display: flex; }
+  .sb-overlay { display: block; }
+
+  .sidebar-desktop {
+    position: fixed !important;
+    left: 0; top: 0; bottom: 0;
+    width: 220px !important;
+    z-index: 150;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+    padding-top: 56px;
+  }
+  .sidebar-desktop.open { transform: translateX(0); }
+
+  /* Restore full sidebar content on mobile overlay */
+  .sidebar-desktop .nav-label-text,
+  .sidebar-desktop .nav-group-label,
+  .sidebar-desktop .sidebar-logo-text,
+  .sidebar-desktop .sidebar-footer { display: flex !important; }
+  .sidebar-desktop .nav-group-label { display: block !important; }
+  .sidebar-desktop .sidebar-footer  { display: block !important; }
+  .sidebar-desktop .nav-link-item { justify-content: flex-start; padding-left: 12px; padding-right: 12px; }
+
+  .rg4 { grid-template-columns: 1fr; gap: 8px; }
+  .rg3 { grid-template-columns: 1fr; gap: 8px; }
+  .rg2 { grid-template-columns: 1fr; gap: 8px; }
+
+  main { padding: 10px !important; }
+
+  .card-pad { padding: 12px !important; }
+  .hide-mobile { display: none !important; }
+
+  /* Topbar: hamburger left, logo center, actions right */
+  .topbar-logo { position: absolute; left: 50%; transform: translateX(-50%); }
+  .topbar-ticker { display: none !important; }
+}
+

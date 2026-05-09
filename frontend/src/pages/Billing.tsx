@@ -160,15 +160,6 @@ export default function Billing() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={openPortal}
-                className="font-mono text-[11px] font-bold tracking-widest px-[18px] py-[9px] rounded-lg cursor-pointer transition-all flex items-center gap-1.5"
-                style={{ background: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.09)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-tx)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-divider)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-tx2)' }}
-              >
-                Manage Billing
-              </button>
-              <button
                 onClick={() => {}}
                 className="font-mono text-[11px] font-bold tracking-widest px-[18px] py-[9px] rounded-lg cursor-pointer transition-all flex items-center gap-1.5"
                 style={{ background: '#00e5cc', color: '#000' }}
@@ -181,7 +172,7 @@ export default function Billing() {
           </div>
 
           {/* Plan grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${plans.length},1fr)`, gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit,minmax(140px,1fr))`, gap: 10 }}>
             {plans.map((pl, pidIdx) => {
               const isCurrent   = pl.plan_id === plan
               const isCommunity = pl.plan_id === 'community'
@@ -336,7 +327,7 @@ export default function Billing() {
 
       {/* USAGE TAB */}
       {tab === 'usage' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="rg2">
           {[
             { l: 'Signals Generated',   v: usageData?.signals_generated ?? 0,  max: isAdmin ? 99999 : 100,   unit: 'this month' },
             { l: 'Trades Executed',     v: usageData?.trades_executed   ?? 0,  max: isAdmin ? 99999 : 30,    unit: 'this month' },

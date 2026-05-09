@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/client'
 
@@ -108,7 +108,7 @@ function BindMt5Form({ onSave, onCancel }: { onSave(acc: object): void; onCancel
   return (
     <div style={{ background: 'var(--color-s3)', border: '1px solid rgba(0,229,204,0.2)', borderRadius: 10, padding: 14, marginBottom: 10 }}>
       <div className="font-mono text-[10px] tracking-widest uppercase mb-3" style={{ color: '#00e5cc' }}>Bind MT5 Account</div>
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
         <div>
           <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--color-tx3)' }}>Login</div>
           <input style={INPUT} value={form.login} onChange={set('login')} placeholder="12345678" onFocus={focus} onBlur={blur} />
@@ -140,9 +140,184 @@ function BindMt5Form({ onSave, onCancel }: { onSave(acc: object): void; onCancel
   )
 }
 
+// ─── Telegram linking tab ─────────────────────────────────────────────────────
+
+function TelegramTab({ planIdx, botUsername }: { planIdx: number; botUsername?: string }) {
+  const qc = useQueryClient()
+
+  const { data: tgStatus, isLoading: statusLoading } = useQuery({
+    queryKey: ['telegram-status'],
+    queryFn:  () => api.get('/settings/telegram/status').then(r => r.data as { linked: boolean; telegram_chat_id: number | null; telegram_username: string | null }),
+    staleTime: 30_000,
+  })
+
+  const [token,     setToken]     = useState<string | null>(null)
+  const [expiresAt, setExpiresAt] = useState<number | null>(null)  // unix ms
+  const [copied,    setCopied]    = useState(false)
+  const [countdown, setCountdown] = useState(0)
+
+  // tick down countdown every second
+  useEffect(() => {
+    if (!expiresAt) return
+    const id = setInterval(() => {
+      const left = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000))
+      setCountdown(left)
+      if (left === 0) { setToken(null); setExpiresAt(null) }
+    }, 1000)
+    return () => clearInterval(id)
+  }, [expiresAt])
+
+  const generateMutation = useMutation({
+    mutationFn: () => api.post('/settings/telegram/link-token').then(r => r.data as { token: string; expires_at: string }),
+    onSuccess: d => {
+      setToken(d.token)
+      setExpiresAt(new Date(d.expires_at).getTime())
+      setCountdown(900)
+    },
+  })
+
+  const unlinkMutation = useMutation({
+    mutationFn: () => api.delete('/settings/telegram/unlink'),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: ['telegram-status'] }),
+  })
+
+  const copyToken = useCallback(() => {
+    if (!token) return
+    navigator.clipboard.writeText(`/link ${token}`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [token])
+
+  const fmtCountdown = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+
+  return (
+    <div className="space-y-4">
+
+      {/* ── Link status card ── */}
+      <div style={{ ...CARD }}>
+        <div className="font-mono text-[10px] tracking-[2px] uppercase mb-3" style={{ color: 'var(--color-tx3)' }}>
+          Account Link Status
+        </div>
+
+        {statusLoading ? (
+          <div className="text-sm text-tx2 animate-pulse">Checking…</div>
+        ) : tgStatus?.linked ? (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-base"
+                style={{ background: 'rgba(0,229,204,0.12)', border: '1px solid rgba(0,229,204,0.3)' }}>✓</div>
+              <div>
+                <div className="text-sm font-semibold text-tx">Telegram linked</div>
+                <div className="text-xs font-mono text-tx3 mt-0.5">
+                  {tgStatus.telegram_username ? `@${tgStatus.telegram_username}` : `Chat ID: ${tgStatus.telegram_chat_id}`}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => unlinkMutation.mutate()}
+              disabled={unlinkMutation.isPending}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono transition-colors disabled:opacity-50"
+              style={{ background: 'rgba(255,61,90,0.1)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.25)' }}>
+              {unlinkMutation.isPending ? 'Unlinking…' : 'Unlink'}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-base"
+              style={{ background: 'rgba(255,61,90,0.08)', border: '1px solid rgba(255,61,90,0.2)', color: '#ff3d5a' }}>✗</div>
+            <div>
+              <div className="text-sm font-semibold text-tx">Not linked</div>
+              <div className="text-xs text-tx3 mt-0.5">Generate a token below to connect your Telegram account.</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Token generation card ── */}
+      {!tgStatus?.linked && (
+        <div style={{ ...CARD }}>
+          <div className="font-mono text-[10px] tracking-[2px] uppercase mb-3" style={{ color: 'var(--color-tx3)' }}>
+            Link Your Telegram Account
+          </div>
+
+          <ol className="text-sm text-tx2 space-y-1.5 mb-4 list-decimal list-inside">
+            <li>Find your bot on Telegram{botUsername ? <> — <span className="font-mono text-cy">@{botUsername}</span></> : ''}</li>
+            <li>Click <b>Generate Token</b> below</li>
+            <li>Copy the command and send it to the bot</li>
+          </ol>
+
+          {token ? (
+            <div className="space-y-3">
+              <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(0,229,204,0.06)', border: '1px solid rgba(0,229,204,0.25)' }}>
+                <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-2">Send this to the bot</div>
+                <div className="font-mono text-lg font-bold tracking-wider" style={{ color: 'var(--color-cy)' }}>
+                  /link {token}
+                </div>
+                <div className="text-[10px] font-mono text-tx3 mt-2">
+                  Expires in <span style={{ color: countdown < 60 ? '#ff3d5a' : '#f0b429' }}>{fmtCountdown(countdown)}</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={copyToken}
+                  className="flex-1 py-2 rounded-lg text-xs font-mono font-bold tracking-widest transition-colors"
+                  style={{ background: copied ? 'rgba(0,229,204,0.15)' : 'rgba(0,229,204,0.1)', color: 'var(--color-cy)', border: '1px solid rgba(0,229,204,0.3)' }}>
+                  {copied ? '✓ COPIED' : '⎘ COPY COMMAND'}
+                </button>
+                <button onClick={() => generateMutation.mutate()}
+                  className="px-4 py-2 rounded-lg text-xs font-mono text-tx2 border border-s3 hover:bg-s2 transition-colors">
+                  Regenerate
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => generateMutation.mutate()}
+              disabled={generateMutation.isPending}
+              className="w-full py-2.5 rounded-xl font-mono font-bold text-sm tracking-widest transition-colors disabled:opacity-50"
+              style={{ background: '#00e5cc', color: '#000' }}>
+              {generateMutation.isPending ? 'Generating…' : 'Generate Token'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Command reference ── */}
+      <div style={{ ...CARD }}>
+        <div className="font-mono text-[10px] tracking-[2px] uppercase mb-3" style={{ color: 'var(--color-tx3)' }}>
+          Bot Commands — Your Plan
+        </div>
+        {TG_COMMANDS.map(cmd => {
+          const cmdIdx = PLAN_ORDER.indexOf(cmd.plan)
+          const locked = cmdIdx > planIdx
+          return (
+            <div key={cmd.cmd} className="flex justify-between items-center py-2.5"
+              style={{ borderBottom: '1px solid var(--color-card-border)', opacity: locked ? 0.4 : 1 }}>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs" style={{ color: locked ? 'var(--color-tx3)' : '#00e5cc' }}>{cmd.cmd}</span>
+                  {locked && <span className="text-[10px]">🔒</span>}
+                </div>
+                <div className="text-xs text-tx2 mt-0.5">{cmd.desc}</div>
+              </div>
+              <PlanBadge plan={cmd.plan} />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-const TABS: Tab[] = ['trading', 'risk', 'pairs', 'mt5', 'telegram', 'notifications']
+const TABS: { key: Tab; icon: string; short: string }[] = [
+  { key: 'trading',       icon: '⚡', short: 'Trading'  },
+  { key: 'risk',          icon: '◈', short: 'Risk'     },
+  { key: 'pairs',         icon: '◇', short: 'Pairs'    },
+  { key: 'mt5',           icon: '⬡', short: 'MT5'      },
+  { key: 'telegram',      icon: '✦', short: 'Telegram' },
+  { key: 'notifications', icon: '◎', short: 'Alerts'   },
+]
 
 export default function Settings() {
   const qc = useQueryClient()
@@ -228,17 +403,35 @@ export default function Settings() {
     <div className="space-y-4">
 
       {/* Tab bar */}
-      <div className="flex gap-0.5 p-1 rounded-[10px]" style={{ background: 'var(--color-s3)' }}>
-        {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className="flex-1 text-center py-[7px] font-mono text-[10px] tracking-widest cursor-pointer rounded-[7px] transition-all border border-transparent"
-            style={tab === t
-              ? { background: 'var(--color-s2)', color: '#00e5cc', border: '1px solid var(--color-card-border)' }
-              : { color: 'var(--color-tx3)' }
-            }>
-            {t.toUpperCase()}
-          </button>
-        ))}
+      <div className="rounded-[10px] p-1" style={{ background: 'var(--color-s3)' }}>
+        {/* Mobile: icon + short label, scrollable */}
+        <div className="flex sm:hidden gap-0.5 overflow-x-auto">
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} title={t.key}
+              className="shrink-0 flex flex-col items-center gap-0.5 px-3 py-2 rounded-[7px] transition-all border border-transparent"
+              style={tab === t.key
+                ? { background: 'var(--color-s2)', color: '#00e5cc', border: '1px solid var(--color-card-border)' }
+                : { color: 'var(--color-tx3)' }
+              }>
+              <span className="text-sm leading-none">{t.icon}</span>
+              <span className="font-mono text-[9px] tracking-wide whitespace-nowrap">{t.short}</span>
+            </button>
+          ))}
+        </div>
+        {/* sm+: equal-width full row */}
+        <div className="hidden sm:flex gap-0.5">
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-[7px] font-mono text-[10px] tracking-widest cursor-pointer rounded-[7px] transition-all border border-transparent"
+              style={tab === t.key
+                ? { background: 'var(--color-s2)', color: '#00e5cc', border: '1px solid var(--color-card-border)' }
+                : { color: 'var(--color-tx3)' }
+              }>
+              <span>{t.icon}</span>
+              <span>{t.short.toUpperCase()}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Save status pill */}
@@ -369,36 +562,38 @@ export default function Settings() {
               {Object.values(activePairs).filter(Boolean).length} / {maxPairs} active
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
             {PAIRS.map((pair, i) => {
               const allowed = i < maxPairs
               const active  = activePairs[pair] && allowed
               return (
-                <div key={pair} style={{
-                  background: 'var(--color-s3)',
-                  border: `1px solid ${active ? 'rgba(0,229,204,0.3)' : 'var(--color-card-border)'}`,
-                  borderRadius: 10, padding: '14px 12px', textAlign: 'center',
-                  opacity: allowed ? 1 : 0.5,
-                }}>
+                <div key={pair} className="flex items-center justify-between sm:flex-col sm:items-center sm:justify-center gap-3 sm:gap-2 rounded-[10px] px-3 py-3 sm:py-[14px]"
+                  style={{
+                    background: 'var(--color-s3)',
+                    border: `1px solid ${active ? 'rgba(0,229,204,0.3)' : 'var(--color-card-border)'}`,
+                    opacity: allowed ? 1 : 0.5,
+                  }}>
                   <div style={{
                     fontFamily: '"IBM Plex Mono",monospace', fontSize: 12, fontWeight: 700,
-                    marginBottom: 8, color: active ? '#00e5cc' : 'var(--color-tx3)',
+                    color: active ? '#00e5cc' : 'var(--color-tx3)',
                   }}>
                     {pair}
                   </div>
-                  <Toggle checked={active} disabled={!allowed}
-                    onChange={v => {
-                      if (!allowed) return
-                      const updated = { ...activePairs, [pair]: v }
-                      setActivePairs(updated)
-                      patch({ active_pairs: updated })
-                    }}
-                  />
-                  {!allowed && (
-                    <div style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 9, color: 'var(--color-tx3)', marginTop: 6 }}>
-                      UPGRADE
-                    </div>
-                  )}
+                  <div className="flex flex-col items-center gap-1">
+                    <Toggle checked={active} disabled={!allowed}
+                      onChange={v => {
+                        if (!allowed) return
+                        const updated = { ...activePairs, [pair]: v }
+                        setActivePairs(updated)
+                        patch({ active_pairs: updated })
+                      }}
+                    />
+                    {!allowed && (
+                      <div style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 9, color: 'var(--color-tx3)' }}>
+                        UPGRADE
+                      </div>
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -497,41 +692,7 @@ export default function Settings() {
       )}
 
       {/* ── TELEGRAM ── */}
-      {tab === 'telegram' && (
-        <div style={CARD}>
-          <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
-            Telegram Bot — Available Commands
-          </div>
-
-          <div style={{
-            marginBottom: 16, padding: '10px 14px',
-            background: 'rgba(79,142,247,0.1)', border: '1px solid rgba(79,142,247,0.2)',
-            borderRadius: 8, fontFamily: '"IBM Plex Mono",monospace', fontSize: 10, color: '#4f8ef7',
-          }}>
-            {(settings as any)?.telegram_bot_username
-              ? `Your bot: @${(settings as any).telegram_bot_username} · Start a chat to use these commands`
-              : 'Bot not configured yet — go to Admin → Config to set up your Telegram bot'}
-          </div>
-
-          {TG_COMMANDS.map(cmd => {
-            const cmdIdx = PLAN_ORDER.indexOf(cmd.plan)
-            const locked = cmdIdx > planIdx
-            return (
-              <div key={cmd.cmd} className="flex justify-between items-center py-[10px]"
-                style={{ borderBottom: '1px solid var(--color-card-border)', opacity: locked ? 0.45 : 1 }}>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 12, color: '#00e5cc' }}>{cmd.cmd}</span>
-                    {locked && <span style={{ color: 'var(--color-tx3)' }}>🔒</span>}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--color-tx2)', marginTop: 2 }}>{cmd.desc}</div>
-                </div>
-                <PlanBadge plan={cmd.plan} />
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {tab === 'telegram' && <TelegramTab planIdx={planIdx} botUsername={(settings as any)?.telegram_bot_username} />}
 
       {/* ── NOTIFICATIONS ── */}
       {tab === 'notifications' && (() => {

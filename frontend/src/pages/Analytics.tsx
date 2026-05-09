@@ -65,7 +65,7 @@ export default function Analytics() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* ── 6 stat cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+      <div className="rg3">
         {topStats.map(m => (
           <div key={m.l}
             className="rounded-[10px] p-4"
@@ -81,7 +81,7 @@ export default function Analytics() {
       </div>
 
       {/* ── By Pair + By Regime ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div className="rg2">
 
         {/* By Pair */}
         <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>

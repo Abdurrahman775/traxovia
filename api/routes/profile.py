@@ -32,7 +32,7 @@ def _validate_password(password: str) -> None:
 
 class ProfilePatch(BaseModel):
     display_name: str | None = None
-    avatar_url:   str | None = None   # https URL only (base64 no longer accepted)
+    avatar_url:   str | None = None   # https URL or base64 data URI
 
 
 class ChangePasswordRequest(BaseModel):
@@ -70,9 +70,12 @@ async def update_profile(
         updates.append(f"display_name=${i}"); params.append(display_name); i += 1
 
     if body.avatar_url is not None:
-        if not body.avatar_url.startswith("https://"):
-            raise HTTPException(400, "avatar_url must be an https URL")
-        updates.append(f"avatar_url=${i}"); params.append(body.avatar_url); i += 1
+        url = body.avatar_url
+        if not (url.startswith("https://") or url.startswith("data:image/")):
+            raise HTTPException(400, "avatar_url must be an https URL or a base64 data URI")
+        if url.startswith("data:image/") and len(url) > 400_000:
+            raise HTTPException(400, "Image too large (max ~300 KB)")
+        updates.append(f"avatar_url=${i}"); params.append(url); i += 1
 
     if updates:
         params.append(user["sub"])

@@ -51,7 +51,7 @@ function MiniBar({ pct, color }: { pct: number; color: string }) {
 }
 
 export default function RegimeDetector() {
-  const { data, isLoading, isError, refetch, dataUpdatedAt } = useQuery({
+  const { data, isLoading, isError, isFetching, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['regime-current'],
     queryFn: () => api.get('/regime/current').then(r => r.data as RegimeResponse),
     refetchInterval: 30_000,
@@ -82,9 +82,10 @@ export default function RegimeDetector() {
           )}
           <button
             onClick={() => refetch()}
-            className="px-3 py-1.5 rounded-lg border border-s3 text-tx2 text-xs font-mono hover:bg-s2 transition-colors"
+            disabled={isFetching}
+            className="px-3 py-1.5 rounded-lg border border-s3 text-tx2 text-xs font-mono hover:bg-s2 transition-colors disabled:opacity-50"
           >
-            ↻ Refresh
+            {isFetching ? '↻ Refreshing…' : '↻ Refresh'}
           </button>
         </div>
       </div>

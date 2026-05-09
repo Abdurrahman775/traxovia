@@ -17,7 +17,7 @@ from database.connection import get_db_direct
 
 _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "admin@tradingai.com")
+ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "admin@traxovia.com")
 ADMIN_PASSWORD = os.environ.get("SEED_ADMIN_PASSWORD")
 ADMIN_PLAN = "elite"
 

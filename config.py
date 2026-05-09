@@ -36,6 +36,7 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = ""
     telegram_community_channel_id: str = ""
+    finnhub_api_key: str = ""
 
     app_env: str = "development"
     secret_key: str = ""
