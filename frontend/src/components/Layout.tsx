@@ -170,11 +170,11 @@ export default function Layout() {
             <Ticker />
           </div>
 
-          {/* Right actions */}
+          {/* Theme toggle — pinned to far right */}
           <button
             onClick={toggle}
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="shrink-0 flex items-center gap-1.5 font-mono text-[10px] tracking-widest px-3 py-1.5 rounded-lg transition-colors"
+            className="ml-auto shrink-0 flex items-center gap-1.5 font-mono text-[10px] tracking-widest px-3 py-1.5 rounded-lg transition-colors"
             style={{
               background: 'var(--color-s2)',
               border: '1px solid var(--color-card-border)',

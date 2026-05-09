@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import api from '../api/client'
 
 type PlanId = 'community' | 'starter' | 'trader' | 'pro' | 'elite'
@@ -14,7 +15,6 @@ interface PlanDef {
   features: Record<string, boolean | number>
 }
 
-// Fallback used while loading from API
 const FALLBACK_PLANS: PlanDef[] = [
   { plan_id: 'community', name: 'Community', price: 0,   color: '#8899b4', features: { pairs: 0, mt5_accounts: 0, dashboard: false, signals_web: false, signals_tg_drops: true,  tg_bot_approve: false, tg_bot_settings: false, auto_execute: false, copy_trade: false, api_access: false, mobile_app: false, priority_support: false } },
   { plan_id: 'starter',   name: 'Starter',   price: 29,  color: '#4f8ef7', features: { pairs: 2, mt5_accounts: 1, dashboard: true,  signals_web: true,  signals_tg_drops: true,  tg_bot_approve: false, tg_bot_settings: false, auto_execute: false, copy_trade: false, api_access: false, mobile_app: false, priority_support: false } },
@@ -67,6 +67,18 @@ function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; co
 
 export default function Billing() {
   const [tab, setTab] = useState<Tab>('plans')
+  const [upgrading, setUpgrading] = useState<string | null>(null)
+  const [checkoutMsg, setCheckoutMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const plansGridRef = useRef<HTMLDivElement>(null)
+
+  // Handle return from cancelled checkout (cancel_url still points here)
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'cancelled') {
+      setCheckoutMsg({ type: 'error', text: 'Checkout was cancelled. No payment was taken.' })
+      setSearchParams({}, { replace: true })
+    }
+  }, [])
 
   const { data: sub } = useQuery({
     queryKey: ['subscription'],
@@ -97,25 +109,56 @@ export default function Billing() {
   const p = plans.find(x => x.plan_id === plan) ?? plans[0]
 
   const upgrade = async (planId: string) => {
+    setUpgrading(planId)
+    setCheckoutMsg(null)
     try {
       const res = await api.post('/billing/create-checkout-session', { plan: planId })
       const url = res.data.checkout_url || res.data.url
-      if (url) window.location.href = url
-    } catch { /* handled */ }
+      if (url) {
+        window.location.href = url
+      } else {
+        throw new Error('No checkout URL returned')
+      }
+    } catch (err: any) {
+      setCheckoutMsg({
+        type: 'error',
+        text: err?.response?.data?.detail || 'Failed to start checkout. Please try again.',
+      })
+      setUpgrading(null)
+    }
   }
 
-  const openPortal = async () => {
-    try {
-      const res = await api.post('/billing/customer-portal')
-      const url = res.data.portal_url || res.data.url
-      if (url) window.location.href = url
-    } catch { /* handled */ }
+  const scrollToPlans = () => {
+    setTab('plans')
+    setTimeout(() => plansGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
   }
 
   const TABS: Tab[] = ['plans', 'invoices', 'usage']
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* Checkout status banner */}
+      {checkoutMsg && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-[10px] px-4 py-3"
+          style={{
+            background: checkoutMsg.type === 'success' ? 'rgba(0,229,150,0.08)' : 'rgba(255,107,122,0.08)',
+            border: `1px solid ${checkoutMsg.type === 'success' ? 'rgba(0,229,150,0.25)' : 'rgba(255,107,122,0.25)'}`,
+          }}
+        >
+          <span className="font-mono text-[11px]" style={{ color: checkoutMsg.type === 'success' ? '#00e596' : '#ff6b7a' }}>
+            {checkoutMsg.type === 'success' ? '✓' : '✗'} {checkoutMsg.text}
+          </span>
+          <button
+            onClick={() => setCheckoutMsg(null)}
+            className="font-mono text-[14px] shrink-0"
+            style={{ color: 'var(--color-tx3)' }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="flex gap-0.5 mb-0 bg-s3 p-1 rounded-[10px]">
@@ -139,44 +182,53 @@ export default function Billing() {
         <div>
           {/* Current plan banner */}
           <div
-            className="flex items-center justify-between rounded-[14px] p-5 mb-4"
+            className="flex items-center justify-between rounded-[14px] p-5 mb-4 gap-4"
             style={{ background: 'var(--color-s2)', border: '1px solid var(--color-input-border)' }}
           >
-            <div>
+            <div className="min-w-0">
               <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[6px]" style={{ color: 'var(--color-tx3)' }}>
                 Current Plan
               </div>
-              <div className="flex items-center gap-[10px]">
+              <div className="flex flex-wrap items-center gap-[10px]">
                 <PlanBadge plan={plan} plans={plans} />
                 <span className="font-head text-[20px] font-bold" style={{ color: p?.color }}>
                   ${p?.price ?? 0}/mo
                 </span>
-                <span className="font-mono text-[10px]" style={{ color: 'var(--color-tx3)' }}>
-                  {sub?.current_period_end
-                    ? `Next billing: ${new Date(sub.current_period_end * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-                    : ''}
-                </span>
+                {sub?.current_period_end && (
+                  <span className="font-mono text-[10px]" style={{ color: 'var(--color-tx3)' }}>
+                    Next billing: {new Date(sub.current_period_end * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                )}
+                {sub?.cancel_at_period_end && (
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: 'rgba(255,107,122,0.1)', color: '#ff6b7a', border: '1px solid rgba(255,107,122,0.2)' }}>
+                    Cancels at period end
+                  </span>
+                )}
               </div>
             </div>
-            <div className="flex gap-2">
+            {plan !== 'elite' && (
               <button
-                onClick={() => {}}
-                className="font-mono text-[11px] font-bold tracking-widest px-[18px] py-[9px] rounded-lg cursor-pointer transition-all flex items-center gap-1.5"
+                onClick={scrollToPlans}
+                className="font-mono text-[11px] font-bold tracking-widest px-[18px] py-[9px] rounded-lg cursor-pointer transition-all flex items-center gap-1.5 shrink-0"
                 style={{ background: '#00e5cc', color: '#000' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#00ffea' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#00e5cc' }}
               >
                 Upgrade Plan →
               </button>
-            </div>
+            )}
           </div>
 
           {/* Plan grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit,minmax(140px,1fr))`, gap: 10 }}>
+          <div
+            ref={plansGridRef}
+            style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit,minmax(140px,1fr))`, gap: 10 }}
+          >
             {plans.map((pl, pidIdx) => {
               const isCurrent   = pl.plan_id === plan
               const isCommunity = pl.plan_id === 'community'
               const currentIdx  = plans.findIndex(x => x.plan_id === plan)
+              const isLoading   = upgrading === pl.plan_id
 
               return (
                 <div
@@ -188,6 +240,8 @@ export default function Billing() {
                     padding: 18,
                     position: 'relative',
                     overflow: 'hidden',
+                    opacity: upgrading && !isLoading ? 0.6 : 1,
+                    transition: 'opacity 0.2s',
                   }}
                 >
                   {/* POPULAR ribbon */}
@@ -238,19 +292,24 @@ export default function Billing() {
                     )
                   })}
 
-                  {!isCurrent && !isAdmin && (
+                  {!isCurrent && !isCommunity && (
                     <button
                       onClick={() => upgrade(pl.plan_id)}
-                      className="font-mono text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-lg cursor-pointer transition-all"
+                      disabled={!!upgrading}
+                      className="font-mono text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-lg transition-all"
                       style={{
                         width: '100%', marginTop: 14, justifyContent: 'center', display: 'flex',
-                        background: 'var(--color-divider)', color: 'var(--color-tx2)',
-                        border: '1px solid var(--color-card-border)',
+                        background: isLoading ? 'rgba(0,229,204,0.12)' : 'var(--color-divider)',
+                        color: isLoading ? '#00e5cc' : 'var(--color-tx2)',
+                        border: `1px solid ${isLoading ? 'rgba(0,229,204,0.3)' : 'var(--color-card-border)'}`,
+                        cursor: upgrading ? 'not-allowed' : 'pointer',
                       }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.09)' }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-divider)' }}
+                      onMouseEnter={e => { if (!upgrading) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.09)' }}
+                      onMouseLeave={e => { if (!upgrading) (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-divider)' }}
                     >
-                      {pidIdx > currentIdx ? 'Upgrade →' : 'Downgrade'}
+                      {isLoading
+                        ? '⏳ Redirecting…'
+                        : pidIdx > currentIdx ? 'Upgrade →' : 'Downgrade'}
                     </button>
                   )}
                 </div>

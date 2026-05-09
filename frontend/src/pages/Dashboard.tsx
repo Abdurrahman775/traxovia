@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import api from '../api/client'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -156,6 +156,16 @@ const APPROVE_PLANS = new Set(['trader', 'pro', 'elite'])
 
 export default function Dashboard() {
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [checkoutBanner, setCheckoutBanner] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      setCheckoutBanner('Payment successful! Your new plan is now active.')
+      setSearchParams({}, { replace: true })
+      qc.invalidateQueries({ queryKey: ['subscription'] })
+    }
+  }, [])
 
   const { data: stats } = useQuery({
     queryKey: ['analytics-summary'],
@@ -224,6 +234,19 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* ── Checkout success banner ── */}
+      {checkoutBanner && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-[10px] px-4 py-3"
+          style={{ background: 'rgba(0,229,150,0.08)', border: '1px solid rgba(0,229,150,0.25)' }}
+        >
+          <span className="font-mono text-[11px]" style={{ color: '#00e596' }}>
+            ✓ {checkoutBanner}
+          </span>
+          <button onClick={() => setCheckoutBanner(null)} className="font-mono text-[14px] shrink-0" style={{ color: 'var(--color-tx3)' }}>×</button>
+        </div>
+      )}
 
       {/* ── 4 stat cards ── */}
       <div className="rg4">

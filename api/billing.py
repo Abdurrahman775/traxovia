@@ -331,7 +331,7 @@ async def create_checkout_session(
         plan_code = _paystack_plan_map(cfg).get(plan)
         row = await db.fetchrow("SELECT email FROM users WHERE id=$1::uuid", user["sub"])
         email = row["email"] if row else ""
-        payload: dict = {"email": email, "callback_url": f"{settings.frontend_url}/billing?checkout=success"}
+        payload: dict = {"email": email, "callback_url": f"{settings.frontend_url}/dashboard?checkout=success"}
         if plan_code:
             payload["plan"] = plan_code
         else:
@@ -364,8 +364,8 @@ async def create_checkout_session(
         customer=customer_id,
         mode="subscription",
         line_items=[{"price": plan_to_price[plan], "quantity": 1}],
-        success_url=f"{settings.frontend_url}/billing?checkout=success",
-        cancel_url=f"{settings.frontend_url}/billing?checkout=cancelled",
+        success_url=f"{settings.frontend_url}/dashboard?checkout=success",
+        cancel_url=f"{settings.frontend_url}/billing",
         metadata={"user_id": user["sub"], "plan": plan},
     )
     return {"checkout_url": session["url"]}
@@ -530,6 +530,9 @@ async def get_invoices(
     if not row or not row["stripe_customer_id"]:
         return []
 
+    cfg = await _get_payment_config(db)
+    stripe.api_key = cfg["stripe_secret_key"]
+
     try:
         invoices = stripe.Invoice.list(
             customer=row["stripe_customer_id"],
@@ -539,7 +542,7 @@ async def get_invoices(
         logger.warning("billing: Stripe invoice list error: %s", exc)
         return []
 
-    price_to_plan = {v: k for k, v in _price_to_plan_map().items()}
+    price_to_plan = {v: k for k, v in _price_to_plan_map(cfg).items()}
 
     result = []
     for inv in invoices.data:

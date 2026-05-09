@@ -159,7 +159,8 @@ button:active { transform: scale(0.96); }
   .card-pad { padding: 12px !important; }
   .hide-mobile { display: none !important; }
 
-  /* Topbar: hamburger left, logo center, actions right */
+  /* Topbar: sits above the sidebar so the theme toggle is always reachable */
+  header { position: relative; z-index: 160; }
   .topbar-logo { position: absolute; left: 50%; transform: translateX(-50%); }
   .topbar-ticker { display: none !important; }
 }
