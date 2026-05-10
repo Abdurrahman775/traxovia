@@ -360,6 +360,35 @@ async def create_checkout_session(
         )
 
     customer_id = await _get_or_create_stripe_customer(user, db)
+
+    # If the customer already has an active subscription, modify it directly
+    # instead of creating a new checkout session (which would double-bill them
+    # and leave two live subscriptions).
+    existing_subs = stripe.Subscription.list(customer=customer_id, status="active", limit=1)
+    if existing_subs.data:
+        existing_sub  = existing_subs.data[0]
+        existing_item = existing_sub["items"]["data"][0]
+        new_price_id  = plan_to_price[plan]
+
+        if existing_item["price"]["id"] == new_price_id:
+            return {"success": True, "message": "You are already on this plan."}
+
+        current_plan = price_map.get(existing_item["price"]["id"], "community")
+        is_upgrade   = _plan_rank(plan) > _plan_rank(current_plan)
+
+        stripe.Subscription.modify(
+            existing_sub["id"],
+            items=[{"id": existing_item["id"], "price": new_price_id}],
+            # Upgrades: invoice immediately so access is granted now.
+            # Downgrades: no proration — new lower price takes effect at renewal.
+            proration_behavior="always_invoice" if is_upgrade else "none",
+        )
+        return {
+            "success": True,
+            "message": f"Plan {'upgraded' if is_upgrade else 'downgraded'} successfully.",
+        }
+
+    # No existing subscription — start a fresh checkout flow.
     session = stripe.checkout.Session.create(
         customer=customer_id,
         mode="subscription",
@@ -450,9 +479,16 @@ async def get_subscription(
 
 @router.get(
     "/plans",
-    summary="Return all active plan definitions (prices + features)",
+    summary="Return all active plan definitions (prices + features) with active currency",
 )
 async def get_plans(db=Depends(get_db)):
+    cfg = await _get_payment_config(db)
+    gateway = cfg.get("payment_gateway", "stripe")
+    if gateway == "paystack":
+        currency, symbol = "NGN", "₦"
+    else:
+        currency, symbol = "USD", "$"
+
     rows = await db.fetch(
         "SELECT plan_id, name, price, color, popular, sort_order, features "
         "FROM plan_config WHERE is_active = TRUE ORDER BY sort_order"
@@ -467,7 +503,7 @@ async def get_plans(db=Depends(get_db)):
             except (ValueError, TypeError):
                 d["features"] = {}
         result.append(d)
-    return result
+    return {"currency": currency, "symbol": symbol, "plans": result}
 
 
 # ── Usage stats ────────────────────────────────────────────────────────────────

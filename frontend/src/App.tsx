@@ -7,7 +7,6 @@ import Dashboard from './pages/Dashboard'
 import Signals from './pages/Signals'
 import Trades from './pages/Trades'
 import Analytics from './pages/Analytics'
-import BridgeMonitor from './pages/BridgeMonitor'
 import Billing from './pages/Billing'
 import Settings from './pages/Settings'
 import AdminPanel from './pages/AdminPanel'
@@ -17,6 +16,7 @@ import Referral from './pages/Referral'
 import AuditLog from './pages/AuditLog'
 import Community from './pages/Community'
 import Profile from './pages/Profile'
+import DataManagement from './pages/DataManagement'
 import { useAdminUser } from './hooks/useAdminUser'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -49,9 +49,9 @@ export default function App() {
           <Route path="auditlog"  element={<AuditLog />} />
           <Route path="settings"  element={<Settings />} />
           <Route path="profile"   element={<Profile />} />
-          <Route path="bridge"    element={<BridgeMonitor />} />
-          <Route path="community" element={<RequireAdmin><Community /></RequireAdmin>} />
-          <Route path="admin"     element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
+          <Route path="community"       element={<RequireAdmin><Community /></RequireAdmin>} />
+          <Route path="admin"           element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
+          <Route path="data-management" element={<RequireAdmin><DataManagement /></RequireAdmin>} />
         </Route>
       </Routes>
     </BrowserRouter>

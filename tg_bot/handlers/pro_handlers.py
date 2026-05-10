@@ -239,26 +239,24 @@ async def cmd_bridge_status(update, context) -> None:
             )
             return
 
-        row = await db.fetchrow(
-            "SELECT trading_paused, last_heartbeat, failover_count "
-            "FROM bridge_state LIMIT 1"
-        )
+    try:
+        import MetaTrader5 as mt5
+        if mt5.initialize():
+            info = mt5.terminal_info()
+            acct = mt5.account_info()
+            icon = "🟢"
+            text = (
+                f"<b>MT5 Status</b>\n"
+                f"State:    {icon} connected\n"
+                f"Terminal: {info.name if info else 'unknown'}\n"
+                f"Account:  {acct.login if acct else '—'}\n"
+                f"Balance:  {acct.balance:.2f} {acct.currency if acct else ''}"
+            )
+        else:
+            text = "🔴 MT5 not initialized"
+    except ImportError:
+        text = "⚠️ MT5 not available on this server.\nDeploy on Windows VPS for live trading."
 
-    if not row:
-        await update.message.reply_text("No bridge state data available.")
-        return
-
-    paused    = row["trading_paused"]
-    icon      = "🔴" if paused else "🟢"
-    heartbeat = row["last_heartbeat"]
-    hb_str    = heartbeat.strftime("%Y-%m-%d %H:%M UTC") if heartbeat else "never"
-
-    text = (
-        f"<b>Bridge Status</b>\n"
-        f"State:         {icon} {'paused' if paused else 'active'}\n"
-        f"Last heartbeat: {hb_str}\n"
-        f"Failovers:     {row['failover_count'] or 0}"
-    )
     await update.message.reply_text(text, parse_mode="HTML")
 
 

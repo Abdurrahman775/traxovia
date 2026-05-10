@@ -31,10 +31,10 @@ const NAV_GROUPS = [
 ]
 
 const ADMIN_ITEMS = [
-  { to: '/admin',     label: 'Admin Panel',     icon: '◈' },
-  { to: '/model',     label: 'Model & Retrain', icon: '◉' },
-  { to: '/community', label: 'Community',       icon: '⬡' },
-  { to: '/bridge',    label: 'Bridge Monitor',  icon: '▲' },
+  { to: '/admin',           label: 'Admin Panel',     icon: '◈' },
+  { to: '/model',           label: 'Model & Retrain', icon: '◉' },
+  { to: '/data-management', label: 'Data Management', icon: '⬢' },
+  { to: '/community',       label: 'Community',       icon: '⬡' },
 ]
 
 function Ticker() {

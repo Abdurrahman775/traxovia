@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import api from '../api/client'
 
@@ -66,6 +66,7 @@ function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; co
 }
 
 export default function Billing() {
+  const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('plans')
   const [upgrading, setUpgrading] = useState<string | null>(null)
   const [checkoutMsg, setCheckoutMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -97,13 +98,14 @@ export default function Billing() {
     retry: false,
   })
 
-  const { data: plansData } = useQuery({
+  const { data: plansResponse } = useQuery({
     queryKey: ['billing-plans'],
-    queryFn: () => api.get('/billing/plans').then(r => r.data as PlanDef[]).catch(() => FALLBACK_PLANS),
+    queryFn: () => api.get('/billing/plans').then(r => r.data).catch(() => null),
     retry: false,
   })
 
-  const plans = plansData ?? FALLBACK_PLANS
+  const plans: PlanDef[] = plansResponse?.plans ?? FALLBACK_PLANS
+  const currencySymbol: string = plansResponse?.symbol ?? '$'
   const plan: PlanId = (sub?.plan as PlanId) ?? 'community'
   const isAdmin = plan === 'elite'
   const p = plans.find(x => x.plan_id === plan) ?? plans[0]
@@ -116,6 +118,12 @@ export default function Billing() {
       const url = res.data.checkout_url || res.data.url
       if (url) {
         window.location.href = url
+      } else if (res.data.success) {
+        // Plan modified directly on an existing subscription (no redirect needed).
+        setCheckoutMsg({ type: 'success', text: res.data.message || 'Plan updated successfully.' })
+        qc.invalidateQueries({ queryKey: ['subscription'] })
+        qc.invalidateQueries({ queryKey: ['billing-plans'] })
+        setUpgrading(null)
       } else {
         throw new Error('No checkout URL returned')
       }
@@ -192,7 +200,7 @@ export default function Billing() {
               <div className="flex flex-wrap items-center gap-[10px]">
                 <PlanBadge plan={plan} plans={plans} />
                 <span className="font-head text-[20px] font-bold" style={{ color: p?.color }}>
-                  ${p?.price ?? 0}/mo
+                  {currencySymbol}{p?.price ?? 0}/mo
                 </span>
                 {sub?.current_period_end && (
                   <span className="font-mono text-[10px]" style={{ color: 'var(--color-tx3)' }}>
@@ -274,7 +282,7 @@ export default function Billing() {
                     fontFamily: 'Syne, sans-serif', fontSize: 22, fontWeight: 800,
                     margin: '10px 0 4px', color: pl.color,
                   }}>
-                    {isCommunity ? 'FREE' : `$${pl.price}`}
+                    {isCommunity ? 'FREE' : `${currencySymbol}${pl.price}`}
                   </div>
                   <p style={{ fontSize: 10, color: 'var(--color-tx3)', marginBottom: 12 }}>per month</p>
 

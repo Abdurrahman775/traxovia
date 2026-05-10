@@ -56,10 +56,6 @@ app.conf.beat_schedule = {
         'task':     'scheduler.tasks.update_realtime_feed',
         'schedule': crontab(minute='*/15'),
     },
-    'bridge-heartbeat': {
-        'task':     'scheduler.tasks.check_bridge_health',
-        'schedule': 60.0,  # every 60 seconds
-    },
     'expire-trials': {
         'task':     'scheduler.tasks.expire_trials',
         'schedule': crontab(hour=0, minute=5),   # daily at 00:05 UTC
@@ -163,19 +159,6 @@ def refresh_materialized_views():
                     f'REFRESH MATERIALIZED VIEW CONCURRENTLY {view}'
                 )
         conn.commit()
-
-
-# ── BRIDGE HEARTBEAT ───────────────────────────────────────────────────────────
-
-@app.task
-def check_bridge_health():
-    """
-    Fires every 60 seconds. Delegates to the async heartbeat_check()
-    via asyncio.run() — Celery workers have no running event loop.
-    """
-    import asyncio
-    from core.execution_engine.bridge_watchdog import heartbeat_check
-    asyncio.run(heartbeat_check())
 
 
 # ── TRIAL EXPIRY ───────────────────────────────────────────────────────────────

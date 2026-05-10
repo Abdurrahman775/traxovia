@@ -56,6 +56,13 @@ export default function Profile() {
   const [pwdMsg,      setPwdMsg]      = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
   const [avatarMsg,   setAvatarMsg]   = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
 
+  const { data: plansResponse } = useQuery({
+    queryKey: ['billing-plans'],
+    queryFn: () => api.get('/billing/plans').then(r => r.data).catch(() => null),
+    retry: false,
+  })
+  const currencySymbol: string = plansResponse?.symbol ?? '$'
+
   const { data: profileRaw, isLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: () => api.get('/profile').then(r => r.data).catch(() => null),
@@ -166,7 +173,7 @@ export default function Profile() {
             <div className="flex items-center gap-3">
               <PlanBadge plan={plan} />
               <span className="font-mono text-[10px]" style={{ color: 'var(--color-tx3)' }}>
-                ${PLAN_PRICES[plan] ?? 0}/mo
+                {currencySymbol}{PLAN_PRICES[plan] ?? 0}/mo
               </span>
               <span className="font-mono text-[10px]" style={{ color: 'var(--color-tx3)' }}>
                 · Member since {joinedDate}

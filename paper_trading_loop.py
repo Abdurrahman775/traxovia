@@ -32,12 +32,16 @@ import sys
 import uuid
 from datetime import datetime, timezone
 
-import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from core.execution_engine.mt5_executor import _sign
+try:
+    import MetaTrader5 as mt5
+    _MT5_AVAILABLE = True
+except ImportError:
+    _MT5_AVAILABLE = False
+
 from database.connection import create_pool, close_pool, get_db_direct
 
 logging.basicConfig(
@@ -56,8 +60,10 @@ INTERVAL = int(os.getenv("PAPER_LOOP_INTERVAL", "900"))   # 15 min default
 TARGET   = int(os.getenv("PAPER_TRADE_TARGET",  "50"))
 USER_ID  = str(uuid.uuid5(uuid.NAMESPACE_DNS, "paper-demo-106464235"))  # deterministic UUID
 
-def _bridge_url() -> str:
-    return os.getenv("MT5_BRIDGE_PRIMARY_URL", "http://127.0.0.1:8001")
+_TF_MAP = {
+    "H4":  mt5.TIMEFRAME_H4  if _MT5_AVAILABLE else None,
+    "M15": mt5.TIMEFRAME_M15 if _MT5_AVAILABLE else None,
+}
 
 # ── Graceful shutdown ──────────────────────────────────────────────────────────
 
@@ -67,39 +73,36 @@ def _handle_signal(*_):
     logger.info("Shutdown requested — finishing current cycle…")
     _shutdown.set()
 
-# ── Bridge helpers ─────────────────────────────────────────────────────────────
+# ── MT5 direct helpers ─────────────────────────────────────────────────────────
 
-async def _fetch_candles(client: httpx.AsyncClient, symbol: str, timeframe: str) -> list[dict]:
-    """Fetch latest candles from MT5 bridge. Returns [] on error."""
-    path = f"/ohlc/{symbol}/{timeframe}"
-    try:
-        resp = await client.get(
-            f"{_bridge_url()}{path}",
-            params={"count": 200},
-            headers=_sign("GET", path),
-            timeout=30,
-        )
-        if resp.status_code == 200:
-            return resp.json().get("bars", [])
-    except Exception as exc:
-        logger.warning("Candle fetch failed %s/%s: %s", symbol, timeframe, exc)
-    return []
+async def _fetch_candles(symbol: str, timeframe: str) -> list[dict]:
+    if not _MT5_AVAILABLE or not mt5.initialize():
+        logger.warning("MT5 not available — cannot fetch candles for %s/%s", symbol, timeframe)
+        return []
+    tf    = _TF_MAP.get(timeframe)
+    rates = mt5.copy_rates_from_pos(symbol, tf, 0, 200)
+    if rates is None:
+        logger.warning("copy_rates_from_pos failed %s/%s: %s", symbol, timeframe, mt5.last_error())
+        return []
+    return [
+        {"time": int(r["time"]), "open": float(r["open"]), "high": float(r["high"]),
+         "low": float(r["low"]), "close": float(r["close"]), "volume": int(r["tick_volume"])}
+        for r in rates
+    ]
 
 
-async def _get_open_positions(client: httpx.AsyncClient) -> list[dict]:
-    """Fetch all open positions from MT5 bridge."""
-    path = "/positions"
-    try:
-        resp = await client.get(
-            f"{_bridge_url()}{path}",
-            headers=_sign("GET", path),
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            return resp.json()
-    except Exception as exc:
-        logger.warning("Position fetch failed: %s", exc)
-    return []
+async def _get_open_positions() -> list[dict]:
+    if not _MT5_AVAILABLE or not mt5.initialize():
+        return []
+    positions = mt5.positions_get()
+    if positions is None:
+        return []
+    return [
+        {"ticket": p.ticket, "symbol": p.symbol,
+         "type": "buy" if p.type == 0 else "sell",
+         "volume": p.volume, "price_open": p.price_open, "sl": p.sl, "tp": p.tp}
+        for p in positions
+    ]
 
 # ── Main cycle ─────────────────────────────────────────────────────────────────
 
@@ -110,15 +113,15 @@ async def run_cycle(stats: dict) -> None:
     from core.execution_engine.mt5_executor import open_order, MT5ExecutorError
     from core.execution_engine.trade_manager import check_open_trades
 
-    async with get_db_direct() as db, httpx.AsyncClient(timeout=30) as client:
+    async with get_db_direct() as db:
         # ── 1. Generate signals ────────────────────────────────────────────
         for symbol in PAIRS:
             if _shutdown.is_set():
                 break
 
             h4_raw, m15_raw = await asyncio.gather(
-                _fetch_candles(client, symbol, "H4"),
-                _fetch_candles(client, symbol, "M15"),
+                _fetch_candles(symbol, "H4"),
+                _fetch_candles(symbol, "M15"),
             )
 
             if not h4_raw or not m15_raw:

@@ -16,13 +16,13 @@ from api.routes.trades import router as trades_router
 from api.routes.regime import router as regime_router
 from api.routes.settings import router as settings_router
 from api.routes.auditlog import router as auditlog_router
-from api.routes.bridge import router as bridge_router
 from api.routes.model import router as model_router
 from api.routes.community import router as community_router
 from api.routes.referral import router as referral_router
 from api.routes.admin import router as admin_router
 from api.routes.prices import router as prices_router
 from api.routes.profile import router as profile_router
+from api.routes.data_management import router as data_mgmt_router
 
 
 pathlib.Path("static/logos").mkdir(parents=True, exist_ok=True)
@@ -56,10 +56,10 @@ app.include_router(trades_router)
 app.include_router(regime_router)
 app.include_router(settings_router)
 app.include_router(auditlog_router)
-app.include_router(bridge_router)
 app.include_router(model_router)
 app.include_router(community_router)
 app.include_router(referral_router)
 app.include_router(admin_router)
 app.include_router(prices_router)
 app.include_router(profile_router)
+app.include_router(data_mgmt_router)

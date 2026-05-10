@@ -18,7 +18,7 @@ Run:
 
 Environment variables (read from .env):
     MT5_BRIDGE_URL       — primary bridge base URL, e.g. http://1.2.3.4:8001
-    MT5_BRIDGE_API_KEY   — shared API key for X-Api-Key header
+    (bridge removed — MT5 is now direct on Windows VPS)
     DATABASE_URL         — asyncpg connection string
 """
 
@@ -29,10 +29,15 @@ import time
 from datetime import datetime, timezone
 
 import asyncpg
-import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+
+try:
+    import MetaTrader5 as mt5
+    _MT5_AVAILABLE = True
+except ImportError:
+    _MT5_AVAILABLE = False
 
 # ── Load plan ──────────────────────────────────────────────────────────────────
 # count is how many bars to request from the bridge.
@@ -74,36 +79,36 @@ _HR2 = "┄" * 62
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
-_BRIDGE_URL = os.getenv("MT5_BRIDGE_URL", "").rstrip("/")
-_API_KEY    = os.getenv("MT5_BRIDGE_API_KEY", "")
-_DB_URL     = os.getenv("DATABASE_URL", "")
-_TIMEOUT    = 30.0      # seconds — large bar counts take time to serialise
+_DB_URL = os.getenv("DATABASE_URL", "")
+
+_TF_MAP = {
+    "M15": mt5.TIMEFRAME_M15 if _MT5_AVAILABLE else None,
+    "H4":  mt5.TIMEFRAME_H4  if _MT5_AVAILABLE else None,
+    "W1":  mt5.TIMEFRAME_W1  if _MT5_AVAILABLE else None,
+}
 
 
-# ── Bridge helpers ─────────────────────────────────────────────────────────────
+# ── MT5 direct helpers ─────────────────────────────────────────────────────────
 
-async def _fetch_ohlc(
-    client:    httpx.AsyncClient,
-    symbol:    str,
-    timeframe: str,
-    count:     int,
-) -> list[dict]:
-    """
-    Call GET /ohlc/{symbol}/{timeframe}?count=N on the active bridge.
-    Returns the list of bar dicts, or raises on HTTP/network error.
-    """
-    url = f"{_BRIDGE_URL}/ohlc/{symbol}/{timeframe}"
-    path = f"/ohlc/{symbol}/{timeframe}"
-    from core.execution_engine.mt5_executor import _sign
-    resp = await client.get(
-        url,
-        params={"count": count},
-        headers=_sign("GET", path),
-        timeout=_TIMEOUT,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    return data["bars"]
+def _fetch_ohlc_sync(symbol: str, timeframe: str, count: int) -> list[dict]:
+    if not _MT5_AVAILABLE:
+        raise RuntimeError("MetaTrader5 not installed — run on Windows VPS")
+    if not mt5.initialize():
+        raise RuntimeError(f"MT5 initialize() failed: {mt5.last_error()}")
+    tf    = _TF_MAP[timeframe]
+    rates = mt5.copy_rates_from_pos(symbol, tf, 0, count)
+    if rates is None:
+        raise RuntimeError(f"copy_rates_from_pos({symbol},{timeframe}) failed: {mt5.last_error()}")
+    return [
+        {"time": int(r["time"]), "open": float(r["open"]), "high": float(r["high"]),
+         "low": float(r["low"]), "close": float(r["close"]),
+         "volume": int(r["tick_volume"]), "spread": int(r["spread"])}
+        for r in rates
+    ]
+
+
+async def _fetch_ohlc(symbol: str, timeframe: str, count: int) -> list[dict]:
+    return await asyncio.to_thread(_fetch_ohlc_sync, symbol, timeframe, count)
 
 
 # ── DB helpers ─────────────────────────────────────────────────────────────────
@@ -201,41 +206,18 @@ def _print_row(
 
 # ── Pre-flight checks ──────────────────────────────────────────────────────────
 
-async def _check_bridge(client: httpx.AsyncClient) -> None:
-    """Verify bridge is reachable and MT5 is connected before loading anything."""
-    if not _BRIDGE_URL:
-        print("ERROR: MT5_BRIDGE_URL is not set in .env", file=sys.stderr)
+def _check_mt5() -> None:
+    if not _MT5_AVAILABLE:
+        print("ERROR: MetaTrader5 package not installed — run on Windows VPS", file=sys.stderr)
         sys.exit(1)
-    if not _API_KEY:
-        print("ERROR: MT5_BRIDGE_API_KEY is not set in .env", file=sys.stderr)
+    if not mt5.initialize():
+        print(f"ERROR: MT5 initialize() failed: {mt5.last_error()}", file=sys.stderr)
         sys.exit(1)
-
-    try:
-        from core.execution_engine.mt5_executor import _sign
-        resp = await client.get(
-            f"{_BRIDGE_URL}/health",
-            headers=_sign("GET", "/health"),
-            timeout=10.0,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as exc:
-        print(f"ERROR: Bridge not reachable at {_BRIDGE_URL} — {exc}", file=sys.stderr)
+    acct = mt5.account_info()
+    if acct is None:
+        print(f"ERROR: MT5 account_info() failed: {mt5.last_error()}", file=sys.stderr)
         sys.exit(1)
-
-    if not data.get("mt5_connected"):
-        print(
-            f"ERROR: Bridge is up but MT5 is not connected "
-            f"(status={data.get('status')!r}). "
-            f"Call POST /mt5/initialize on the bridge first.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    account = data.get("account", "?")
-    balance = data.get("balance", "?")
-    standby = " [STANDBY]" if data.get("is_standby") else ""
-    print(f"  Bridge OK — account {account}  balance {balance}{standby}")
+    print(f"  MT5 OK — account {acct.login}  balance {acct.balance:.2f} {acct.currency}")
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -247,7 +229,6 @@ async def main() -> None:
     db_display = _DB_URL.split("@")[-1] if "@" in _DB_URL else _DB_URL
     print(_HR)
     print("  Trading AI SaaS V3 — Historical Data Loader")
-    print(f"  Bridge : {_BRIDGE_URL}")
     print(f"  DB     : {db_display}")
     print(_HR)
 
@@ -255,46 +236,39 @@ async def main() -> None:
         print("ERROR: DATABASE_URL is not set in .env", file=sys.stderr)
         sys.exit(1)
 
-    async with httpx.AsyncClient() as client:
-        print()
-        await _check_bridge(client)
+    print()
+    _check_mt5()
 
-        conn = await asyncpg.connect(_DB_URL)
-        print(f"  DB connected.")
-        print()
+    conn = await asyncpg.connect(_DB_URL)
+    print(f"  DB connected.")
+    print()
 
-        results: list[tuple[bool, str, str, int, int]] = []
-        # (ok, symbol, timeframe, received, inserted)
+    results: list[tuple[bool, str, str, int, int]] = []
 
-        try:
-            for plan in LOAD_PLAN:
-                tf         = plan["timeframe"]
-                table      = plan["table"]
-                count      = plan["count"]
-                has_spread = plan["has_spread"]
-                label      = plan["label"]
+    try:
+        for plan in LOAD_PLAN:
+            tf         = plan["timeframe"]
+            table      = plan["table"]
+            count      = plan["count"]
+            has_spread = plan["has_spread"]
+            label      = plan["label"]
 
-                print(_HR2)
-                print(f"  {tf}  —  {count} bars per pair ({label})")
-                print(_HR2)
+            print(_HR2)
+            print(f"  {tf}  —  {count} bars per pair ({label})")
+            print(_HR2)
 
-                for symbol in PAIRS:
-                    try:
-                        bars = await _fetch_ohlc(client, symbol, tf, count)
-                        received = len(bars)
-                        inserted = await _upsert_bars(conn, table, symbol, bars, has_spread)
-                        note = "(all already loaded)" if inserted == 0 and received > 0 else ""
-                        _print_row(True, symbol, tf, received, inserted, note)
-                        results.append((True, symbol, tf, received, inserted))
+            for symbol in PAIRS:
+                try:
+                    bars     = await _fetch_ohlc(symbol, tf, count)
+                    received = len(bars)
+                    inserted = await _upsert_bars(conn, table, symbol, bars, has_spread)
+                    note     = "(all already loaded)" if inserted == 0 and received > 0 else ""
+                    _print_row(True, symbol, tf, received, inserted, note)
+                    results.append((True, symbol, tf, received, inserted))
 
-                    except httpx.HTTPStatusError as exc:
-                        msg = f"HTTP {exc.response.status_code}"
-                        _print_row(False, symbol, tf, "—", "—", msg)
-                        results.append((False, symbol, tf, 0, 0))
-
-                    except Exception as exc:
-                        _print_row(False, symbol, tf, "—", "—", str(exc)[:60])
-                        results.append((False, symbol, tf, 0, 0))
+                except Exception as exc:
+                    _print_row(False, symbol, tf, "—", "—", str(exc)[:60])
+                    results.append((False, symbol, tf, 0, 0))
 
                 print()
 

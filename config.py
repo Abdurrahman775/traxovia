@@ -28,12 +28,6 @@ class Settings(BaseSettings):
     stripe_price_elite: str = ""
     frontend_url: str = "http://localhost:3000"
 
-    mt5_bridge_primary_url: str = ""
-    mt5_bridge_standby_url: str = ""
-    mt5_bridge_api_key: str = ""
-    mt5_bridge_heartbeat_interval: int = 60
-    mt5_bridge_failover_timeout: int = 120
-
     telegram_bot_token: str = ""
     telegram_community_channel_id: str = ""
     finnhub_api_key: str = ""
