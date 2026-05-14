@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 import { useAdminUser } from '../hooks/useAdminUser'
@@ -62,7 +62,6 @@ function Ticker() {
 
 export default function Layout() {
   const navigate = useNavigate()
-  const location = useLocation()
   const { isAdmin, email } = useAdminUser()
   const { theme, toggle } = useTheme()
   const { app_name, app_logo_url } = useBranding()
@@ -186,11 +185,9 @@ export default function Layout() {
           </button>
         </header>
 
-        {/* Page content — key on pathname for page-enter animation */}
+        {/* Page content */}
         <main className="flex-1 overflow-y-auto bg-bg p-6">
-          <div key={location.pathname} className="page-enter">
-            <Outlet />
-          </div>
+          <Outlet />
         </main>
       </div>
     </div>

@@ -11,6 +11,8 @@ Every connection is wrapped in a transaction so that SET LOCAL variables
 automatically cleared when the transaction commits or rolls back.
 """
 
+from contextlib import asynccontextmanager
+
 import asyncpg
 from config import settings
 
@@ -56,6 +58,21 @@ async def get_db():
     Usage in route handlers:
         @router.get("/example")
         async def example(db=Depends(get_db)):
+            rows = await db.fetch("SELECT * FROM trades")
+    """
+    pool = await _get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            yield conn
+
+
+@asynccontextmanager
+async def get_db_direct():
+    """
+    Async context manager for non-FastAPI callers (paper trading loop, scripts).
+
+    Usage:
+        async with get_db_direct() as db:
             rows = await db.fetch("SELECT * FROM trades")
     """
     pool = await _get_pool()

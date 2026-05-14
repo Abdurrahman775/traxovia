@@ -204,10 +204,16 @@ async def run_cycle(stats: dict) -> None:
 
 
 async def main() -> None:
-    # Register shutdown handlers
+    # Register shutdown handlers (add_signal_handler is Unix-only)
     loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, _handle_signal)
+    try:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, _handle_signal)
+    except (NotImplementedError, AttributeError):
+        # Windows: use signal.signal() instead
+        signal.signal(signal.SIGINT, lambda s, f: _handle_signal())
+        if hasattr(signal, "SIGTERM"):
+            signal.signal(signal.SIGTERM, lambda s, f: _handle_signal())
 
     await create_pool()
 

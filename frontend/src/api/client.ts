@@ -17,11 +17,16 @@ api.interceptors.response.use(
       err.response?.status === 401 &&
       !redirecting &&
       !window.location.pathname.startsWith('/login') &&
-      !window.location.pathname.startsWith('/register')
+      !window.location.pathname.startsWith('/register') &&
+      localStorage.getItem('access_token')
     ) {
       redirecting = true
       localStorage.removeItem('access_token')
-      window.location.href = '/login'
+      // Notify the React app via event so it navigates with React Router
+      // (avoids hard page reload that causes the "disappearing" flash)
+      window.dispatchEvent(new CustomEvent('auth:logout'))
+      // Reset flag after a tick so subsequent 401s after re-login are caught
+      setTimeout(() => { redirecting = false }, 100)
     }
     return Promise.reject(err)
   }

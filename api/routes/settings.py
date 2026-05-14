@@ -58,6 +58,13 @@ async def get_settings(user=Depends(get_current_user), db=Depends(get_db)):
             except (ValueError, TypeError):
                 d[key] = {} if key != "mt5_accounts" else []
 
+    # Strip passwords from mt5_accounts before sending to client
+    if isinstance(d.get("mt5_accounts"), list):
+        d["mt5_accounts"] = [
+            {k: v for k, v in acc.items() if k != "password"}
+            for acc in d["mt5_accounts"]
+        ]
+
     for key in ("base_risk_pct", "risk_max_pct", "risk_max_drawdown_pct", "risk_daily_pct"):
         if d.get(key) is not None:
             d[key] = float(d[key])
@@ -141,12 +148,37 @@ async def update_settings(
 
     for col, val in [
         ("active_pairs",       body.active_pairs),
-        ("mt5_accounts",       body.mt5_accounts),
         ("notification_prefs", body.notification_prefs),
     ]:
         if val is not None:
             updates.append(f"{col}=${i}::jsonb")
             params.append(json.dumps(val)); i += 1
+
+    # mt5_accounts: merge incoming accounts with stored ones to preserve passwords.
+    # The GET endpoint strips passwords before sending to the client, so a PATCH
+    # from the frontend may arrive without passwords for existing accounts.
+    if body.mt5_accounts is not None:
+        existing_raw = await db.fetchval(
+            "SELECT mt5_accounts FROM users WHERE id=$1", user["sub"]
+        )
+        try:
+            existing = json.loads(existing_raw) if isinstance(existing_raw, str) else (existing_raw or [])
+        except Exception:
+            existing = []
+        # Build a map of existing passwords keyed by login+server
+        existing_passwords = {
+            (str(a.get("login", "")), str(a.get("server", ""))): a.get("password")
+            for a in existing if isinstance(a, dict) and a.get("password")
+        }
+        merged = []
+        for acc in body.mt5_accounts:
+            if isinstance(acc, dict):
+                key = (str(acc.get("login", "")), str(acc.get("server", "")))
+                if not acc.get("password") and key in existing_passwords:
+                    acc = {**acc, "password": existing_passwords[key]}
+                merged.append(acc)
+        updates.append(f"mt5_accounts=${i}::jsonb")
+        params.append(json.dumps(merged)); i += 1
 
     if updates:
         params.append(user["sub"])

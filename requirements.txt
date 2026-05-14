@@ -15,7 +15,6 @@ celery[redis]==5.3.6
 # Auth
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-supabase==2.4.3
 
 # Billing
 stripe==9.9.0

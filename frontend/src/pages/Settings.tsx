@@ -92,43 +92,144 @@ function RowItem({ label, sub, el }: { label: string; sub: string; el: React.Rea
 
 // ─── MT5 Bind Form ────────────────────────────────────────────────────────────
 
+const BROKER_SERVERS: { broker: string; servers: string[] }[] = [
+  { broker: 'Exness',       servers: ['Exness-Real', 'Exness-Real8', 'Exness-Trial'] },
+  { broker: 'IC Markets',   servers: ['ICMarkets-Live01', 'ICMarkets-Live02', 'ICMarkets-Demo01'] },
+  { broker: 'Pepperstone',  servers: ['Pepperstone-Edge-Live', 'Pepperstone-Live', 'Pepperstone-Demo'] },
+  { broker: 'XM',           servers: ['XMTrading-Real', 'XMTrading-Real2', 'XMTrading-Demo3'] },
+  { broker: 'FP Markets',   servers: ['FPMarkets-Live01', 'FPMarkets-Demo01'] },
+  { broker: 'FTMO',         servers: ['FTMO-Server', 'FTMO-Demo2'] },
+  { broker: 'OctaFX',       servers: ['OctaFX-Real', 'OctaFX-Demo'] },
+  { broker: 'Deriv',        servers: ['Deriv-Demo', 'Deriv-Server'] },
+  { broker: 'Tickmill',     servers: ['Tickmill-Live', 'Tickmill-Demo'] },
+  { broker: 'HFM',          servers: ['HFMarkets-Live', 'HFMarkets-Demo'] },
+  { broker: 'Vantage',      servers: ['Vantage-Live', 'Vantage-Demo'] },
+  { broker: 'EightCap',     servers: ['EightCap-Live', 'EightCap-Demo'] },
+]
+
 function BindMt5Form({ onSave, onCancel }: { onSave(acc: object): void; onCancel(): void }) {
-  const [form, setForm] = useState({ login: '', server: '', label: '' })
+  const [form, setForm] = useState({ login: '', password: '', server: '', label: '' })
+  const [showPass, setShowPass] = useState(false)
+  const [brokerOpen, setBrokerOpen] = useState(false)
+
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
   const INPUT: React.CSSProperties = {
-    width: '100%', background: 'var(--color-s3)', border: '1px solid var(--color-input-border)',
+    width: '100%', background: 'var(--color-s2)', border: '1px solid var(--color-input-border)',
     borderRadius: 7, padding: '8px 11px', color: 'var(--color-tx)',
     fontFamily: '"IBM Plex Mono",monospace', fontSize: 12, outline: 'none',
   }
   const focus = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = '#00e5cc')
   const blur  = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = 'var(--color-input-border)')
 
+  const canSubmit = form.login && form.password && form.server
+
   return (
-    <div style={{ background: 'var(--color-s3)', border: '1px solid rgba(0,229,204,0.2)', borderRadius: 10, padding: 14, marginBottom: 10 }}>
-      <div className="font-mono text-[10px] tracking-widest uppercase mb-3" style={{ color: '#00e5cc' }}>Bind MT5 Account</div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+    <div style={{ background: 'var(--color-s3)', border: '1px solid rgba(0,229,204,0.2)', borderRadius: 10, padding: 16, marginBottom: 10 }}>
+      <div className="font-mono text-[10px] tracking-widest uppercase mb-1" style={{ color: '#00e5cc' }}>Bind MT5 Account</div>
+      <div className="font-mono text-[10px] mb-4" style={{ color: 'var(--color-tx3)' }}>
+        Works with any MT5 broker — enter the credentials from your broker's welcome email.
+      </div>
+
+      {/* Broker quick-select */}
+      <div className="mb-3">
+        <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--color-tx3)' }}>
+          Broker <span style={{ color: 'var(--color-tx3)', fontWeight: 400 }}>(optional — select to auto-fill server)</span>
+        </div>
+        <div style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setBrokerOpen(o => !o)}
+            style={{ ...INPUT, textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <span style={{ color: form.server ? 'var(--color-tx)' : 'var(--color-tx3)' }}>
+              {BROKER_SERVERS.find(b => b.servers.includes(form.server))?.broker ?? 'Select broker or type server below'}
+            </span>
+            <span style={{ fontSize: 10 }}>{brokerOpen ? '▲' : '▼'}</span>
+          </button>
+          {brokerOpen && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+              background: 'var(--color-s2)', border: '1px solid rgba(0,229,204,0.25)',
+              borderRadius: 8, marginTop: 4, maxHeight: 240, overflowY: 'auto',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+            }}>
+              {BROKER_SERVERS.map(({ broker, servers }) => (
+                <div key={broker}>
+                  <div className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5"
+                    style={{ color: '#00e5cc', background: 'rgba(0,229,204,0.05)', borderBottom: '1px solid rgba(0,229,204,0.1)' }}>
+                    {broker}
+                  </div>
+                  {servers.map(srv => (
+                    <div key={srv}
+                      onClick={() => { setForm(p => ({ ...p, server: srv })); setBrokerOpen(false) }}
+                      className="font-mono text-[11px] px-4 py-2 cursor-pointer"
+                      style={{ color: 'var(--color-tx2)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,229,204,0.08)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {srv}
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <span className="font-mono text-[9px]" style={{ color: 'var(--color-tx3)' }}>
+                  Don't see your broker? Type the server name directly below.
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Form fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
         <div>
-          <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--color-tx3)' }}>Login</div>
+          <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--color-tx3)' }}>Login *</div>
           <input style={INPUT} value={form.login} onChange={set('login')} placeholder="12345678" onFocus={focus} onBlur={blur} />
         </div>
         <div>
-          <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--color-tx3)' }}>Server</div>
-          <input style={INPUT} value={form.server} onChange={set('server')} placeholder="Exness-Real" onFocus={focus} onBlur={blur} />
+          <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--color-tx3)' }}>Password *</div>
+          <div style={{ position: 'relative' }}>
+            <input style={{ ...INPUT, paddingRight: 36 }} type={showPass ? 'text' : 'password'}
+              value={form.password} onChange={set('password')} placeholder="••••••••" onFocus={focus} onBlur={blur} />
+            <button type="button" onClick={() => setShowPass(s => !s)}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-tx3)', fontSize: 12 }}>
+              {showPass ? '🙈' : '👁'}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+        <div>
+          <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--color-tx3)' }}>Server *</div>
+          <input style={INPUT} value={form.server} onChange={set('server')} placeholder="BrokerName-Live01" onFocus={focus} onBlur={blur} />
         </div>
         <div>
           <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--color-tx3)' }}>Label</div>
-          <input style={INPUT} value={form.label} onChange={set('label')} placeholder="Primary" onFocus={focus} onBlur={blur} />
+          <input style={INPUT} value={form.label} onChange={set('label')} placeholder="My Main Account" onFocus={focus} onBlur={blur} />
         </div>
       </div>
+
+      <div className="font-mono text-[9px] mb-3" style={{ color: 'var(--color-tx3)' }}>
+        * To find your server name: open MT5 → File → Open Account → search your broker name.
+      </div>
+
       <div className="flex gap-2">
         <button
-          onClick={() => { if (form.login && form.server) onSave({ login: form.login, server: form.server, label: form.label || form.login, active: true }) }}
-          disabled={!form.login || !form.server}
+          onClick={() => {
+            if (canSubmit) onSave({
+              login: form.login, password: form.password,
+              server: form.server, label: form.label || form.login, active: true,
+            })
+          }}
+          disabled={!canSubmit}
           className="font-mono text-[10px] font-bold tracking-widest px-4 py-1.5 rounded-lg transition-all disabled:opacity-40"
           style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
-          BIND
+          BIND ACCOUNT
         </button>
         <button onClick={onCancel}
           className="font-mono text-[10px] px-3 py-1.5 rounded-lg transition-all"
@@ -348,7 +449,7 @@ export default function Settings() {
 
   const { data: plans = [] } = useQuery<any[]>({
     queryKey: ['plans'],
-    queryFn: () => api.get('/billing/plans').then(r => r.data).catch(() => []),
+    queryFn: () => api.get('/billing/plans').then(r => Array.isArray(r.data) ? r.data : (r.data?.plans ?? [])).catch(() => []),
   })
 
   const { data: settings, refetch } = useQuery({
@@ -641,8 +742,10 @@ export default function Settings() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#00e596', boxShadow: '0 0 6px #00e596', display: 'inline-block' }} />
-                <span style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 10, color: '#00e5cc' }}>CONNECTED</span>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: acc.active ? '#00e596' : '#888', display: 'inline-block' }} />
+                <span style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 10, color: acc.active ? '#00e5cc' : 'var(--color-tx3)' }}>
+                  {acc.active ? 'BOUND' : 'INACTIVE'}
+                </span>
                 <button
                   onClick={() => {
                     const updated = mt5Accounts.filter((_, j) => j !== i)

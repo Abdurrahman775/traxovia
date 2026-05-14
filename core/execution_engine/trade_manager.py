@@ -157,13 +157,8 @@ def check_and_close_positions() -> int:
 
 # ── Async loop (paper trading) ─────────────────────────────────────────────────
 
-def get_db_direct():
-    from database.connection import get_db
-    return get_db()
-
-
 async def check_open_trades() -> dict:
-    from database.connection import get_db
+    from database.connection import get_db_direct
 
     async with get_db_direct() as db:
         rows = await db.fetch(

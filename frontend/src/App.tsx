@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -29,10 +30,23 @@ function RequireAdmin({ children }: { children: JSX.Element }) {
   return isAdmin ? children : <Navigate to="/dashboard" replace />
 }
 
+// Listens for auth:logout events dispatched by the axios interceptor and
+// navigates to /login via React Router (no hard reload, no page flash).
+function AuthRedirector() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const handler = () => navigate('/login', { replace: true })
+    window.addEventListener('auth:logout', handler)
+    return () => window.removeEventListener('auth:logout', handler)
+  }, [navigate])
+  return null
+}
+
 export default function App() {
   return (
     <ThemeProvider>
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AuthRedirector />
       <Routes>
         <Route path="/login"    element={<Login />} />
         <Route path="/register" element={<Register />} />

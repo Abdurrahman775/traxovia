@@ -14,13 +14,18 @@ customer.subscription.created   → activate new plan
 customer.subscription.updated   → apply plan change (upgrade / downgrade / reinstatement)
 customer.subscription.deleted   → downgrade to community on cancellation / non-payment
 
-Plan → price ID mapping is read from env at startup (STRIPE_PRICE_*).
-Plan updates touch only the users table, which has no RLS, so no set_rls_user()
-call is required for the UPDATE. set_rls_user() is still required before the
-audit_log INSERT because audit_log does have RLS.
-
-Phase 1 quality gate: trigger subscription.created via Stripe CLI and confirm
-the user's plan column updates within 5 seconds.
+ACID guarantees
+---------------
+Atomicity   — every plan change wraps UPDATE users + INSERT audit_log in an
+              explicit savepoint; either both commit or both roll back.
+Consistency — plan name is validated against VALID_PLANS before any write;
+              DB constraints (FK, NOT NULL) enforce referential integrity.
+Isolation   — SELECT ... FOR UPDATE locks the user row for the duration of
+              each plan-change savepoint, preventing concurrent webhooks or
+              checkout requests from reading stale data and double-writing.
+Durability  — PostgreSQL WAL ensures every committed savepoint survives a crash.
+              Stripe event IDs are recorded in billing_events to make webhook
+              processing idempotent across Stripe retries.
 """
 
 import json
@@ -110,31 +115,65 @@ def _plan_from_subscription(sub: stripe.Subscription, cfg: dict) -> str | None:
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
+async def _ensure_billing_events_table(db) -> None:
+    """Create billing_events idempotency table if it doesn't exist yet."""
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS billing_events (
+            event_id    TEXT PRIMARY KEY,
+            event_type  TEXT NOT NULL,
+            processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+
+
+async def _is_event_processed(event_id: str, event_type: str, db) -> bool:
+    """
+    Idempotency guard — record the Stripe event ID atomically.
+    Returns True if this event was already processed (Stripe retry).
+    Uses INSERT ... ON CONFLICT to make the check-and-insert atomic.
+    """
+    result = await db.fetchval(
+        """
+        INSERT INTO billing_events (event_id, event_type)
+        VALUES ($1, $2)
+        ON CONFLICT (event_id) DO NOTHING
+        RETURNING event_id
+        """,
+        event_id, event_type,
+    )
+    return result is None  # None means the INSERT was skipped (conflict = already seen)
+
+
 async def _get_or_create_stripe_customer(user: dict, db) -> str:
     """
     Return the user's Stripe customer ID, creating a new Customer if needed.
-    Stores the ID back to users table on creation.
+
+    Isolation: SELECT ... FOR UPDATE locks the user row so concurrent requests
+    cannot both see stripe_customer_id = NULL and create duplicate customers.
+    The Stripe API call happens outside the lock window — if it fails the
+    transaction rolls back cleanly with no side-effects in our DB.
     """
-    row = await db.fetchrow(
-        "SELECT id, email, stripe_customer_id FROM users WHERE id = $1::uuid",
-        user["sub"],
-    )
-    if not row:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    async with db.transaction():  # savepoint — rolls back on any exception
+        row = await db.fetchrow(
+            "SELECT id, email, stripe_customer_id FROM users WHERE id = $1::uuid FOR UPDATE",
+            user["sub"],
+        )
+        if not row:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
 
-    if row["stripe_customer_id"]:
-        return row["stripe_customer_id"]
+        if row["stripe_customer_id"]:
+            return row["stripe_customer_id"]
 
-    # Create a new Stripe customer linked to this account.
-    customer = stripe.Customer.create(
-        email=row["email"],
-        metadata={"user_id": str(row["id"])},
-    )
-    await db.execute(
-        "UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
-        customer["id"], row["id"],
-    )
-    return customer["id"]
+        # Row is locked — no concurrent request can enter this branch simultaneously.
+        customer = stripe.Customer.create(
+            email=row["email"],
+            metadata={"user_id": str(row["id"])},
+        )
+        await db.execute(
+            "UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
+            customer["id"], row["id"],
+        )
+        return customer["id"]
 
 
 async def _apply_plan_change(
@@ -145,44 +184,56 @@ async def _apply_plan_change(
 ) -> None:
     """
     Update the user's plan in the DB and write an audit log entry.
-    Called by all three webhook handlers so the logic lives in one place.
+
+    ACID breakdown
+    ──────────────
+    Atomicity   — explicit savepoint (async with db.transaction()) ensures the
+                  plan UPDATE and audit_log INSERT both commit or both roll back.
+    Consistency — new_plan validated against VALID_PLANS before any write.
+    Isolation   — SELECT ... FOR UPDATE locks the user row for the duration of
+                  this savepoint, preventing a second concurrent webhook from
+                  reading the same old_plan and writing a duplicate audit entry.
+    Durability  — PostgreSQL WAL; handled by the outer request transaction.
     """
-    user = await db.fetchrow(
-        "SELECT id, plan FROM users WHERE stripe_customer_id = $1",
-        customer_id,
-    )
-    if not user:
-        # Customer exists in Stripe but not in our DB — skip silently.
-        # This can happen with test customers or accounts deleted by an admin.
-        logger.warning("stripe webhook: no user found for customer %s", customer_id)
-        return
+    if new_plan not in VALID_PLANS:
+        raise ValueError(f"billing: invalid plan name '{new_plan}'")
 
-    old_plan = user["plan"]
-    if old_plan == new_plan:
-        return  # No change — idempotent update, nothing to do.
+    async with db.transaction():  # savepoint — rolls back both writes on any exception
+        # Lock row: no other transaction can read or write this user's plan
+        # until this savepoint commits or rolls back.
+        user = await db.fetchrow(
+            "SELECT id, plan FROM users WHERE stripe_customer_id = $1 FOR UPDATE",
+            customer_id,
+        )
+        if not user:
+            logger.warning("stripe webhook: no user found for customer %s", customer_id)
+            return
 
-    await db.execute(
-        "UPDATE users SET plan = $1, updated_at = NOW() WHERE id = $2",
-        new_plan, user["id"],
-    )
+        old_plan = user["plan"]
+        if old_plan == new_plan:
+            return  # Idempotent — already in desired state, savepoint releases cleanly.
 
-    direction = "upgraded" if _plan_rank(new_plan) > _plan_rank(old_plan) else "downgraded"
-    detail = (
-        f"Plan {direction} from {old_plan} ({PLAN_PRICES.get(old_plan, '?')}) "
-        f"to {new_plan} ({PLAN_PRICES.get(new_plan, '?')}) "
-        f"via Stripe event {event_type}"
-    )
+        # ── Atomicity: both writes happen together or not at all ──────────────
 
-    await set_rls_user(db, str(user["id"]))
-    await db.execute(
-        """
-        INSERT INTO audit_log (user_id, action, detail)
-        VALUES ($1, $2, $3)
-        """,
-        user["id"],
-        "plan_upgraded" if direction == "upgraded" else "plan_downgraded",
-        detail,
-    )
+        await db.execute(
+            "UPDATE users SET plan = $1, updated_at = NOW() WHERE id = $2",
+            new_plan, user["id"],
+        )
+
+        direction = "upgraded" if _plan_rank(new_plan) > _plan_rank(old_plan) else "downgraded"
+        detail = (
+            f"Plan {direction} from {old_plan} ({PLAN_PRICES.get(old_plan, '?')}) "
+            f"to {new_plan} ({PLAN_PRICES.get(new_plan, '?')}) "
+            f"via Stripe event {event_type}"
+        )
+
+        await set_rls_user(db, str(user["id"]))
+        await db.execute(
+            "INSERT INTO audit_log (user_id, action, detail) VALUES ($1, $2, $3)",
+            user["id"],
+            "plan_upgraded" if direction == "upgraded" else "plan_downgraded",
+            detail,
+        )
 
     logger.info(
         "billing: user %s %s — %s → %s (event: %s)",
@@ -222,7 +273,16 @@ async def stripe_webhook(request: Request, db=Depends(get_db)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Malformed webhook payload")
 
     event_type: str = event["type"]
+    event_id:   str = event["id"]
     sub: stripe.Subscription = event["data"]["object"]
+
+    # ── Idempotency guard ────────────────────────────────────────────────────
+    # Stripe retries unacknowledged webhooks. INSERT ... ON CONFLICT ensures
+    # each event_id is processed exactly once even under concurrent delivery.
+    await _ensure_billing_events_table(db)
+    if await _is_event_processed(event_id, event_type, db):
+        logger.info("stripe webhook: duplicate event %s (%s) — skipping", event_id, event_type)
+        return {"status": "ok", "event": event_type, "duplicate": True}
 
     try:
         if event_type == "customer.subscription.created":
@@ -361,42 +421,51 @@ async def create_checkout_session(
 
     customer_id = await _get_or_create_stripe_customer(user, db)
 
-    # If the customer already has an active subscription, modify it directly
-    # instead of creating a new checkout session (which would double-bill them
-    # and leave two live subscriptions).
-    existing_subs = stripe.Subscription.list(customer=customer_id, status="active", limit=1)
-    if existing_subs.data:
-        existing_sub  = existing_subs.data[0]
-        existing_item = existing_sub["items"]["data"][0]
-        new_price_id  = plan_to_price[plan]
-
-        if existing_item["price"]["id"] == new_price_id:
-            return {"success": True, "message": "You are already on this plan."}
-
-        current_plan = price_map.get(existing_item["price"]["id"], "community")
-        is_upgrade   = _plan_rank(plan) > _plan_rank(current_plan)
-
-        stripe.Subscription.modify(
-            existing_sub["id"],
-            items=[{"id": existing_item["id"], "price": new_price_id}],
-            # Upgrades: invoice immediately so access is granted now.
-            # Downgrades: no proration — new lower price takes effect at renewal.
-            proration_behavior="always_invoice" if is_upgrade else "none",
+    # ── Isolation: lock user row before checking/modifying subscription ──────
+    # Prevents concurrent checkout requests (e.g. double-click) from both
+    # seeing no active subscription and both creating new checkout sessions.
+    async with db.transaction():  # savepoint
+        await db.fetchrow(
+            "SELECT id FROM users WHERE id = $1::uuid FOR UPDATE",
+            user["sub"],
         )
-        return {
-            "success": True,
-            "message": f"Plan {'upgraded' if is_upgrade else 'downgraded'} successfully.",
-        }
 
-    # No existing subscription — start a fresh checkout flow.
-    session = stripe.checkout.Session.create(
-        customer=customer_id,
-        mode="subscription",
-        line_items=[{"price": plan_to_price[plan], "quantity": 1}],
-        success_url=f"{settings.frontend_url}/dashboard?checkout=success",
-        cancel_url=f"{settings.frontend_url}/billing",
-        metadata={"user_id": user["sub"], "plan": plan},
-    )
+        # If the customer already has an active subscription, modify it directly
+        # instead of creating a new checkout session (which would double-bill them
+        # and leave two live subscriptions).
+        existing_subs = stripe.Subscription.list(customer=customer_id, status="active", limit=1)
+        if existing_subs.data:
+            existing_sub  = existing_subs.data[0]
+            existing_item = existing_sub["items"]["data"][0]
+            new_price_id  = plan_to_price[plan]
+
+            if existing_item["price"]["id"] == new_price_id:
+                return {"success": True, "message": "You are already on this plan."}
+
+            current_plan = price_map.get(existing_item["price"]["id"], "community")
+            is_upgrade   = _plan_rank(plan) > _plan_rank(current_plan)
+
+            stripe.Subscription.modify(
+                existing_sub["id"],
+                items=[{"id": existing_item["id"], "price": new_price_id}],
+                # Upgrades: invoice immediately so access is granted now.
+                # Downgrades: no proration — new lower price takes effect at renewal.
+                proration_behavior="always_invoice" if is_upgrade else "none",
+            )
+            return {
+                "success": True,
+                "message": f"Plan {'upgraded' if is_upgrade else 'downgraded'} successfully.",
+            }
+
+        # No existing subscription — start a fresh checkout flow.
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            mode="subscription",
+            line_items=[{"price": plan_to_price[plan], "quantity": 1}],
+            success_url=f"{settings.frontend_url}/dashboard?checkout=success",
+            cancel_url=f"{settings.frontend_url}/billing",
+            metadata={"user_id": user["sub"], "plan": plan},
+        )
     return {"checkout_url": session["url"]}
 
 

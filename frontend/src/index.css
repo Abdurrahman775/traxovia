@@ -49,12 +49,12 @@ body {
 .rg2 { display: grid; grid-template-columns: 1fr 1fr;       gap: 14px; }
 
 /* ── Animations ────────────────────────────────────────────────────────── */
-@keyframes pageIn  { from { opacity:0; transform:translateY(8px)  } to { opacity:1; transform:translateY(0) } }
+@keyframes pageIn  { from { opacity:0; transform:translateY(6px)  } to { opacity:1; transform:translateY(0) } }
 @keyframes cardIn  { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
 @keyframes tickUp  { 0%{color:inherit} 30%{color:#00ffea} 100%{color:inherit} }
 @keyframes tickDn  { 0%{color:inherit} 30%{color:#ff6b7a} 100%{color:inherit} }
 
-.page-enter { animation: pageIn 200ms ease both; }
+.page-enter { animation: pageIn 180ms ease-out both; }
 .card-anim  { animation: cardIn 250ms ease both; }
 .tick-up    { animation: tickUp 400ms ease; }
 .tick-dn    { animation: tickDn 400ms ease; }
