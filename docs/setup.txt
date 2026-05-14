@@ -1,0 +1,132 @@
+# Trading AI SaaS V3 — Environment Variables
+# ─────────────────────────────────────────────────────────────────────────────
+# Copy this file to .env and fill in real values before running anything.
+# Never commit .env to version control — it contains secrets.
+#
+# Two DB connection styles are used:
+#   DATABASE_URL  → asyncpg (FastAPI routes via database/connection.py)
+#   DB_HOST/PORT/… → psycopg2 (Celery tasks via database/sync_connection.py)
+# Both must point at the same TimescaleDB instance.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+# ── Database (asyncpg / FastAPI) ───────────────────────────────────────────────
+# Full asyncpg connection string for FastAPI routes.
+# Format: postgresql://user:password@host:port/dbname
+DATABASE_URL=postgresql://trading_app:password@localhost:5433/trading_ai
+
+# ── Database (psycopg2 / Celery) ───────────────────────────────────────────────
+# Individual components used by database/sync_connection.py to build the
+# psycopg2 DSN for Celery workers. Must match DATABASE_URL above.
+DB_HOST=localhost
+DB_PORT=5433
+DB_NAME=trading_ai
+DB_USER=trading_app          # Role defined in rls_policies.sql
+DB_PASSWORD=password
+DB_SSLMODE=prefer            # Use 'require' on a remote VPS
+
+
+# ── Redis / Celery ─────────────────────────────────────────────────────────────
+# Redis is the Celery broker (task queue) and result backend.
+# Using separate DB indexes (0 / 1) keeps queue messages and task results apart.
+REDIS_URL=redis://localhost:6379/0
+CELERY_BROKER_URL=redis://localhost:6379/0      # Celery reads tasks from here
+CELERY_RESULT_BACKEND=redis://localhost:6379/1  # Celery writes results here
+
+
+# ── Supabase / JWT ─────────────────────────────────────────────────────────────
+# Supabase project settings — found in: Project Settings → API
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=eyJ...          # Safe to expose to the browser
+SUPABASE_SERVICE_ROLE_KEY=eyJ...  # Server-side only — never expose publicly
+
+# JWT signing secret — must match your Supabase project's JWT secret.
+# Found in: Project Settings → API → JWT Settings → JWT Secret
+# Used by api/auth.py to sign and verify all access + refresh tokens.
+JWT_SECRET=your-supabase-jwt-secret
+JWT_ALGORITHM=HS256   # Supabase default — do not change
+JWT_EXPIRE_MINUTES=60 # Access token lifetime in minutes (refresh token = 30 days)
+
+
+# ── Stripe ─────────────────────────────────────────────────────────────────────
+# Live key for production, test key (sk_test_…) for development.
+# Found in: Stripe Dashboard → Developers → API keys
+STRIPE_SECRET_KEY=sk_live_...
+
+# Webhook signing secret — generated when you add the webhook endpoint in Stripe.
+# Found in: Stripe Dashboard → Developers → Webhooks → your endpoint → Signing secret
+# Used by api/billing.py to verify that incoming events are genuinely from Stripe.
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Stripe Price IDs for each paid plan — one recurring price per plan.
+# Found in: Stripe Dashboard → Products → your product → Pricing
+# These map to: starter=$29  trader=$79  pro=$149  elite=$299
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_TRADER=price_...
+STRIPE_PRICE_PRO=price_...
+STRIPE_PRICE_ELITE=price_...
+
+
+# ── MT5 Account (for historical_loader.py — run on Windows VPS only) ──────────
+# Your MT5 account number (integer)
+MT5_LOGIN=0
+# Your MT5 account password
+MT5_PASSWORD=your-mt5-password
+# Broker server name — find it in MT5: File → Open Account → Server dropdown
+# Examples: Exness-MT5Real8 | ICMarkets-MT5-2 | Pepperstone-MT5
+MT5_SERVER=Exness-MT5Real8
+
+# ── MT5 Bridge ─────────────────────────────────────────────────────────────────
+# Primary bridge — Windows VPS A running the MT5 bridge service.
+# Replace PRIMARY_VPS_IP with the VPS's public IP address.
+MT5_BRIDGE_PRIMARY_URL=http://127.0.0.1:8001
+
+# Hot standby bridge — Windows VPS B (different provider from primary).
+# Must be on a different provider so a single provider outage doesn't kill both.
+# Replace STANDBY_VPS_IP with the second VPS's public IP address.
+MT5_BRIDGE_STANDBY_URL=http://STANDBY_VPS_IP:8000
+
+# Shared API key used to authenticate heartbeat and trade execution requests.
+# Set the same value on both VPS bridge configs and here.
+MT5_BRIDGE_API_KEY=309612@Aaa..ss
+MT5_BRIDGE_CLOCK_OFFSET=8
+
+# Seconds between each heartbeat check (scheduler/tasks.py check_bridge_health).
+MT5_BRIDGE_HEARTBEAT_INTERVAL=60
+
+# Seconds of failed heartbeats before trading is paused and failover begins.
+MT5_BRIDGE_FAILOVER_TIMEOUT=120
+
+
+# ── Telegram ───────────────────────────────────────────────────────────────────
+# Bot token from BotFather — used by the personal bot (per-user commands).
+# Create a bot at https://t.me/BotFather and paste the token here.
+TELEGRAM_BOT_TOKEN=your-bot-token
+
+# Telegram channel ID for community signal + result drops.
+# Must be a channel where the bot is an admin.
+# Format: -100xxxxxxxxxx (note the leading -100 for supergroups/channels)
+TELEGRAM_COMMUNITY_CHANNEL_ID=-100000000000
+
+
+# ── Finnhub (economic calendar / news reminders) ──────────────────────────────
+# Free API key from https://finnhub.io — register and copy the key from the dashboard.
+# Free tier: 60 API calls/minute — more than enough for a 10-minute poll interval.
+FINNHUB_API_KEY=your-finnhub-api-key
+
+# ── App ────────────────────────────────────────────────────────────────────────
+# Runtime environment — controls logging verbosity and error detail in responses.
+# Values: development | staging | production
+APP_ENV=development
+
+APP_HOST=0.0.0.0  # Bind address for Uvicorn
+APP_PORT=8000     # Port for Uvicorn
+
+# General-purpose secret key for any server-side signing not covered by JWT_SECRET.
+SECRET_KEY=your-app-secret-key
+
+# Frontend base URL — used by api/billing.py to build Stripe Checkout redirect URLs.
+# Development: http://localhost:3000  Production: https://yourdomain.com
+FRONTEND_URL=http://localhost:5173
+
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
