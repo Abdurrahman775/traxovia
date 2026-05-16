@@ -19,17 +19,17 @@
 
 /* ── Light theme ── */
 html.light {
-  --color-bg:           #f0f4fb;
-  --color-s1:           #e8edf5;
+  --color-bg:           #f3f6fd;
+  --color-s1:           #e6ecf8;
   --color-s2:           #ffffff;
-  --color-s3:           #f4f7fc;
-  --color-tx:           #0c1220;
-  --color-tx2:          #445570;
-  --color-tx3:          #8899b4;
-  --color-card-border:  rgba(0,0,0,0.09);
-  --color-input-border: rgba(0,0,0,0.14);
-  --color-divider:      rgba(0,0,0,0.05);
-  --color-hover-bg:     rgba(0,0,0,0.04);
+  --color-s3:           #edf1fa;
+  --color-tx:           #0d1526;
+  --color-tx2:          #475569;
+  --color-tx3:          #94a3b8;
+  --color-card-border:  rgba(13,21,38,0.10);
+  --color-input-border: rgba(13,21,38,0.16);
+  --color-divider:      rgba(13,21,38,0.07);
+  --color-hover-bg:     rgba(13,21,38,0.05);
 }
 
 body {
