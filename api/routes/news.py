@@ -1,6 +1,7 @@
 """api/routes/news.py — Economic news calendar with plan-gated access."""
 import hashlib
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -10,7 +11,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from api.auth import get_current_user
 from api.middleware.rate_limit import rate_limit
 from database.connection import get_db
-from database.sync_connection import sync_fetchone
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/news", tags=["news"])
@@ -40,11 +40,10 @@ _VALID_IMPACTS = {"high", "medium", "low", "all"}
 _VALID_PAIRS   = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "XAUUSD"}
 
 
-def _get_finnhub_key() -> str:
-    row = sync_fetchone("SELECT finnhub_api_key FROM bot_config WHERE id=1")
-    if row and row.get("finnhub_api_key"):
+async def _get_finnhub_key(db) -> str:
+    row = await db.fetchrow("SELECT finnhub_api_key FROM bot_config WHERE id=1")
+    if row and row["finnhub_api_key"]:
         return row["finnhub_api_key"]
-    import os
     return os.getenv("FINNHUB_API_KEY", "")
 
 
@@ -107,7 +106,7 @@ async def get_news(
     if pair and pair.upper() not in _VALID_PAIRS:
         raise HTTPException(400, f"Invalid pair. Must be one of: {', '.join(sorted(_VALID_PAIRS))}")
 
-    api_key = _get_finnhub_key()
+    api_key = await _get_finnhub_key(db)
     if not api_key or api_key == "your-finnhub-api-key":
         raise HTTPException(503, "News feed not configured — Finnhub API key missing")
 
