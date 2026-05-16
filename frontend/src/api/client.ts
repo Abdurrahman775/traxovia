@@ -2,8 +2,27 @@ import axios from 'axios'
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000' })
 
+export function getToken() {
+  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+}
+
+export function setToken(token: string, remember: boolean) {
+  if (remember) {
+    localStorage.setItem('access_token', token)
+    sessionStorage.removeItem('access_token')
+  } else {
+    sessionStorage.setItem('access_token', token)
+    localStorage.removeItem('access_token')
+  }
+}
+
+export function clearToken() {
+  localStorage.removeItem('access_token')
+  sessionStorage.removeItem('access_token')
+}
+
 api.interceptors.request.use(cfg => {
-  const token = localStorage.getItem('access_token')
+  const token = getToken()
   if (token) cfg.headers.Authorization = `Bearer ${token}`
   return cfg
 })
@@ -18,14 +37,13 @@ api.interceptors.response.use(
       !redirecting &&
       !window.location.pathname.startsWith('/login') &&
       !window.location.pathname.startsWith('/register') &&
-      localStorage.getItem('access_token')
+      !window.location.pathname.startsWith('/forgot-password') &&
+      !window.location.pathname.startsWith('/reset-password') &&
+      getToken()
     ) {
       redirecting = true
-      localStorage.removeItem('access_token')
-      // Notify the React app via event so it navigates with React Router
-      // (avoids hard page reload that causes the "disappearing" flash)
+      clearToken()
       window.dispatchEvent(new CustomEvent('auth:logout'))
-      // Reset flag after a tick so subsequent 401s after re-login are caught
       setTimeout(() => { redirecting = false }, 100)
     }
     return Promise.reject(err)

@@ -174,6 +174,22 @@ MIGRATIONS = [
         )
         """,
     ),
+    # ── Password reset tokens ────────────────────────────────────────────────
+    (
+        "create password_reset_tokens table",
+        """
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            token      TEXT        PRIMARY KEY,
+            user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            expires_at TIMESTAMPTZ NOT NULL,
+            used       BOOLEAN     NOT NULL DEFAULT FALSE
+        )
+        """,
+    ),
+    (
+        "add index on password_reset_tokens user_id",
+        "CREATE INDEX IF NOT EXISTS idx_prt_user_id ON password_reset_tokens(user_id)",
+    ),
     # ── Stripe webhook idempotency log ───────────────────────────────────────
     (
         "create billing_events idempotency table",

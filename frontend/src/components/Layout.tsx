@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import api from '../api/client'
+import api, { clearToken } from '../api/client'
 import { useAdminUser } from '../hooks/useAdminUser'
 import { useTheme } from '../contexts/ThemeContext'
 import { useBranding } from '../hooks/useBranding'
@@ -69,7 +69,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   function logout() {
-    localStorage.removeItem('access_token')
+    clearToken()
     navigate('/login')
   }
 

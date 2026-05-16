@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import api from '../api/client'
+import { useNavigate, Link } from 'react-router-dom'
+import api, { setToken } from '../api/client'
 import { useBranding } from '../hooks/useBranding'
 import bgImage from '../bg-image.webp'
 import localLogo from '../logo.webp'
@@ -8,6 +8,7 @@ import localLogo from '../logo.webp'
 export default function Login() {
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(false)
   const [show,     setShow]     = useState(false)
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
@@ -20,7 +21,7 @@ export default function Login() {
     setError('')
     try {
       const res = await api.post('/auth/login', { email, password })
-      localStorage.setItem('access_token', res.data.access_token)
+      setToken(res.data.access_token, remember)
       navigate('/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed')
@@ -75,6 +76,26 @@ export default function Login() {
             </div>
           </div>
 
+          {/* Remember me + Forgot password row */}
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={e => setRemember(e.target.checked)}
+                className="w-3.5 h-3.5 rounded accent-cy"
+              />
+              <span className="text-[11px] font-mono" style={{ color: 'var(--color-tx3)' }}>Remember me</span>
+            </label>
+            <Link
+              to="/forgot-password"
+              className="text-[11px] font-mono hover:underline"
+              style={{ color: 'var(--color-cy)' }}
+            >
+              Forgot password?
+            </Link>
+          </div>
+
           {error && (
             <div className="text-xs font-mono px-3 py-2 rounded-lg"
               style={{ background: 'rgba(255,61,90,0.08)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)' }}>
@@ -91,7 +112,7 @@ export default function Login() {
 
         <div className="mt-5 text-center text-xs font-mono" style={{ color: 'var(--color-tx3)' }}>
           No account?{' '}
-          <a href="/register" style={{ color: 'var(--color-cy)' }} className="hover:underline">Register</a>
+          <Link to="/register" style={{ color: 'var(--color-cy)' }} className="hover:underline">Register</Link>
         </div>
       </div>
     </div>

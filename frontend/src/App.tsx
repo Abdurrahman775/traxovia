@@ -19,15 +19,18 @@ import Community from './pages/Community'
 import Profile from './pages/Profile'
 import DataManagement from './pages/DataManagement'
 import News from './pages/News'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import { useAdminUser } from './hooks/useAdminUser'
+import { getToken } from './api/client'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  return localStorage.getItem('access_token') ? children : <Navigate to="/login" replace />
+  return getToken() ? children : <Navigate to="/login" replace />
 }
 
 function RequireAdmin({ children }: { children: JSX.Element }) {
   const { isAdmin } = useAdminUser()
-  if (!localStorage.getItem('access_token')) return <Navigate to="/login" replace />
+  if (!getToken()) return <Navigate to="/login" replace />
   return isAdmin ? children : <Navigate to="/dashboard" replace />
 }
 
@@ -49,8 +52,10 @@ export default function App() {
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthRedirector />
       <Routes>
-        <Route path="/login"    element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/login"           element={<Login />} />
+        <Route path="/register"        element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password"  element={<ResetPassword />} />
         <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index            element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
