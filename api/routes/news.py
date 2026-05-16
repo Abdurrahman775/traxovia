@@ -8,6 +8,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.auth import get_current_user
+from api.middleware.rate_limit import rate_limit
 from database.connection import get_db
 from database.sync_connection import sync_fetchone
 
@@ -34,7 +35,9 @@ _COUNTRY_PAIRS: dict[str, list[str]] = {
     "CH":  ["EURUSD"],
 }
 
-_IMPACT_ORDER = {"high": 0, "medium": 1, "low": 2}
+_IMPACT_ORDER  = {"high": 0, "medium": 1, "low": 2}
+_VALID_IMPACTS = {"high", "medium", "low", "all"}
+_VALID_PAIRS   = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "XAUUSD"}
 
 
 def _get_finnhub_key() -> str:
@@ -91,17 +94,29 @@ async def get_news(
     days:   int           = Query(1, ge=1, le=7, description="Number of days to fetch"),
     user=Depends(get_current_user),
     db=Depends(get_db),
+    _=Depends(rate_limit(limit=20, window=60)),
 ):
     if user.get("plan", "community") not in _PAID_PLANS:
         raise HTTPException(403, "News feed requires Starter plan or above")
+
+    # Validate impact
+    if impact and impact.lower() not in _VALID_IMPACTS:
+        raise HTTPException(400, f"Invalid impact value. Must be one of: {', '.join(sorted(_VALID_IMPACTS))}")
+
+    # Validate pair
+    if pair and pair.upper() not in _VALID_PAIRS:
+        raise HTTPException(400, f"Invalid pair. Must be one of: {', '.join(sorted(_VALID_PAIRS))}")
 
     api_key = _get_finnhub_key()
     if not api_key or api_key == "your-finnhub-api-key":
         raise HTTPException(503, "News feed not configured — Finnhub API key missing")
 
-    today    = datetime.now(timezone.utc).date()
-    from_dt  = datetime.fromisoformat(date).date() if date else today
-    to_dt    = from_dt + timedelta(days=days - 1)
+    today = datetime.now(timezone.utc).date()
+    try:
+        from_dt = datetime.fromisoformat(date).date() if date else today
+    except ValueError:
+        raise HTTPException(400, "Invalid date format. Use YYYY-MM-DD")
+    to_dt = from_dt + timedelta(days=days - 1)
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
