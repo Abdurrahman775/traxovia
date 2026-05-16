@@ -2,23 +2,15 @@
 Description=Traxovia Celery Beat Scheduler
 After=network.target redis.service traxovia-worker.service
 Wants=redis.service
-BindsTo=traxovia-worker.service
 
 [Service]
-Type=forking
+Type=simple
 User=kira
 WorkingDirectory=/home/kira/projects/trading-bot
 EnvironmentFile=/home/kira/projects/trading-bot/.env
 ExecStart=/home/kira/projects/trading-bot/venv/bin/celery \
     -A scheduler.tasks beat \
-    --loglevel=info \
-    --logfile=/tmp/traxovia/celery_beat.log \
-    --pidfile=/tmp/traxovia/celery_beat.pid \
-    --detach
-ExecStop=/bin/kill -TERM $MAINPID
-PIDFile=/tmp/traxovia/celery_beat.pid
-RuntimeDirectory=traxovia
-RuntimeDirectoryMode=0755
+    --loglevel=info
 Restart=on-failure
 RestartSec=10
 

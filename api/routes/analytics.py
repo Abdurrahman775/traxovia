@@ -81,7 +81,7 @@ async def analytics_performance(user=Depends(get_current_user), db=Depends(get_d
     _require_paid(user)
     await set_rls_user(db, user["sub"])
     row = await db.fetchrow(
-        """SELECT win_rate, net_pnl_r, total_trades
+        """SELECT win_rate_pct, net_r, total_trades
            FROM mv_rolling_performance
            WHERE user_id = $1::uuid""",
         user["sub"],
@@ -89,7 +89,7 @@ async def analytics_performance(user=Depends(get_current_user), db=Depends(get_d
     if not row:
         return {"win_rate": 0.0, "net_pnl_r": 0.0, "total_trades": 0}
     return {
-        "win_rate":     float(row["win_rate"] or 0),
-        "net_pnl_r":    float(row["net_pnl_r"] or 0),
+        "win_rate":     float(row["win_rate_pct"] or 0),
+        "net_pnl_r":    float(row["net_r"] or 0),
         "total_trades": int(row["total_trades"] or 0),
     }

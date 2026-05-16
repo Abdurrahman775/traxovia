@@ -4,21 +4,14 @@ After=network.target redis.service postgresql.service
 Wants=redis.service
 
 [Service]
-Type=forking
+Type=simple
 User=kira
 WorkingDirectory=/home/kira/projects/trading-bot
 EnvironmentFile=/home/kira/projects/trading-bot/.env
 ExecStart=/home/kira/projects/trading-bot/venv/bin/celery \
     -A scheduler.tasks worker \
     --pool=solo \
-    --loglevel=info \
-    --logfile=/tmp/traxovia/celery_worker.log \
-    --pidfile=/tmp/traxovia/celery_worker.pid \
-    --detach
-ExecStop=/bin/kill -TERM $MAINPID
-PIDFile=/tmp/traxovia/celery_worker.pid
-RuntimeDirectory=traxovia
-RuntimeDirectoryMode=0755
+    --loglevel=info
 Restart=on-failure
 RestartSec=10
 
