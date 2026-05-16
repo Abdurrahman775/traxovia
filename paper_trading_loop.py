@@ -135,7 +135,7 @@ async def run_cycle(stats: dict) -> None:
                 result = await generate_signal(
                     symbol=symbol,
                     htf_df=htf_df,
-                    ltf_df=ltf_df,
+                    m15_df=ltf_df,
                     user_id=USER_ID,
                     db=db,
                 )
