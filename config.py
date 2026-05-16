@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 
 
 class Settings(BaseSettings):
@@ -14,6 +14,16 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6379/1"
 
     jwt_secret: str = ""
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def jwt_secret_must_be_set(cls, v: str) -> str:
+        if not v or len(v) < 32:
+            raise ValueError(
+                "JWT_SECRET must be set and at least 32 characters long. "
+                "Generate one with: python3 -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        return v
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
 

@@ -14,6 +14,9 @@ Phase notes:
 
 import os
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from celery import Celery
 from celery.schedules import crontab
 
@@ -31,6 +34,7 @@ app.conf.update(
     accept_content=['json'],
     timezone='UTC',
     enable_utc=True,
+    broker_connection_retry_on_startup=True,
     # Prevent tasks from running indefinitely — hard limit 10 minutes.
     task_time_limit=600,
     task_soft_time_limit=540,
@@ -210,9 +214,6 @@ def expire_trials():
         conn.commit()
 
     # 4. Telegram notification for each expired user
-    import asyncio
-    from telegram import Bot  # Phase 7
-
     from notifications.telegram_handler import _get_bot_token, _send_sync
     token = _get_bot_token()
     for user in expired_users:

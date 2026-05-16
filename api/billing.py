@@ -115,17 +115,6 @@ def _plan_from_subscription(sub: stripe.Subscription, cfg: dict) -> str | None:
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
-async def _ensure_billing_events_table(db) -> None:
-    """Create billing_events idempotency table if it doesn't exist yet."""
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS billing_events (
-            event_id    TEXT PRIMARY KEY,
-            event_type  TEXT NOT NULL,
-            processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """)
-
-
 async def _is_event_processed(event_id: str, event_type: str, db) -> bool:
     """
     Idempotency guard — record the Stripe event ID atomically.
@@ -279,7 +268,6 @@ async def stripe_webhook(request: Request, db=Depends(get_db)):
     # ── Idempotency guard ────────────────────────────────────────────────────
     # Stripe retries unacknowledged webhooks. INSERT ... ON CONFLICT ensures
     # each event_id is processed exactly once even under concurrent delivery.
-    await _ensure_billing_events_table(db)
     if await _is_event_processed(event_id, event_type, db):
         logger.info("stripe webhook: duplicate event %s (%s) — skipping", event_id, event_type)
         return {"status": "ok", "event": event_type, "duplicate": True}
@@ -552,7 +540,7 @@ async def get_subscription(
 )
 async def get_plans(db=Depends(get_db)):
     cfg = await _get_payment_config(db)
-    gateway = cfg.get("payment_gateway", "stripe")
+    gateway = cfg.get("gateway", "stripe")
     if gateway == "paystack":
         currency, symbol = "NGN", "₦"
     else:

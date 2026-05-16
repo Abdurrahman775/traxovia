@@ -73,8 +73,8 @@ async def update_profile(
         url = body.avatar_url
         if not (url.startswith("https://") or url.startswith("data:image/")):
             raise HTTPException(400, "avatar_url must be an https URL or a base64 data URI")
-        if url.startswith("data:image/") and len(url) > 400_000:
-            raise HTTPException(400, "Image too large (max ~300 KB)")
+        if url.startswith("data:image/") and len(url) > 65_000:
+            raise HTTPException(400, "Image too large (max ~50 KB)")
         updates.append(f"avatar_url=${i}"); params.append(url); i += 1
 
     if updates:

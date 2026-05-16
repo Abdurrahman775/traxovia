@@ -1,0 +1,16 @@
+[Unit]
+Description=Traxovia API Server
+After=network.target redis.service postgresql.service
+Wants=redis.service
+
+[Service]
+Type=simple
+User=kira
+WorkingDirectory=/home/kira/projects/trading-bot
+EnvironmentFile=/home/kira/projects/trading-bot/.env
+ExecStart=/home/kira/projects/trading-bot/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

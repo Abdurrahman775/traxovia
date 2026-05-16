@@ -1,6 +1,8 @@
 """api/routes/signals.py — Trade signals for the authenticated user."""
+import hmac
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+import os
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from database.connection import get_db, set_rls_user
 from api.auth import get_current_user
 
@@ -100,12 +102,16 @@ async def update_signal(
 
 
 @router.post("/internal/create")
-async def create_signal(body: dict, db=Depends(get_db)):
+async def create_signal(request: Request, body: dict, db=Depends(get_db)):
     """
     Internal endpoint called by the AI engine after gate-7 passes.
     Inserts the signal row and fires a Telegram signal_alert to the user.
-    Not protected by JWT — secured by MT5 bridge API key header check.
+    Protected by X-Bridge-API-Key header — not a user JWT endpoint.
     """
+    expected_key = os.getenv("MT5_BRIDGE_API_KEY", "")
+    submitted_key = request.headers.get("X-Bridge-API-Key", "")
+    if not expected_key or not hmac.compare_digest(expected_key, submitted_key):
+        raise HTTPException(401, "Invalid or missing bridge API key")
     required = {"user_id", "pair", "direction", "entry_price", "stop_loss", "take_profit"}
     missing  = required - body.keys()
     if missing:

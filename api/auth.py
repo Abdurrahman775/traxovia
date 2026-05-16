@@ -103,27 +103,35 @@ def _build_token(
     token_type: str,
     ttl: timedelta,
     is_admin: bool = False,
+    jti: str | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
-    return jwt.encode(
-        {
-            "sub":      user_id,
-            "email":    email,
-            "plan":     plan,
-            "is_admin": is_admin,
-            "type":     token_type,
-            "iat":      now,
-            "exp":      now + ttl,
-        },
-        settings.jwt_secret,
-        algorithm=settings.jwt_algorithm,
+    payload: dict = {
+        "sub":      user_id,
+        "email":    email,
+        "plan":     plan,
+        "is_admin": is_admin,
+        "type":     token_type,
+        "iat":      now,
+        "exp":      now + ttl,
+    }
+    if jti:
+        payload["jti"] = jti
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+async def _issue_pair(
+    user_id: str, email: str, plan: str, is_admin: bool, db
+) -> TokenResponse:
+    jti = secrets.token_hex(16)
+    expires_at = datetime.now(timezone.utc) + _REFRESH_TTL
+    await db.execute(
+        "INSERT INTO refresh_token_jti (jti, user_id, expires_at) VALUES ($1, $2::uuid, $3)",
+        jti, user_id, expires_at,
     )
-
-
-def _issue_pair(user_id: str, email: str, plan: str, is_admin: bool = False) -> TokenResponse:
     return TokenResponse(
-        access_token=_build_token(user_id, email, plan, "access",  _ACCESS_TTL(), is_admin),
-        refresh_token=_build_token(user_id, email, plan, "refresh", _REFRESH_TTL, is_admin),
+        access_token=_build_token(user_id, email, plan, "access", _ACCESS_TTL(), is_admin),
+        refresh_token=_build_token(user_id, email, plan, "refresh", _REFRESH_TTL, is_admin, jti=jti),
         user_id=user_id,
         email=email,
         plan=plan,
@@ -150,9 +158,7 @@ async def register(
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
 
     referral_code = "TRADER-" + secrets.token_hex(3).upper()
-    client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (
-        request.client.host if request.client else None
-    )
+    client_ip = request.client.host if request.client else None
 
     # Use INSERT with a subquery to atomically grant elite to the very first user,
     # avoiding the COUNT→INSERT race condition.
@@ -181,7 +187,7 @@ async def register(
         client_ip,
     )
 
-    return _issue_pair(str(user["id"]), user["email"], user["plan"], bool(user["is_admin"]))
+    return await _issue_pair(str(user["id"]), user["email"], user["plan"], bool(user["is_admin"]), db)
 
 
 @router.post(
@@ -206,9 +212,7 @@ async def login(
     if not user or not password_ok:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
 
-    client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (
-        request.client.host if request.client else None
-    )
+    client_ip = request.client.host if request.client else None
 
     await set_rls_user(db, str(user["id"]))
     await db.execute(
@@ -221,7 +225,7 @@ async def login(
         client_ip,
     )
 
-    return _issue_pair(str(user["id"]), user["email"], user["plan"], bool(user["is_admin"]))
+    return await _issue_pair(str(user["id"]), user["email"], user["plan"], bool(user["is_admin"]), db)
 
 
 @router.post(
@@ -242,8 +246,19 @@ async def refresh(body: RefreshRequest, db=Depends(get_db)):
     if payload.get("type") != "refresh":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not a refresh token")
 
-    # Re-fetch the user so the new token pair reflects any plan changes
-    # that happened since the refresh token was issued.
+    jti = payload.get("jti")
+    if not jti:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid refresh token")
+
+    # Validate jti exists and delete it atomically (single-use rotation)
+    deleted = await db.fetchval(
+        "DELETE FROM refresh_token_jti WHERE jti=$1 AND expires_at > NOW() RETURNING jti",
+        jti,
+    )
+    if not deleted:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token already used or revoked")
+
+    # Re-fetch user so new token pair reflects any plan/admin changes
     user = await db.fetchrow(
         "SELECT id, email, plan, is_admin FROM users WHERE id = $1::uuid",
         payload["sub"],
@@ -251,7 +266,7 @@ async def refresh(body: RefreshRequest, db=Depends(get_db)):
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
 
-    return _issue_pair(str(user["id"]), user["email"], user["plan"], bool(user["is_admin"]))
+    return await _issue_pair(str(user["id"]), user["email"], user["plan"], bool(user["is_admin"]), db)
 
 
 # ── FastAPI dependency ─────────────────────────────────────────────────────────

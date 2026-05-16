@@ -147,6 +147,28 @@ MIGRATIONS = [
         )
         """,
     ),
+    # ── Refresh token revocation table ──────────────────────────────────────
+    (
+        "create refresh_token_jti table",
+        """
+        CREATE TABLE IF NOT EXISTS refresh_token_jti (
+            jti        TEXT        PRIMARY KEY,
+            user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            expires_at TIMESTAMPTZ NOT NULL
+        )
+        """,
+    ),
+    # ── Stripe webhook idempotency log ───────────────────────────────────────
+    (
+        "create billing_events idempotency table",
+        """
+        CREATE TABLE IF NOT EXISTS billing_events (
+            event_id     TEXT        PRIMARY KEY,
+            event_type   TEXT        NOT NULL,
+            processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+    ),
     (
         "seed default plans",
         """

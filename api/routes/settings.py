@@ -2,7 +2,7 @@
 api/routes/settings.py — User settings read/update.
 """
 import json
-import random
+import secrets
 import string
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -193,7 +193,7 @@ async def update_settings(
 
 def _generate_token() -> str:
     """Generate a readable 8-char alphanumeric token, e.g. TRX-A3F9."""
-    chars = random.choices(string.ascii_uppercase + string.digits, k=6)
+    chars = [secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6)]
     return "TRX-" + "".join(chars)
 
 

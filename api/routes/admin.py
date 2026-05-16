@@ -19,14 +19,22 @@ logger = logging.getLogger(__name__)
 BACKUP_DIR = Path(__file__).resolve().parent.parent.parent / "backups"
 BACKUP_DIR.mkdir(exist_ok=True)
 from typing import Any
-from database.connection import get_db
+from database.connection import get_db, _get_pool
 from api.auth import get_current_user
 
 router = APIRouter(tags=["admin"])
 
 
 def _require_admin(user):
-    if not user.get("is_admin") and user.get("plan") != "elite":
+    if not user.get("is_admin"):
+        raise HTTPException(403, "Admin access required")
+
+
+async def _require_admin_live(user, db):
+    """Live DB check — use on destructive endpoints so revoked admins can't act during token validity window."""
+    _require_admin(user)
+    row = await db.fetchval("SELECT is_admin FROM users WHERE id=$1::uuid", user["sub"])
+    if not row:
         raise HTTPException(403, "Admin access required")
 
 
@@ -705,7 +713,7 @@ async def upload_logo(
         raise HTTPException(400, "Image must be under 2 MB")
 
     import uuid, pathlib
-    ALLOWED_EXTS = {"png", "jpg", "jpeg", "gif", "webp", "svg"}
+    ALLOWED_EXTS = {"png", "jpg", "jpeg", "gif", "webp"}
     ext = (file.filename or "logo").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_EXTS:
         raise HTTPException(400, f"Invalid file type '.{ext}'. Allowed: {', '.join(sorted(ALLOWED_EXTS))}")
@@ -732,8 +740,8 @@ def _pg_url() -> str:
 
 
 @router.post("/admin/backup/create")
-async def backup_create(user=Depends(get_current_user)):
-    _require_admin(user)
+async def backup_create(user=Depends(get_current_user), db=Depends(get_db)):
+    await _require_admin_live(user, db)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename  = f"backup_{timestamp}.sql"
     filepath  = BACKUP_DIR / filename
@@ -753,8 +761,8 @@ async def backup_create(user=Depends(get_current_user)):
 
 
 @router.get("/admin/backup/list")
-async def backup_list(user=Depends(get_current_user)):
-    _require_admin(user)
+async def backup_list(user=Depends(get_current_user), db=Depends(get_db)):
+    await _require_admin_live(user, db)
     files = sorted(BACKUP_DIR.glob("*.sql"), key=lambda f: f.stat().st_mtime, reverse=True)
     return [
         {
@@ -767,8 +775,8 @@ async def backup_list(user=Depends(get_current_user)):
 
 
 @router.get("/admin/backup/download/{filename}")
-async def backup_download(filename: str, user=Depends(get_current_user)):
-    _require_admin(user)
+async def backup_download(filename: str, user=Depends(get_current_user), db=Depends(get_db)):
+    await _require_admin_live(user, db)
     if "/" in filename or ".." in filename or not filename.endswith(".sql"):
         raise HTTPException(400, "Invalid filename")
     filepath = BACKUP_DIR / filename
@@ -778,8 +786,8 @@ async def backup_download(filename: str, user=Depends(get_current_user)):
 
 
 @router.delete("/admin/backup/{filename}")
-async def backup_delete(filename: str, user=Depends(get_current_user)):
-    _require_admin(user)
+async def backup_delete(filename: str, user=Depends(get_current_user), db=Depends(get_db)):
+    await _require_admin_live(user, db)
     if "/" in filename or ".." in filename or not filename.endswith(".sql"):
         raise HTTPException(400, "Invalid filename")
     filepath = BACKUP_DIR / filename
@@ -793,8 +801,9 @@ async def backup_delete(filename: str, user=Depends(get_current_user)):
 async def backup_restore(
     file: UploadFile = File(...),
     user=Depends(get_current_user),
+    db=Depends(get_db),
 ):
-    _require_admin(user)
+    await _require_admin_live(user, db)
     if not (file.filename or "").endswith(".sql"):
         raise HTTPException(400, "Only .sql files are accepted")
     data = await file.read()
@@ -905,9 +914,12 @@ async def system_info(user=Depends(get_current_user), db=Depends(get_db)):
 
 
 @router.post("/admin/system/vacuum")
-async def system_vacuum(user=Depends(get_current_user), db=Depends(get_db)):
+async def system_vacuum(user=Depends(get_current_user)):
     _require_admin(user)
-    await db.execute("VACUUM ANALYZE")
+    # VACUUM cannot run inside a transaction block — acquire a raw pool connection
+    pool = await _get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("VACUUM ANALYZE")
     return {"status": "ok", "message": "VACUUM ANALYZE completed successfully"}
 
 

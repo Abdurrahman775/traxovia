@@ -4,13 +4,11 @@ import secrets
 import os
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from database.connection import get_db, set_rls_user
 from api.auth import get_current_user
+from api.middleware.rate_limit import rate_limit
 
-router  = APIRouter(tags=["referral"])
-limiter = Limiter(key_func=get_remote_address)
+router = APIRouter(tags=["referral"])
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 
@@ -35,12 +33,12 @@ async def get_my_referral_code(user=Depends(get_current_user), db=Depends(get_db
 
 
 @router.post("/referral/apply")
-@limiter.limit("5/minute")
 async def apply_referral(
     request: Request,
     code: str,
     user=Depends(get_current_user),
     db=Depends(get_db),
+    _=Depends(rate_limit(limit=5, window=60)),
 ):
     user_id = user["sub"]
     row = await db.fetchrow("SELECT referred_by FROM users WHERE id=$1", user_id)
@@ -55,7 +53,7 @@ async def apply_referral(
     if str(referrer["id"]) == user_id:
         raise HTTPException(400, "You cannot refer yourself")
 
-    client_ip   = get_remote_address(request)
+    client_ip   = request.client.host if request.client else ""
     referrer_ip = str(referrer["signup_ip"]) if referrer["signup_ip"] else ""
     if referrer_ip and _same_subnet(client_ip, referrer_ip):
         raise HTTPException(400, "Referral not eligible — accounts appear to share a network")
