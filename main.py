@@ -23,6 +23,7 @@ from api.routes.admin import router as admin_router
 from api.routes.prices import router as prices_router
 from api.routes.profile import router as profile_router
 from api.routes.data_management import router as data_mgmt_router
+from api.routes.news import router as news_router
 
 
 pathlib.Path("static/logos").mkdir(parents=True, exist_ok=True)
@@ -63,3 +64,4 @@ app.include_router(admin_router)
 app.include_router(prices_router)
 app.include_router(profile_router)
 app.include_router(data_mgmt_router)
+app.include_router(news_router)

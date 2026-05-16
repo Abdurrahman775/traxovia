@@ -147,6 +147,22 @@ MIGRATIONS = [
         )
         """,
     ),
+    # ── Add news_feed feature flag to all plan configs ───────────────────────
+    (
+        "add news_feed to community plan",
+        """
+        UPDATE plan_config SET features = features || '{"news_feed": false}'::jsonb
+        WHERE plan_id = 'community' AND NOT (features ? 'news_feed')
+        """,
+    ),
+    (
+        "add news_feed to paid plans",
+        """
+        UPDATE plan_config SET features = features || '{"news_feed": true}'::jsonb
+        WHERE plan_id IN ('starter','trader','pro','elite','trial')
+          AND NOT (features ? 'news_feed')
+        """,
+    ),
     # ── Refresh token revocation table ──────────────────────────────────────
     (
         "create refresh_token_jti table",

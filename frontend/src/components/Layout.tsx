@@ -15,6 +15,7 @@ const NAV_GROUPS = [
       { to: '/regime',    label: 'Regime Detector',  icon: '◈' },
       { to: '/signals',   label: 'Signals',          icon: '◆' },
       { to: '/trades',    label: 'Trades',           icon: '↯' },
+      { to: '/news',      label: 'News',             icon: '📰' },
       { to: '/analytics', label: 'Analytics',        icon: '◬' },
     ],
   },

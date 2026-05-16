@@ -16,16 +16,17 @@ interface PlanDef {
 }
 
 const FALLBACK_PLANS: PlanDef[] = [
-  { plan_id: 'community', name: 'Community', price: 0,   color: '#8899b4', features: { pairs: 0, mt5_accounts: 0, dashboard: false, signals_web: false, signals_tg_drops: true,  tg_bot_approve: false, tg_bot_settings: false, auto_execute: false, copy_trade: false, api_access: false, mobile_app: false, priority_support: false } },
-  { plan_id: 'starter',   name: 'Starter',   price: 29,  color: '#4f8ef7', features: { pairs: 2, mt5_accounts: 1, dashboard: true,  signals_web: true,  signals_tg_drops: true,  tg_bot_approve: false, tg_bot_settings: false, auto_execute: false, copy_trade: false, api_access: false, mobile_app: false, priority_support: false } },
-  { plan_id: 'trader',    name: 'Trader',    price: 79,  color: '#00e5cc', popular: true, features: { pairs: 5, mt5_accounts: 1, dashboard: true, signals_web: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: false, auto_execute: false, copy_trade: true, api_access: false, mobile_app: true, priority_support: false } },
-  { plan_id: 'pro',       name: 'Pro',       price: 149, color: '#f0b429', features: { pairs: 5, mt5_accounts: 2, dashboard: true, signals_web: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: true,  auto_execute: true,  copy_trade: true, api_access: false, mobile_app: true, priority_support: true } },
-  { plan_id: 'elite',     name: 'Elite',     price: 299, color: '#8b5cf6', features: { pairs: 5, mt5_accounts: 5, dashboard: true, signals_web: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: true,  auto_execute: true,  copy_trade: true, api_access: true,  mobile_app: true, priority_support: true } },
+  { plan_id: 'community', name: 'Community', price: 0,   color: '#8899b4', features: { pairs: 0, mt5_accounts: 0, dashboard: false, signals_web: false, news_feed: false, signals_tg_drops: true,  tg_bot_approve: false, tg_bot_settings: false, auto_execute: false, copy_trade: false, api_access: false, mobile_app: false, priority_support: false } },
+  { plan_id: 'starter',   name: 'Starter',   price: 29,  color: '#4f8ef7', features: { pairs: 2, mt5_accounts: 1, dashboard: true,  signals_web: true,  news_feed: true,  signals_tg_drops: true,  tg_bot_approve: false, tg_bot_settings: false, auto_execute: false, copy_trade: false, api_access: false, mobile_app: false, priority_support: false } },
+  { plan_id: 'trader',    name: 'Trader',    price: 79,  color: '#00e5cc', popular: true, features: { pairs: 5, mt5_accounts: 1, dashboard: true, signals_web: true, news_feed: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: false, auto_execute: false, copy_trade: true, api_access: false, mobile_app: true, priority_support: false } },
+  { plan_id: 'pro',       name: 'Pro',       price: 149, color: '#f0b429', features: { pairs: 5, mt5_accounts: 2, dashboard: true, signals_web: true, news_feed: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: true,  auto_execute: true,  copy_trade: true, api_access: false, mobile_app: true, priority_support: true } },
+  { plan_id: 'elite',     name: 'Elite',     price: 299, color: '#8b5cf6', features: { pairs: 5, mt5_accounts: 5, dashboard: true, signals_web: true, news_feed: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: true,  auto_execute: true,  copy_trade: true, api_access: true,  mobile_app: true, priority_support: true } },
 ]
 
 const FEATURE_LIST = [
   { key: 'dashboard',        label: 'Web Dashboard Access' },
   { key: 'signals_web',      label: 'Signal Viewing (Web)' },
+  { key: 'news_feed',        label: 'Economic News Feed + Telegram Alerts' },
   { key: 'signals_tg_drops', label: 'Telegram Signal Drops' },
   { key: 'tg_bot_approve',   label: 'Telegram: Approve/Reject Trades' },
   { key: 'tg_bot_settings',  label: 'Telegram: Change Settings & Params' },

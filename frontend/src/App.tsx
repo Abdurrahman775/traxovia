@@ -18,6 +18,7 @@ import AuditLog from './pages/AuditLog'
 import Community from './pages/Community'
 import Profile from './pages/Profile'
 import DataManagement from './pages/DataManagement'
+import News from './pages/News'
 import { useAdminUser } from './hooks/useAdminUser'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="regime"    element={<RegimeDetector />} />
           <Route path="signals"   element={<Signals />} />
           <Route path="trades"    element={<Trades />} />
+          <Route path="news"     element={<News />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="model"     element={<RequireAdmin><ModelRetrain /></RequireAdmin>} />
           <Route path="billing"   element={<Billing />} />
