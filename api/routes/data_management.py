@@ -20,7 +20,14 @@ MAX_UPLOAD_MB    = 150
 
 
 def _require_admin(user):
-    if not user.get("is_admin") and user.get("plan") != "elite":
+    if not user.get("is_admin"):
+        raise HTTPException(403, "Admin access required")
+
+
+async def _require_admin_live(user, db):
+    _require_admin(user)
+    is_admin = await db.fetchval("SELECT is_admin FROM users WHERE id=$1::uuid", user["sub"])
+    if not is_admin:
         raise HTTPException(403, "Admin access required")
 
 
@@ -66,7 +73,7 @@ async def upload_csv(
     Upload a single historical CSV and import it into TimescaleDB.
     Max 150 MB. Duplicate rows are skipped (ON CONFLICT DO NOTHING).
     """
-    _require_admin(user)
+    await _require_admin_live(user, db)
 
     pair      = pair.strip().upper()
     timeframe = timeframe.strip().upper()
@@ -93,7 +100,7 @@ async def upload_csv(
         result = await load_file(db, tmp_path, pair, timeframe)
     except Exception as exc:
         logger.exception("CSV upload failed: %s", exc)
-        raise HTTPException(500, f"Import error: {exc}")
+        raise HTTPException(500, "Import failed — check server logs")
     finally:
         tmp_path.unlink(missing_ok=True)
 
