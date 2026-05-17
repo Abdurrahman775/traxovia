@@ -154,8 +154,8 @@ async def run_cycle(stats: dict) -> None:
                     symbol=symbol,
                     direction="buy" if result["direction"] == "bullish" else "sell",
                     lot_size=result["lot_size"],
-                    sl=result["sl_price"],
-                    tp=result["tp_price"],
+                    stop_loss=result["sl_price"],
+                    take_profit=result["tp_price"],
                     comment="PAPER",
                 )
                 stats["opened"] += 1
