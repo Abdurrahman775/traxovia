@@ -71,3 +71,10 @@ dist/
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 desktop.ini
+
+# ── Runtime / Data ────────────────────────────────────────────────────────────
+celerybeat-schedule.db
+paper_trading.pid
+data/historical_csvs/
+package-lock.json
+frontend/tsconfig.tsbuildinfo
