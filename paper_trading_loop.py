@@ -44,10 +44,17 @@ except ImportError:
 
 from database.connection import create_pool, close_pool, get_db_direct
 
+_LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "paper_trading_err.log")
+os.makedirs(os.path.dirname(_LOG_FILE), exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler(_LOG_FILE, encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger("paper_loop")
 
