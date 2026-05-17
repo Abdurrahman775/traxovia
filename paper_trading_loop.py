@@ -217,7 +217,6 @@ async def main() -> None:
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, _handle_signal)
     except (NotImplementedError, AttributeError):
-        # Windows: use signal.signal() instead
         signal.signal(signal.SIGINT, lambda s, f: _handle_signal())
         if hasattr(signal, "SIGTERM"):
             signal.signal(signal.SIGTERM, lambda s, f: _handle_signal())
@@ -225,12 +224,13 @@ async def main() -> None:
     await create_pool()
 
     stats = {"opened": 0, "closed": 0}
+    single_shot = os.getenv("PAPER_SINGLE_SHOT", "0") == "1"
 
     logger.info("=" * 60)
-    logger.info("Paper trading loop started")
+    logger.info("Paper trading cycle started")
     logger.info("  Account : #106464235 (demo)")
     logger.info("  Pairs   : %s", ", ".join(PAIRS))
-    logger.info("  Interval: %ds (%d min)", INTERVAL, INTERVAL // 60)
+    logger.info("  Mode    : %s", "single-shot (Task Scheduler)" if single_shot else f"daemon ({INTERVAL}s interval)")
     logger.info("  Target  : %d trades", TARGET)
     logger.info("=" * 60)
 
@@ -243,20 +243,25 @@ async def main() -> None:
         except Exception as exc:
             logger.error("Cycle error: %s", exc, exc_info=True)
 
-        if _shutdown.is_set():
+        # In single-shot mode (Task Scheduler) run one cycle then exit cleanly.
+        # Task Scheduler repeats every 15 min — no need to sleep here.
+        if single_shot or _shutdown.is_set():
             break
 
         elapsed = (datetime.now(timezone.utc) - cycle_start).total_seconds()
         wait    = max(0, INTERVAL - elapsed)
         logger.info("Next cycle in %.0fs", wait)
 
-        try:
-            await asyncio.wait_for(_shutdown.wait(), timeout=wait)
-        except asyncio.TimeoutError:
-            pass
+        # Sleep in small steps so SIGINT/SIGTERM are handled promptly
+        deadline = asyncio.get_event_loop().time() + wait
+        while not _shutdown.is_set():
+            remaining = deadline - asyncio.get_event_loop().time()
+            if remaining <= 0:
+                break
+            await asyncio.sleep(min(10.0, remaining))
 
     await close_pool()
-    logger.info("Paper trading loop stopped. Final: %d/%d trades.", stats["closed"], TARGET)
+    logger.info("Paper trading cycle done. Progress: %d/%d trades.", stats["closed"], TARGET)
 
 
 if __name__ == "__main__":
