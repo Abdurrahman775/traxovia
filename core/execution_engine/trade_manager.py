@@ -76,6 +76,7 @@ def _close_position_sync(ticket: int) -> float | None:
     close_type = mt5.ORDER_TYPE_SELL if pos.type == 0 else mt5.ORDER_TYPE_BUY
     tick       = mt5.symbol_info_tick(pos.symbol)
     price      = tick.bid if pos.type == 0 else tick.ask
+    from core.execution_engine.mt5_executor import _get_fill_mode
     request = {
         "action":       mt5.TRADE_ACTION_DEAL,
         "symbol":       pos.symbol,
@@ -85,7 +86,7 @@ def _close_position_sync(ticket: int) -> float | None:
         "price":        price,
         "comment":      "sl_tp_close",
         "type_time":    mt5.ORDER_TIME_GTC,
-        "type_filling": mt5.ORDER_FILLING_IOC,
+        "type_filling": _get_fill_mode(pos.symbol),
     }
     result = mt5.order_send(request)
     if result and result.retcode == mt5.TRADE_RETCODE_DONE:
