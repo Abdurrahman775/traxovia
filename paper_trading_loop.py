@@ -135,6 +135,15 @@ async def run_cycle(stats: dict) -> None:
                 logger.debug("No candle data for %s — skipping", symbol)
                 continue
 
+            # Skip if an open paper position already exists for this pair
+            open_count = await db.fetchval(
+                "SELECT COUNT(*) FROM trades WHERE user_id=$1 AND pair=$2 AND status='open' AND is_paper=TRUE",
+                USER_ID, symbol,
+            )
+            if open_count:
+                logger.info("%-8s  SKIPPED  already have %d open position(s)", symbol, open_count)
+                continue
+
             htf_df = pd.DataFrame(h4_raw)
             ltf_df = pd.DataFrame(m15_raw)
 
