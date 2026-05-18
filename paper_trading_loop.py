@@ -224,7 +224,7 @@ async def main() -> None:
     await create_pool()
 
     stats = {"opened": 0, "closed": 0}
-    single_shot = os.getenv("PAPER_SINGLE_SHOT", "0") == "1"
+    single_shot = os.getenv("PAPER_SINGLE_SHOT", "0").strip() == "1"
 
     logger.info("=" * 60)
     logger.info("Paper trading cycle started")

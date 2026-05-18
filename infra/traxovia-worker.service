@@ -7,11 +7,9 @@ Wants=redis.service
 Type=simple
 User=kira
 WorkingDirectory=/home/kira/projects/trading-bot
+Environment=PYTHONPATH=/home/kira/projects/trading-bot
 EnvironmentFile=/home/kira/projects/trading-bot/.env
-ExecStart=/home/kira/projects/trading-bot/venv/bin/celery \
-    -A scheduler.tasks worker \
-    --pool=solo \
-    --loglevel=info
+ExecStart=/home/kira/projects/trading-bot/venv/bin/celery     -A scheduler.tasks worker     --pool=solo     --loglevel=info
 Restart=on-failure
 RestartSec=10
 

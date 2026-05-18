@@ -1,14 +1,12 @@
-/**
- * Decodes the JWT from localStorage and returns admin status + email.
- * No API call needed — the plan is embedded in the token.
- */
+import { getToken } from '../api/client'
+
 export function useAdminUser(): { isAdmin: boolean; email: string } {
   try {
-    const token = localStorage.getItem('access_token')
+    const token = getToken()
     if (!token) return { isAdmin: false, email: '' }
     const payload = JSON.parse(atob(token.split('.')[1]))
     return {
-      isAdmin: payload.plan === 'elite',
+      isAdmin: payload.is_admin === true,
       email:   payload.email ?? '',
     }
   } catch {

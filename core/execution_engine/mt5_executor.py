@@ -59,6 +59,22 @@ def _require_mt5() -> None:
         raise BridgeError(f"MT5 initialize() failed: {mt5.last_error()}")
 
 
+def _get_fill_mode(symbol: str) -> int:
+    """Return the best ORDER_FILLING mode supported by this broker/symbol.
+
+    Brokers expose a bitmask via symbol_info.filling_mode:
+      bit 0 (1) = FOK, bit 1 (2) = IOC, bit 2 (4) = RETURN.
+    Prefer FOK → IOC → RETURN so we always use a valid mode.
+    """
+    info = mt5.symbol_info(symbol)
+    mode = info.filling_mode if info else 0
+    if mode & 1:
+        return mt5.ORDER_FILLING_FOK
+    if mode & 2:
+        return mt5.ORDER_FILLING_IOC
+    return mt5.ORDER_FILLING_RETURN
+
+
 async def open_order(
     symbol:      str,
     direction:   str,
@@ -86,7 +102,7 @@ async def open_order(
         "tp":           take_profit,
         "comment":      comment,
         "type_time":    mt5.ORDER_TIME_GTC,
-        "type_filling": mt5.ORDER_FILLING_IOC,
+        "type_filling": _get_fill_mode(symbol),
     }
 
     result = mt5.order_send(request)
@@ -130,7 +146,7 @@ async def close_order(ticket: int, lot_size: float | None = None) -> OrderCloseR
         "price":        close_price,
         "comment":      "close",
         "type_time":    mt5.ORDER_TIME_GTC,
-        "type_filling": mt5.ORDER_FILLING_IOC,
+        "type_filling": _get_fill_mode(pos.symbol),
     }
 
     result = mt5.order_send(request)
