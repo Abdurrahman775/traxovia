@@ -23,16 +23,28 @@ def _atr(df: pd.DataFrame, period: int = 14) -> float:
 
 
 def _pip_mult(price: float) -> float:
-    """Return pips-per-unit based on price magnitude."""
     if price > 500:  return 10.0      # XAUUSD
     if price > 50:   return 100.0     # USDJPY
     return 10_000.0                   # EURUSD, GBPUSD, AUDUSD
 
 
+def _recent_higher_highs(df: pd.DataFrame, bars: int = 5) -> bool:
+    """True if the last `bars` M15 candles are making higher highs (uptrend)."""
+    highs = df["high"].values.astype(float)[-bars:]
+    return all(highs[i] >= highs[i - 1] for i in range(1, len(highs)))
+
+
+def _recent_lower_lows(df: pd.DataFrame, bars: int = 5) -> bool:
+    """True if the last `bars` M15 candles are making lower lows (downtrend)."""
+    lows = df["low"].values.astype(float)[-bars:]
+    return all(lows[i] <= lows[i - 1] for i in range(1, len(lows)))
+
+
 class EntryAnalyzer:
-    _SL_ATR_MULT = 1.5   # SL placed 1.5× ATR beyond the zone boundary
-    _TP_RR       = 2.0   # minimum R:R ratio
-    _MIN_SL_PIPS = 3.0   # reject if SL is unrealistically tight
+    _SL_ATR_MULT   = 2.0   # widened from 1.5 — gives trades room to breathe
+    _TP_RR         = 2.0   # R:R ratio
+    _MIN_SL_PIPS   = 5.0   # raised from 3.0 — reject unrealistically tight SLs
+    _MIN_BODY_FRAC = 0.35  # candle body must be ≥ 35% of range (no doji entries)
 
     def check_gate(
         self,
@@ -48,7 +60,7 @@ class EntryAnalyzer:
         if not direction or not z:
             return {"passed": False, "reason": "missing_direction_or_zone"}
 
-        if df is None or len(df) < 5:
+        if df is None or len(df) < 10:
             return {"passed": False, "reason": "insufficient_ltf_data"}
 
         last = df.iloc[-1]
@@ -63,21 +75,33 @@ class EntryAnalyzer:
         candle_rng = h - l or abs(c) * 0.001
         lower_wick = min(o, c) - l
         upper_wick = h - max(o, c)
+        body_frac  = body / candle_rng if candle_rng > 0 else 0.0
 
         atr = _atr(df) or candle_rng
         pip = _pip_mult(c)
 
         # ── Entry confirmation ─────────────────────────────────────────────────
+        # Require a meaningful candle — reject dojis and tiny-body candles.
+        # For bearish: the signal candle must close below its open AND have
+        #   a body that is at least 35% of the candle range, OR be a strong
+        #   pin bar / engulfing. A plain bearish close alone is insufficient.
+        # For bullish: mirror logic applies.
         if direction == "bullish":
-            bullish_close = c > o
-            pin_bar       = (lower_wick >= 2 * body) if body > 0 else (lower_wick > candle_rng * 0.5)
-            engulfing     = c > float(prev["high"]) and o <= float(prev["close"])
-            confirmed     = bullish_close or pin_bar or engulfing
+            strong_close = c > o and body_frac >= self._MIN_BODY_FRAC
+            pin_bar      = (lower_wick >= 2 * body) if body > 0 else (lower_wick > candle_rng * 0.6)
+            engulfing    = c > float(prev["high"]) and o <= float(prev["close"])
+            confirmed    = strong_close or pin_bar or engulfing
+            # Reject if short-term M15 structure is making lower lows (counter-trend)
+            if confirmed and _recent_lower_lows(df, bars=5):
+                return {"passed": False, "reason": "m15_trending_against_bias"}
         else:
-            bearish_close = c < o
-            pin_bar       = (upper_wick >= 2 * body) if body > 0 else (upper_wick > candle_rng * 0.5)
-            engulfing     = c < float(prev["low"]) and o >= float(prev["close"])
-            confirmed     = bearish_close or pin_bar or engulfing
+            strong_close = c < o and body_frac >= self._MIN_BODY_FRAC
+            pin_bar      = (upper_wick >= 2 * body) if body > 0 else (upper_wick > candle_rng * 0.6)
+            engulfing    = c < float(prev["low"]) and o >= float(prev["close"])
+            confirmed    = strong_close or pin_bar or engulfing
+            # Reject if short-term M15 structure is making higher highs (counter-trend)
+            if confirmed and _recent_higher_highs(df, bars=5):
+                return {"passed": False, "reason": "m15_trending_against_bias"}
 
         if not confirmed:
             return {"passed": False, "reason": "no_entry_candle"}
@@ -86,12 +110,10 @@ class EntryAnalyzer:
         entry_price = c
 
         if direction == "bullish":
-            # SL below zone bottom with ATR buffer; at least below the candle low
             sl_price = min(z.bottom - self._SL_ATR_MULT * atr, l - atr * 0.5)
             sl_dist  = entry_price - sl_price
             tp_price = entry_price + sl_dist * self._TP_RR
         else:
-            # SL above zone top with ATR buffer; at least above the candle high
             sl_price = max(z.top + self._SL_ATR_MULT * atr, h + atr * 0.5)
             sl_dist  = sl_price - entry_price
             tp_price = entry_price - sl_dist * self._TP_RR

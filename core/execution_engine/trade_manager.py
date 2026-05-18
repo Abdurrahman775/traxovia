@@ -158,6 +158,25 @@ def check_and_close_positions() -> int:
 
 # ── Async loop (paper trading) ─────────────────────────────────────────────────
 
+def _get_actual_close_price(ticket: int, entry_time) -> float | None:
+    """Look up the actual broker close price from MT5 deal history.
+
+    Called when the position is already gone (auto-closed by broker SL/TP)
+    so _close_position_sync returned None. Returns the real fill price instead
+    of the stale current tick which would record the wrong P&L.
+    """
+    if not _MT5_AVAILABLE or not mt5.initialize():
+        return None
+    from datetime import timedelta
+    since = entry_time if hasattr(entry_time, "timestamp") else datetime.now(timezone.utc)
+    to    = datetime.now(timezone.utc) + timedelta(hours=1)
+    deals = mt5.history_deals_get(since, to) or []
+    for d in deals:
+        if d.position_id == ticket and d.entry == 1:  # DEAL_ENTRY_OUT
+            return float(d.price)
+    return None
+
+
 async def check_open_trades() -> dict:
     from database.connection import get_db_direct
 
@@ -180,6 +199,12 @@ async def check_open_trades() -> dict:
             if not hit:
                 continue
             close_price = await asyncio.to_thread(_close_position_sync, trade["mt5_ticket"])
+            if close_price is None:
+                # Position already auto-closed by broker (SL/TP hit) — look up actual
+                # close price from MT5 deal history instead of using stale tick price.
+                close_price = await asyncio.to_thread(
+                    _get_actual_close_price, trade["mt5_ticket"], trade["entry_time"]
+                )
             if close_price is None:
                 close_price = tick["bid"] if trade["direction"] == "buy" else tick["ask"]
             pnl_r, pips = _compute_pnl(trade, close_price)
