@@ -22,8 +22,8 @@ class ZoneDetector:
     """Detect supply/demand zones from M15 OHLC and gate whether price is near one."""
 
     _IMPULSE_MULT   = 1.8    # impulse body must be ≥ 1.8× recent avg body
-    _ZONE_TOLERANCE = 0.003  # 0.3% of price = "at the zone"
-    _NEAR_MULT      = 3.0    # approaching within 3× tolerance also qualifies
+    _ZONE_TOLERANCE = 0.001  # 0.1% of price = "at the zone" (~11 pips EURUSD, $3.30 XAUUSD)
+    _NEAR_MULT      = 2.0    # approaching within 2× tolerance also qualifies
     _MAX_TEST_COUNT = 3      # zones tested more than this are invalid
     _LOOKBACK       = 150    # bars back to scan
 
