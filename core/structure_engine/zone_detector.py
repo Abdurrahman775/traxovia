@@ -21,11 +21,13 @@ class Zone:
 class ZoneDetector:
     """Detect supply/demand zones from M15 OHLC and gate whether price is near one."""
 
-    _IMPULSE_MULT   = 1.8    # impulse body must be ≥ 1.8× recent avg body
-    _ZONE_TOLERANCE = 0.001  # 0.1% of price = "at the zone" (~11 pips EURUSD, $3.30 XAUUSD)
-    _NEAR_MULT      = 2.0    # approaching within 2× tolerance also qualifies
-    _MAX_TEST_COUNT = 3      # zones tested more than this are invalid
-    _LOOKBACK       = 150    # bars back to scan
+    _IMPULSE_MULT      = 2.5   # impulse body must be ≥ 2.5× recent avg body (raised from 1.8)
+    _STRENGTH_NORM     = 4.5   # normalize strength against this multiple (so 2.5× scores ~0.56, 4.5× = 1.0)
+    _MIN_ZONE_STRENGTH = 0.65  # reject weak zones below this score
+    _ZONE_TOLERANCE    = 0.001 # 0.1% of price = "at the zone" (~11 pips EURUSD, $3.30 XAUUSD)
+    _NEAR_MULT         = 2.0   # approaching within 2× tolerance also qualifies
+    _MAX_TEST_COUNT    = 3     # zones tested more than this are invalid
+    _LOOKBACK          = 150   # bars back to scan
 
     def check_gate(self, df: pd.DataFrame, direction: str | None = None) -> dict:
         if direction is None:
@@ -36,7 +38,8 @@ class ZoneDetector:
         zones       = self._detect_zones(df)
         target_type = "demand" if direction == "bullish" else "supply"
         candidates  = [z for z in zones if z.zone_type == target_type
-                       and z.test_count < self._MAX_TEST_COUNT]
+                       and z.test_count < self._MAX_TEST_COUNT
+                       and z.strength >= self._MIN_ZONE_STRENGTH]
 
         if not candidates:
             return {"passed": False, "zone": None, "reason": f"no_{target_type}_zone"}
@@ -88,7 +91,7 @@ class ZoneDetector:
                 z_bottom = lows[base]
 
             zone_type = "demand" if closes[i] > opens[i] else "supply"
-            strength  = min(1.0, impulse_body / (avg_body * self._IMPULSE_MULT))
+            strength  = min(1.0, impulse_body / (avg_body * self._STRENGTH_NORM))
             ts = (df.index[base] if isinstance(df.index[base], pd.Timestamp)
                   else pd.Timestamp.now())
 

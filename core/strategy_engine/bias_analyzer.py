@@ -5,7 +5,7 @@ import pandas as pd
 
 from core.structure_engine.bos_identifier import BOSIdentifier
 
-_MAX_BOS_AGE = 50   # H4 bars; older than this = stale, treat as no bias
+_MAX_BOS_AGE = 20   # H4 bars (~3 days); older than this = stale, treat as no bias
 
 
 class BiasAnalyzer:

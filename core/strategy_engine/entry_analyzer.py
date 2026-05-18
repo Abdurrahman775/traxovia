@@ -41,10 +41,12 @@ def _recent_lower_lows(df: pd.DataFrame, bars: int = 5) -> bool:
 
 
 class EntryAnalyzer:
-    _SL_ATR_MULT   = 2.0   # widened from 1.5 — gives trades room to breathe
-    _TP_RR         = 2.0   # R:R ratio
-    _MIN_SL_PIPS   = 5.0   # raised from 3.0 — reject unrealistically tight SLs
-    _MIN_BODY_FRAC = 0.35  # candle body must be ≥ 35% of range (no doji entries)
+    _SL_ATR_MULT    = 2.0   # widened from 1.5 — gives trades room to breathe
+    _TP_RR          = 3.0   # R:R ratio (raised from 2.0)
+    _MIN_SL_PIPS    = 5.0   # raised from 3.0 — reject unrealistically tight SLs
+    _MIN_BODY_FRAC  = 0.40  # candle body must be ≥ 40% of range (raised from 35%)
+    _MIN_BIAS_STR   = 0.60  # bias strength must be ≥ 0.6 (fresh BOS only)
+    _COUNTER_BARS   = 8     # bars to check for counter-trend structure (raised from 5)
 
     def check_gate(
         self,
@@ -59,6 +61,9 @@ class EntryAnalyzer:
         z         = zone.get("zone")
         if not direction or not z:
             return {"passed": False, "reason": "missing_direction_or_zone"}
+
+        if (bias.get("strength") or 0.0) < self._MIN_BIAS_STR:
+            return {"passed": False, "reason": "bias_too_weak"}
 
         if df is None or len(df) < 10:
             return {"passed": False, "reason": "insufficient_ltf_data"}
@@ -92,7 +97,7 @@ class EntryAnalyzer:
             engulfing    = c > float(prev["high"]) and o <= float(prev["close"])
             confirmed    = strong_close or pin_bar or engulfing
             # Reject if short-term M15 structure is making lower lows (counter-trend)
-            if confirmed and _recent_lower_lows(df, bars=5):
+            if confirmed and _recent_lower_lows(df, bars=self._COUNTER_BARS):
                 return {"passed": False, "reason": "m15_trending_against_bias"}
         else:
             strong_close = c < o and body_frac >= self._MIN_BODY_FRAC
@@ -100,7 +105,7 @@ class EntryAnalyzer:
             engulfing    = c < float(prev["low"]) and o >= float(prev["close"])
             confirmed    = strong_close or pin_bar or engulfing
             # Reject if short-term M15 structure is making higher highs (counter-trend)
-            if confirmed and _recent_higher_highs(df, bars=5):
+            if confirmed and _recent_higher_highs(df, bars=self._COUNTER_BARS):
                 return {"passed": False, "reason": "m15_trending_against_bias"}
 
         if not confirmed:
