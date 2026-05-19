@@ -32,7 +32,10 @@ def _resample_h4_to_daily(h4_df: pd.DataFrame) -> pd.DataFrame:
     return daily
 
 
-def check_daily_alignment(h4_df: pd.DataFrame, h4_bias_direction: str) -> dict:
+_DAILY_EXEMPT = {"XAUUSD"}  # Gold moves on macro/dollar drivers, not price structure BOS
+
+
+def check_daily_alignment(h4_df: pd.DataFrame, h4_bias_direction: str, symbol: str = "") -> dict:
     """
     Returns {"passed": bool, "reason": str, "daily_direction": str|None}.
 
@@ -40,6 +43,9 @@ def check_daily_alignment(h4_df: pd.DataFrame, h4_bias_direction: str) -> dict:
     Daily BOS exists within age limit — neutral, we give benefit of doubt).
     Fails when Daily BOS direction is opposite to h4_bias_direction.
     """
+    if symbol.upper() in _DAILY_EXEMPT:
+        return {"passed": True, "reason": "daily_alignment_exempt", "daily_direction": None}
+
     if h4_df is None or len(h4_df) < 30:
         return {"passed": True, "reason": "insufficient_data_for_daily", "daily_direction": None}
 

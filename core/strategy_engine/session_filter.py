@@ -15,7 +15,7 @@ _SESSION_MAP: dict[str, list[tuple[int, int]]] = {
     "EURUSD": [(7, 17)],   # London + NY
     "GBPUSD": [(7, 17)],   # London + NY
     "USDJPY": [(0, 10)],   # Asian + London overlap
-    "XAUUSD": [(7, 17)],   # London + NY (most volume)
+    "XAUUSD": [(0, 22)],   # Gold trades nearly 24hrs — Asian, London, NY all valid
     "AUDUSD": [(0, 10), (7, 17)],  # Asian + London
 }
 

@@ -93,7 +93,7 @@ async def generate_signal(
     bias_result["symbol"] = symbol
 
     # ── Gate 2b: Daily TF alignment ───────────────────────────────────────────
-    daily_align = check_daily_alignment(htf_df, bias_result["direction"])
+    daily_align = check_daily_alignment(htf_df, bias_result["direction"], symbol)
     if not daily_align["passed"]:
         return _blocked(2, f"daily_bias_conflict_{daily_align.get('daily_direction')}")
 

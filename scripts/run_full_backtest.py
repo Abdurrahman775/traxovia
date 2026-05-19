@@ -178,7 +178,7 @@ def run_pair(
         bias["symbol"] = pair
 
         # ── Gate 2b: Daily alignment ──────────────────────────────────────────
-        daily = check_daily_alignment(h4_win, bias["direction"])
+        daily = check_daily_alignment(h4_win, bias["direction"], pair)
         if not daily["passed"]:
             continue
 
