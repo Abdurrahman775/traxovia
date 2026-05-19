@@ -92,10 +92,9 @@ async def generate_signal(
         return _blocked(2, "no_htf_bias")
     bias_result["symbol"] = symbol
 
-    # ── Gate 2b: Daily TF alignment ───────────────────────────────────────────
-    daily_align = check_daily_alignment(htf_df, bias_result["direction"], symbol)
-    if not daily_align["passed"]:
-        return _blocked(2, f"daily_bias_conflict_{daily_align.get('daily_direction')}")
+    # Daily alignment gate removed — was filtering too many valid setups on EURUSD/GBPUSD
+    # and hurting net R more than improving WR. Kept as utility in daily_bias_filter.py
+    # for future experimentation.
 
     # ── Gate 3: Supply/Demand Zone ────────────────────────────────────────────
     zone_result = _zone_det.check_gate(m15_df, bias_result["direction"])

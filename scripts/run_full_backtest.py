@@ -177,10 +177,7 @@ def run_pair(
             continue
         bias["symbol"] = pair
 
-        # ── Gate 2b: Daily alignment ──────────────────────────────────────────
-        daily = check_daily_alignment(h4_win, bias["direction"], pair)
-        if not daily["passed"]:
-            continue
+        # Daily alignment gate removed — hurts net R more than it improves WR
 
         # ── Gate 3: Zone ──────────────────────────────────────────────────────
         m15_win = m15.iloc[max(0, i - M15_WINDOW + 1) : i + 1].reset_index(drop=True)
