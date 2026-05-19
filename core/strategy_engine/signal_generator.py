@@ -68,10 +68,8 @@ async def generate_signal(
                 if ot["pair"] in group and ot["pair"] != symbol:
                     return _blocked(0, f"correlated_pair_open_{ot['pair']}")
 
-    # ── Gate 0d: Session filter ───────────────────────────────────────────────
-    session = is_valid_session(symbol, now_utc)
-    if not session["passed"]:
-        return _blocked(0, f"outside_session_hour_{session['hour_utc']}utc")
+    # Session filter removed — was blocking profitable setups, hurting net R
+    # is_valid_session kept in session_filter.py for future use
 
     # ── Gate 0e: News/event filter ────────────────────────────────────────────
     try:

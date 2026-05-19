@@ -37,7 +37,7 @@ from core.strategy_engine.session_filter   import is_valid_session
 from core.structure_engine.regime_classifier import RegimeClassifier
 from core.structure_engine.zone_detector   import ZoneDetector
 
-PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"]  # AUDUSD dropped — consistent loser across all runs
+PAIRS = ["GBPUSD", "USDJPY", "XAUUSD"]  # AUDUSD + EURUSD dropped — consistent losers in backtest
 
 H4_WINDOW  = 200   # H4 bars fed to regime + bias
 M15_WINDOW = 150   # M15 bars fed to zone + entry
@@ -157,14 +157,6 @@ def run_pair(
         if h4_idx < H4_WINDOW:
             continue
         h4_win = h4.iloc[h4_idx - H4_WINDOW + 1 : h4_idx + 1].reset_index(drop=True)
-
-        # ── Gate 0: Session filter ────────────────────────────────────────────
-        bar_dt = bar_time if hasattr(bar_time, "hour") else pd.Timestamp(bar_time)
-        if hasattr(bar_dt, "tzinfo") and bar_dt.tzinfo is None:
-            bar_dt = bar_dt.tz_localize("UTC")
-        session = is_valid_session(pair, bar_dt.to_pydatetime())
-        if not session["passed"]:
-            continue
 
         # ── Gate 1: Regime ────────────────────────────────────────────────────
         reg = regime_clf.classify(h4_win)

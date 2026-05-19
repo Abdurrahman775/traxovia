@@ -62,7 +62,7 @@ logger = logging.getLogger("paper_loop")
 
 import uuid
 
-PAIRS    = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"]  # AUDUSD dropped — consistent loser in backtest
+PAIRS    = ["GBPUSD", "USDJPY", "XAUUSD"]  # AUDUSD + EURUSD dropped — consistent losers in backtest
 INTERVAL = int(os.getenv("PAPER_LOOP_INTERVAL", "900"))   # 15 min default
 TARGET   = int(os.getenv("PAPER_TRADE_TARGET",  "50"))
 USER_ID  = str(uuid.uuid5(uuid.NAMESPACE_DNS, "paper-demo-106464235"))  # deterministic UUID
