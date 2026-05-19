@@ -28,6 +28,7 @@ class ZoneDetector:
     _NEAR_MULT         = 2.0   # approaching within 2× tolerance also qualifies
     _MAX_TEST_COUNT    = 3     # zones tested more than this are invalid
     _LOOKBACK          = 150   # bars back to scan
+    _MAX_ZONE_AGE      = 50    # M15 bars (~12 hours); older zones have depleted liquidity
 
     def check_gate(self, df: pd.DataFrame, direction: str | None = None) -> dict:
         if direction is None:
@@ -37,9 +38,11 @@ class ZoneDetector:
 
         zones       = self._detect_zones(df)
         target_type = "demand" if direction == "bullish" else "supply"
+        last_bar_idx = len(df) - 1
         candidates  = [z for z in zones if z.zone_type == target_type
                        and z.test_count < self._MAX_TEST_COUNT
-                       and z.strength >= self._MIN_ZONE_STRENGTH]
+                       and z.strength >= self._MIN_ZONE_STRENGTH
+                       and (last_bar_idx - z.origin_index) <= self._MAX_ZONE_AGE]
 
         if not candidates:
             return {"passed": False, "zone": None, "reason": f"no_{target_type}_zone"}

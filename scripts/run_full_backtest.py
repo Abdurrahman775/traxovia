@@ -30,10 +30,12 @@ from dotenv import load_dotenv
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 load_dotenv()
 
-from core.strategy_engine.bias_analyzer  import BiasAnalyzer
-from core.strategy_engine.entry_analyzer import EntryAnalyzer
+from core.strategy_engine.bias_analyzer    import BiasAnalyzer
+from core.strategy_engine.daily_bias_filter import check_daily_alignment
+from core.strategy_engine.entry_analyzer   import EntryAnalyzer
+from core.strategy_engine.session_filter   import is_valid_session
 from core.structure_engine.regime_classifier import RegimeClassifier
-from core.structure_engine.zone_detector import ZoneDetector
+from core.structure_engine.zone_detector   import ZoneDetector
 
 PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"]  # AUDUSD dropped — consistent loser across all runs
 
@@ -156,6 +158,14 @@ def run_pair(
             continue
         h4_win = h4.iloc[h4_idx - H4_WINDOW + 1 : h4_idx + 1].reset_index(drop=True)
 
+        # ── Gate 0: Session filter ────────────────────────────────────────────
+        bar_dt = bar_time if hasattr(bar_time, "hour") else pd.Timestamp(bar_time)
+        if hasattr(bar_dt, "tzinfo") and bar_dt.tzinfo is None:
+            bar_dt = bar_dt.tz_localize("UTC")
+        session = is_valid_session(pair, bar_dt.to_pydatetime())
+        if not session["passed"]:
+            continue
+
         # ── Gate 1: Regime ────────────────────────────────────────────────────
         reg = regime_clf.classify(h4_win)
         if reg.get("signal_gate") == "blocked":
@@ -164,6 +174,12 @@ def run_pair(
         # ── Gate 2: Bias (BOS) ────────────────────────────────────────────────
         bias = bias_clf.analyze(h4_win, pair)
         if not bias.get("direction"):
+            continue
+        bias["symbol"] = pair
+
+        # ── Gate 2b: Daily alignment ──────────────────────────────────────────
+        daily = check_daily_alignment(h4_win, bias["direction"])
+        if not daily["passed"]:
             continue
 
         # ── Gate 3: Zone ──────────────────────────────────────────────────────

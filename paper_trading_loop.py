@@ -121,6 +121,24 @@ async def run_cycle(stats: dict) -> None:
     from core.execution_engine.trade_manager import check_open_trades
 
     async with get_db_direct() as db:
+        # ── Pre-fetch portfolio state for circuit breaker + correlation gate ──
+        open_rows = await db.fetch(
+            "SELECT pair, direction FROM trades WHERE user_id=$1 AND status='open' AND is_paper=TRUE",
+            USER_ID,
+        )
+        open_trades = [{"pair": r["pair"], "direction": r["direction"]} for r in open_rows]
+
+        # Daily P&L in R (circuit breaker: stop if -3R on the day)
+        daily_pnl_r = await db.fetchval(
+            "SELECT COALESCE(SUM(pnl_r),0) FROM trades "
+            "WHERE user_id=$1 AND is_paper=TRUE AND status='closed' AND exit_time >= NOW()::date",
+            USER_ID,
+        ) or 0.0
+
+        if float(daily_pnl_r) <= -3.0:
+            logger.warning("Daily loss limit hit (%.2fR) — skipping all signals this cycle", daily_pnl_r)
+            return
+
         # ── 1. Generate signals ────────────────────────────────────────────
         for symbol in PAIRS:
             if _shutdown.is_set():
@@ -154,6 +172,8 @@ async def run_cycle(stats: dict) -> None:
                     m15_df=ltf_df,
                     user_id=USER_ID,
                     db=db,
+                    open_trades=open_trades,
+                    daily_pnl_r=float(daily_pnl_r),
                 )
             except Exception as exc:
                 logger.error("Signal generation error %s: %s", symbol, exc)

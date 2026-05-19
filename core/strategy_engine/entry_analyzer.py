@@ -48,6 +48,15 @@ class EntryAnalyzer:
     _MIN_BIAS_STR   = 0.60  # bias strength must be ≥ 0.6 (fresh BOS only)
     _COUNTER_BARS   = 8     # bars to check for counter-trend structure (raised from 5)
 
+    # Per-symbol max SL pip caps — prevents oversized stops on volatile instruments
+    _MAX_SL_PIPS: dict[str, float] = {
+        "XAUUSD": 150.0,   # Gold: cap at $15 / 150 pips (ATR can spike to 300+ pips)
+        "USDJPY": 40.0,
+        "EURUSD": 30.0,
+        "GBPUSD": 35.0,
+        "AUDUSD": 30.0,
+    }
+
     def check_gate(
         self,
         df: pd.DataFrame,
@@ -131,6 +140,12 @@ class EntryAnalyzer:
 
         if sl_pips < self._MIN_SL_PIPS:
             return {"passed": False, "reason": "sl_too_tight"}
+
+        # ── Per-symbol SL cap — prevents massive stops on volatile pairs ───────
+        symbol = bias.get("symbol", "")
+        max_sl = self._MAX_SL_PIPS.get(symbol.upper() if symbol else "", 999.0)
+        if sl_pips > max_sl:
+            return {"passed": False, "reason": f"sl_too_wide_{sl_pips:.0f}_pips"}
 
         return {
             "passed":      True,
