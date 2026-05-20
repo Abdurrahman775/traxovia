@@ -34,8 +34,13 @@ from core.strategy_engine.bias_analyzer    import BiasAnalyzer
 from core.strategy_engine.choch_detector   import detect_choch
 from core.strategy_engine.daily_bias_filter import check_daily_alignment
 from core.strategy_engine.entry_analyzer   import EntryAnalyzer
+from core.strategy_engine.fvg_detector     import check_fvg
+from core.strategy_engine.htf_structure    import HTFStructure
+from core.strategy_engine.liquidity_sweep  import check_liquidity_sweep
+from core.strategy_engine.ote_entry        import calculate_ote
 from core.strategy_engine.rsi_divergence   import check_rsi_divergence
 from core.strategy_engine.session_filter   import is_valid_session
+from core.structure_engine.order_block_detector import OrderBlockDetector
 from core.structure_engine.regime_classifier import RegimeClassifier
 from core.structure_engine.zone_detector   import ZoneDetector
 
@@ -105,9 +110,9 @@ def run_pair(
     h4:   pd.DataFrame,
     m15:  pd.DataFrame,
 ) -> PairResult:
-    regime_clf = RegimeClassifier()
+    regime_clf = HTFStructure()       # Phase 1: D1 structure
     bias_clf   = BiasAnalyzer()
-    zone_det   = ZoneDetector()
+    zone_det   = OrderBlockDetector() # Phase 2: Order Blocks replace supply/demand zones
     entry_an   = EntryAnalyzer()
 
     # Pre-build a sorted list of H4 timestamps for fast alignment
@@ -177,31 +182,49 @@ def run_pair(
         if reg.get("signal_gate") == "blocked":
             continue
 
-        # ── Gate 2: Bias (BOS, cached per H4 bar) ────────────────────────────
+        # ── Gate 2: H4 Bias — must align with D1 structure ───────────────────
         bias = _cached_bias
         if not bias.get("direction"):
             continue
 
-        # Daily alignment gate removed — hurts net R more than it improves WR
+        # Reject H4 bias that contradicts D1 structure direction
+        d1_bias = reg.get("d1_bias")
+        if d1_bias and bias["direction"] != d1_bias:
+            continue
 
-        # ── Gate 3: Zone ──────────────────────────────────────────────────────
+        # ── Gate 3: Order Block ───────────────────────────────────────────────
         m15_win = m15.iloc[max(0, i - M15_WINDOW + 1) : i + 1].reset_index(drop=True)
         zone = zone_det.check_gate(m15_win, bias["direction"])
         if not zone["passed"]:
             continue
 
-        # ── Gate 4: Entry ─────────────────────────────────────────────────────
-        entry = entry_an.check_gate(m15_win, bias, zone)
-        if not entry["passed"]:
+        # ── Gate 3b: Fair Value Gap inside/near OB ────────────────────────────
+        fvg = check_fvg(m15_win, bias["direction"])
+        if not fvg["passed"]:
             continue
 
-        # ── Gate 4b: CHOCH confirmation (M15 proxy — no M5 in DB) ─────────────
+        # ── Gate 4: Liquidity Sweep (Phase 4 — replaces Entry Analyzer) ─────────
+        sweep = check_liquidity_sweep(m15_win, bias["direction"])
+        if not sweep["passed"]:
+            continue
+
+        # ── Gate 4b: CHOCH confirmation ────────────────────────────────────────
         choch = detect_choch(m15_win, bias["direction"], tp_rr=3.0)
         if not choch["passed"]:
             continue
-        entry = choch  # use CHOCH's tighter SL/TP
 
-        # Gate 4c (RSI divergence) removed — too restrictive on M15, kills trade count
+        # ── Gate 4c: OTE entry at 0.618–0.786 Fib (mandatory — no fallback) ─────
+        ote = calculate_ote(
+            df          = m15_win,
+            direction   = bias["direction"],
+            sweep_price = sweep["sweep_price"],
+            choch_level = choch["choch_level"],
+        )
+        if not ote["passed"]:
+            continue
+        entry = ote
+
+        # Gate 4d (RSI divergence) removed — too restrictive on M15, kills trade count
 
         active = Trade(
             pair        = pair,

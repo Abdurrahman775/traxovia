@@ -1,4 +1,16 @@
-"""core/strategy_engine/signal_generator.py — Multi-gate signal pipeline."""
+"""core/strategy_engine/signal_generator.py — Multi-gate signal pipeline.
+
+Pipeline (ICT Phase 1-3):
+  Gate 0  : Circuit breakers (daily loss, max trades, correlation, news)
+  Gate 1  : D1 market structure (HTFStructure — Phase 1)
+  Gate 2  : H4 BOS bias aligned with D1 direction (Phase 1)
+  Gate 3  : Order Block detection (Phase 2)
+  Gate 3b : Fair Value Gap inside/near OB (Phase 3)
+  Gate 4b : CHOCH on M5 (or M15 proxy)
+  Gate 5  : Spread / risk check
+  Gate 6  : Lot size sanity
+  Gate 7  : Drawdown protocol
+"""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -10,19 +22,17 @@ from core.risk_engine.position_sizer import calculate_lot_size
 from core.risk_engine.spread_filter import check_spread as check_risk_gate  # noqa: F401
 from core.strategy_engine.bias_analyzer import BiasAnalyzer
 from core.strategy_engine.choch_detector import detect_choch
-from core.strategy_engine.daily_bias_filter import check_daily_alignment
-from core.strategy_engine.entry_analyzer import EntryAnalyzer
+from core.strategy_engine.fvg_detector import check_fvg
+from core.strategy_engine.htf_structure import HTFStructure
 from core.strategy_engine.news_filter import check_news_window
-from core.strategy_engine.rsi_divergence import check_rsi_divergence
 from core.strategy_engine.session_filter import is_valid_session
-from core.structure_engine.regime_classifier import RegimeClassifier
-from core.structure_engine.zone_detector import ZoneDetector
+from core.structure_engine.order_block_detector import OrderBlockDetector
 
 # Module-level instances — tests patch these by dotted path
-_regime_clf = RegimeClassifier()
+_htf_struct = HTFStructure()        # Phase 1: D1 structure
 _bias_anl   = BiasAnalyzer()
-_zone_det   = ZoneDetector()
-_entry_anl  = EntryAnalyzer()
+_ob_det     = OrderBlockDetector()  # Phase 2: Order Blocks
+# Phase 3: FVG via check_fvg() function (stateless)
 
 # Correlated pair groups — never open same-direction trades simultaneously
 _CORR_GROUPS: list[set[str]] = [{"EURUSD", "GBPUSD"}]
@@ -36,12 +46,12 @@ async def generate_signal(
     db,
     account_balance: float = 10_000.0,
     risk_pct: float = 0.01,
-    open_trades: list[dict] | None = None,  # list of {"pair": str, "direction": str}
-    daily_pnl_r: float = 0.0,              # cumulative R for today (for circuit breaker)
-    ltf_df: pd.DataFrame | None = None,    # M5 data for CHOCH (falls back to M15 if None)
+    open_trades: list[dict] | None = None,
+    daily_pnl_r: float = 0.0,
+    ltf_df: pd.DataFrame | None = None,   # M5 data for CHOCH (falls back to M15 if None)
 ) -> dict:
-    """Run the full signal pipeline and return a result dict."""
-    now = pd.Timestamp.now()
+    """Run the full ICT signal pipeline and return a result dict."""
+    now     = pd.Timestamp.now()
     now_utc = datetime.now(timezone.utc)
 
     def _blocked(gate: int, reason: str) -> dict:
@@ -64,15 +74,11 @@ async def generate_signal(
         return _blocked(0, "max_concurrent_trades")
 
     # ── Gate 0c: Correlated pair filter ───────────────────────────────────────
-    # Don't open EURUSD if GBPUSD is already open in same direction (and vice versa)
     for group in _CORR_GROUPS:
         if symbol in group:
             for ot in open_trades:
                 if ot["pair"] in group and ot["pair"] != symbol:
                     return _blocked(0, f"correlated_pair_open_{ot['pair']}")
-
-    # Session filter removed — was blocking profitable setups, hurting net R
-    # is_valid_session kept in session_filter.py for future use
 
     # ── Gate 0e: News/event filter ────────────────────────────────────────────
     try:
@@ -82,38 +88,38 @@ async def generate_signal(
     except Exception:
         pass  # calendar unavailable — allow trade
 
-    # ── Gate 1: Regime ────────────────────────────────────────────────────────
-    regime_result = _regime_clf.classify(htf_df)
+    # ── Gate 1: D1 Market Structure (Phase 1 — replaces H4 ADX regime) ───────
+    regime_result = _htf_struct.classify(htf_df)
     if regime_result["signal_gate"] == "blocked":
-        return _blocked(1, "regime_blocked")
+        return _blocked(1, f"d1_structure_blocked_{regime_result.get('reason', '')}")
 
-    # ── Gate 2: HTF Bias ──────────────────────────────────────────────────────
+    # ── Gate 2: H4 BOS bias — must align with D1 structure ───────────────────
     bias_result = _bias_anl.analyze(htf_df, symbol)
     if not bias_result.get("direction"):
         return _blocked(2, "no_htf_bias")
     bias_result["symbol"] = symbol
 
-    # Daily alignment gate removed — was filtering too many valid setups on EURUSD/GBPUSD
-    # and hurting net R more than improving WR. Kept as utility in daily_bias_filter.py
-    # for future experimentation.
+    # Block if H4 bias contradicts D1 structure
+    d1_bias = regime_result.get("d1_bias")
+    if d1_bias and bias_result["direction"] != d1_bias:
+        return _blocked(2, f"h4_bias_contradicts_d1_{d1_bias}")
 
-    # ── Gate 3: Supply/Demand Zone ────────────────────────────────────────────
-    zone_result = _zone_det.check_gate(m15_df, bias_result["direction"])
+    # ── Gate 3: Order Block (Phase 2 — replaces supply/demand zone) ──────────
+    zone_result = _ob_det.check_gate(m15_df, bias_result["direction"])
     if not zone_result.get("passed"):
-        return _blocked(3, "no_zone")
+        return _blocked(3, "no_order_block")
 
-    # ── Gate 4: Entry confirmation (M15 candle quality) ──────────────────────
-    entry_result = _entry_anl.check_gate(m15_df, bias_result, zone_result)
-    if not entry_result.get("passed"):
-        return _blocked(4, "no_entry")
+    # ── Gate 3b: Fair Value Gap inside/near OB (Phase 3) ─────────────────────
+    fvg_result = check_fvg(m15_df, bias_result["direction"])
+    if not fvg_result.get("passed"):
+        return _blocked(3, f"no_fvg_{fvg_result.get('reason', '')}")
 
-    # ── Gate 4b: CHOCH confirmation on M5 (or M15 proxy if M5 unavailable) ──
+    # ── Gate 4b: CHOCH on M5 (or M15 proxy if M5 unavailable) ───────────────
     choch_df     = ltf_df if (ltf_df is not None and len(ltf_df) >= 40) else m15_df
     choch_result = detect_choch(choch_df, bias_result["direction"])
     if not choch_result["passed"]:
         return _blocked(4, f"no_choch_{choch_result.get('reason', '')}")
-    # Use CHOCH's tighter SL/TP — overrides ATR-based entry from entry_analyzer
-    entry_result = choch_result
+    entry_result = choch_result  # CHOCH provides SL/TP
 
     # ── Gate 5: Spread / risk check ───────────────────────────────────────────
     risk_result = await check_risk_gate(symbol)
@@ -162,7 +168,9 @@ async def generate_signal(
         "lot_size":        lot,
         "regime":          regime_result["regime"],
         "adx":             regime_result["adx"],
-        "bias_strength":   bias_result["strength"],
-        "zone_strength":   zone_result["zone"].strength,
-        "daily_direction": daily_align.get("daily_direction"),
+        "bias_strength":   bias_result.get("strength", 0.0),
+        "zone_strength":   zone_result["zone"].strength if zone_result.get("zone") else 0.0,
+        "d1_bias":         d1_bias,
+        "fvg_top":         fvg_result.get("fvg_top"),
+        "fvg_bottom":      fvg_result.get("fvg_bottom"),
     }
