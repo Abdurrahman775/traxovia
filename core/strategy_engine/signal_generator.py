@@ -13,6 +13,7 @@ from core.strategy_engine.choch_detector import detect_choch
 from core.strategy_engine.daily_bias_filter import check_daily_alignment
 from core.strategy_engine.entry_analyzer import EntryAnalyzer
 from core.strategy_engine.news_filter import check_news_window
+from core.strategy_engine.rsi_divergence import check_rsi_divergence
 from core.strategy_engine.session_filter import is_valid_session
 from core.structure_engine.regime_classifier import RegimeClassifier
 from core.structure_engine.zone_detector import ZoneDetector

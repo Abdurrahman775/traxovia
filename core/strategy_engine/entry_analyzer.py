@@ -42,7 +42,7 @@ def _recent_lower_lows(df: pd.DataFrame, bars: int = 5) -> bool:
 
 class EntryAnalyzer:
     _SL_ATR_MULT    = 2.0   # widened from 1.5 — gives trades room to breathe
-    _TP_RR          = 3.0   # R:R ratio (raised from 2.0)
+    _TP_RR          = 3.0   # R:R ratio
     _MIN_SL_PIPS    = 5.0   # raised from 3.0 — reject unrealistically tight SLs
     _MIN_BODY_FRAC  = 0.40  # candle body must be ≥ 40% of range (raised from 35%)
     _MIN_BIAS_STR   = 0.60  # bias strength must be ≥ 0.6 (fresh BOS only)

@@ -34,11 +34,12 @@ from core.strategy_engine.bias_analyzer    import BiasAnalyzer
 from core.strategy_engine.choch_detector   import detect_choch
 from core.strategy_engine.daily_bias_filter import check_daily_alignment
 from core.strategy_engine.entry_analyzer   import EntryAnalyzer
+from core.strategy_engine.rsi_divergence   import check_rsi_divergence
 from core.strategy_engine.session_filter   import is_valid_session
 from core.structure_engine.regime_classifier import RegimeClassifier
 from core.structure_engine.zone_detector   import ZoneDetector
 
-PAIRS = ["USDJPY", "XAUUSD"]  # GBPUSD dropped — CHOCH on M15 proxy hurts its WR
+PAIRS = ["USDJPY", "XAUUSD"]  # EURUSD/GBPUSD dropped — consistent losers
 
 H4_WINDOW  = 200   # H4 bars fed to regime + bias
 M15_WINDOW = 150   # M15 bars fed to zone + entry
@@ -195,10 +196,12 @@ def run_pair(
             continue
 
         # ── Gate 4b: CHOCH confirmation (M15 proxy — no M5 in DB) ─────────────
-        choch = detect_choch(m15_win, bias["direction"])
+        choch = detect_choch(m15_win, bias["direction"], tp_rr=3.0)
         if not choch["passed"]:
             continue
         entry = choch  # use CHOCH's tighter SL/TP
+
+        # Gate 4c (RSI divergence) removed — too restrictive on M15, kills trade count
 
         active = Trade(
             pair        = pair,
