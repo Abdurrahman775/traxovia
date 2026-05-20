@@ -31,13 +31,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 load_dotenv()
 
 from core.strategy_engine.bias_analyzer    import BiasAnalyzer
+from core.strategy_engine.choch_detector   import detect_choch
 from core.strategy_engine.daily_bias_filter import check_daily_alignment
 from core.strategy_engine.entry_analyzer   import EntryAnalyzer
 from core.strategy_engine.session_filter   import is_valid_session
 from core.structure_engine.regime_classifier import RegimeClassifier
 from core.structure_engine.zone_detector   import ZoneDetector
 
-PAIRS = ["GBPUSD", "USDJPY", "XAUUSD"]  # AUDUSD + EURUSD dropped — consistent losers in backtest
+PAIRS = ["USDJPY", "XAUUSD"]  # GBPUSD dropped — CHOCH on M15 proxy hurts its WR
 
 H4_WINDOW  = 200   # H4 bars fed to regime + bias
 M15_WINDOW = 150   # M15 bars fed to zone + entry
@@ -114,6 +115,11 @@ def run_pair(
     trades:   list[Trade] = []
     active:   Trade | None = None
 
+    # Cache H4-derived results — only recompute when h4_idx changes
+    _cached_h4_idx: int = -1
+    _cached_reg:    dict | None = None
+    _cached_bias:   dict | None = None
+
     # Start from bar 250 so H4 window is always full
     start = max(H4_WINDOW, 250)
 
@@ -156,18 +162,24 @@ def run_pair(
         h4_idx   = bisect_right(h4_times, bar_time) - 1
         if h4_idx < H4_WINDOW:
             continue
-        h4_win = h4.iloc[h4_idx - H4_WINDOW + 1 : h4_idx + 1].reset_index(drop=True)
 
-        # ── Gate 1: Regime ────────────────────────────────────────────────────
-        reg = regime_clf.classify(h4_win)
+        # ── Gate 1: Regime (cached per H4 bar) ───────────────────────────────
+        if h4_idx != _cached_h4_idx:
+            h4_win = h4.iloc[h4_idx - H4_WINDOW + 1 : h4_idx + 1].reset_index(drop=True)
+            _cached_reg  = regime_clf.classify(h4_win)
+            _cached_bias = bias_clf.analyze(h4_win, pair)
+            if _cached_bias.get("direction"):
+                _cached_bias["symbol"] = pair
+            _cached_h4_idx = h4_idx
+
+        reg = _cached_reg
         if reg.get("signal_gate") == "blocked":
             continue
 
-        # ── Gate 2: Bias (BOS) ────────────────────────────────────────────────
-        bias = bias_clf.analyze(h4_win, pair)
+        # ── Gate 2: Bias (BOS, cached per H4 bar) ────────────────────────────
+        bias = _cached_bias
         if not bias.get("direction"):
             continue
-        bias["symbol"] = pair
 
         # Daily alignment gate removed — hurts net R more than it improves WR
 
@@ -181,6 +193,12 @@ def run_pair(
         entry = entry_an.check_gate(m15_win, bias, zone)
         if not entry["passed"]:
             continue
+
+        # ── Gate 4b: CHOCH confirmation (M15 proxy — no M5 in DB) ─────────────
+        choch = detect_choch(m15_win, bias["direction"])
+        if not choch["passed"]:
+            continue
+        entry = choch  # use CHOCH's tighter SL/TP
 
         active = Trade(
             pair        = pair,

@@ -9,6 +9,7 @@ from core.risk_engine.drawdown_monitor import evaluate_drawdown
 from core.risk_engine.position_sizer import calculate_lot_size
 from core.risk_engine.spread_filter import check_spread as check_risk_gate  # noqa: F401
 from core.strategy_engine.bias_analyzer import BiasAnalyzer
+from core.strategy_engine.choch_detector import detect_choch
 from core.strategy_engine.daily_bias_filter import check_daily_alignment
 from core.strategy_engine.entry_analyzer import EntryAnalyzer
 from core.strategy_engine.news_filter import check_news_window
@@ -36,6 +37,7 @@ async def generate_signal(
     risk_pct: float = 0.01,
     open_trades: list[dict] | None = None,  # list of {"pair": str, "direction": str}
     daily_pnl_r: float = 0.0,              # cumulative R for today (for circuit breaker)
+    ltf_df: pd.DataFrame | None = None,    # M5 data for CHOCH (falls back to M15 if None)
 ) -> dict:
     """Run the full signal pipeline and return a result dict."""
     now = pd.Timestamp.now()
@@ -99,10 +101,18 @@ async def generate_signal(
     if not zone_result.get("passed"):
         return _blocked(3, "no_zone")
 
-    # ── Gate 4: Entry confirmation ────────────────────────────────────────────
+    # ── Gate 4: Entry confirmation (M15 candle quality) ──────────────────────
     entry_result = _entry_anl.check_gate(m15_df, bias_result, zone_result)
     if not entry_result.get("passed"):
         return _blocked(4, "no_entry")
+
+    # ── Gate 4b: CHOCH confirmation on M5 (or M15 proxy if M5 unavailable) ──
+    choch_df     = ltf_df if (ltf_df is not None and len(ltf_df) >= 40) else m15_df
+    choch_result = detect_choch(choch_df, bias_result["direction"])
+    if not choch_result["passed"]:
+        return _blocked(4, f"no_choch_{choch_result.get('reason', '')}")
+    # Use CHOCH's tighter SL/TP — overrides ATR-based entry from entry_analyzer
+    entry_result = choch_result
 
     # ── Gate 5: Spread / risk check ───────────────────────────────────────────
     risk_result = await check_risk_gate(symbol)
