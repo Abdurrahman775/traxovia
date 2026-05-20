@@ -20,11 +20,8 @@ _cache_fetched_at: datetime | None = None
 _CACHE_TTL_HOURS = 4
 
 _CURRENCIES: dict[str, list[str]] = {
-    "EURUSD": ["EUR", "USD"],
-    "GBPUSD": ["GBP", "USD"],
     "USDJPY": ["USD", "JPY"],
     "XAUUSD": ["USD", "XAU"],
-    "AUDUSD": ["AUD", "USD"],
 }
 
 _BLOCK_MINUTES = 60  # block window before and after event

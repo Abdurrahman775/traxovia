@@ -34,8 +34,8 @@ _bias_anl   = BiasAnalyzer()
 _ob_det     = OrderBlockDetector()  # Phase 2: Order Blocks
 # Phase 3: FVG via check_fvg() function (stateless)
 
-# Correlated pair groups — never open same-direction trades simultaneously
-_CORR_GROUPS: list[set[str]] = [{"EURUSD", "GBPUSD"}]
+# Correlated pair groups — reserved for future pairs; USDJPY+XAUUSD are uncorrelated
+_CORR_GROUPS: list[set[str]] = []
 
 
 async def generate_signal(

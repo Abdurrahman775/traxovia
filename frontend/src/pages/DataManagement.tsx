@@ -2,8 +2,8 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/client'
 
-const PAIRS      = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD']
-const TIMEFRAMES = ['M15', 'M30', 'H1', 'H4', 'W1']
+const PAIRS      = ['USDJPY', 'XAUUSD']
+const TIMEFRAMES = ['M5', 'M15', 'M30', 'H1', 'H4', 'W1']
 
 interface CoverageInfo {
   timeframes: Record<string, Record<string, number>>
@@ -271,7 +271,7 @@ export default function DataManagement() {
         <div className="bg-s2 border border-s3 rounded-lg p-4 space-y-3 font-mono text-xs">
           <div>
             <p className="text-tx2 opacity-50 mb-1"># Name files like this and drop into data/historical_csvs/</p>
-            <p className="text-tx">EURUSD_M15.csv &nbsp;GBPUSD_H4.csv &nbsp;XAUUSD_M30.csv</p>
+            <p className="text-tx">USDJPY_M5.csv &nbsp;USDJPY_M15.csv &nbsp;XAUUSD_H4.csv</p>
           </div>
           <div>
             <p className="text-tx2 opacity-50 mb-1"># Load all files in the directory</p>

@@ -19,25 +19,15 @@ _PAID_PLANS = {"starter", "trader", "pro", "elite", "trial"}
 
 # Country → forex pairs affected
 _COUNTRY_PAIRS: dict[str, list[str]] = {
-    "US":  ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "XAUUSD"],
-    "EU":  ["EURUSD"],
-    "DE":  ["EURUSD"],
-    "FR":  ["EURUSD"],
-    "IT":  ["EURUSD"],
-    "ES":  ["EURUSD"],
-    "GB":  ["GBPUSD"],
-    "UK":  ["GBPUSD"],
+    "US":  ["USDJPY", "XAUUSD"],
     "JP":  ["USDJPY"],
-    "AU":  ["AUDUSD"],
-    "NZ":  ["AUDUSD"],
-    "CN":  ["AUDUSD", "XAUUSD"],
-    "CA":  ["EURUSD", "GBPUSD"],
-    "CH":  ["EURUSD"],
+    "CN":  ["XAUUSD"],
+    "XAU": ["XAUUSD"],
 }
 
 _IMPACT_ORDER  = {"high": 0, "medium": 1, "low": 2}
 _VALID_IMPACTS = {"high", "medium", "low", "all"}
-_VALID_PAIRS   = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "XAUUSD"}
+_VALID_PAIRS   = {"USDJPY", "XAUUSD"}
 
 
 async def _get_finnhub_key(db) -> str:

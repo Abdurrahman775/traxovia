@@ -26,7 +26,7 @@ interface NewsResponse {
   events:         NewsEvent[]
 }
 
-const PAIRS = ['All Pairs', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD']
+const PAIRS = ['All Pairs', 'USDJPY', 'XAUUSD']
 const IMPACTS = ['all', 'high', 'medium', 'low']
 
 function impactMeta(impact: string) {
@@ -58,8 +58,8 @@ function timingBadge(minutesAway: number | null) {
 
 function PairChip({ pair }: { pair: string }) {
   const colors: Record<string, string> = {
-    EURUSD: '#4f8ef7', GBPUSD: '#00e5cc', USDJPY: '#f0b429',
-    AUDUSD: '#8b5cf6', XAUUSD: '#f59e0b',
+    USDJPY: '#f0b429',
+    XAUUSD: '#f59e0b',
   }
   const c = colors[pair] ?? 'var(--color-tx3)'
   return (

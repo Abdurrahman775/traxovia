@@ -17,10 +17,7 @@ except ImportError:
     _MT5_AVAILABLE = False
 
 SPREAD_BASELINES: dict[str, float] = {
-    "EURUSD": 1.0,
-    "GBPUSD": 1.2,
     "USDJPY": 1.0,
-    "AUDUSD": 1.2,
     "XAUUSD": 25.0,
 }
 
