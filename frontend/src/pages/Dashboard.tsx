@@ -230,7 +230,7 @@ export default function Dashboard() {
 
   const pendingSignals = signalList.filter(s => s.status === 'pending').slice(0, 4)
 
-  const TH = ['Pair', 'Dir', 'Entry', 'R:R', 'AI Conf', 'News', 'Status', '']
+  const TH = ['Pair', 'Dir', 'Entry', 'R:R', 'D1 Bias', 'News', 'Status', '']
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -371,7 +371,6 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {pendingSignals.map((s: any) => {
-                const conf = s.ai_probability != null ? Math.round(s.ai_probability * 100) : null
                 return (
                   <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
                     onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(255,255,255,0.02)'}
@@ -399,10 +398,15 @@ export default function Dashboard() {
                       {calcRR(s)}
                     </td>
 
-                    {/* AI Conf */}
-                    <td className="font-mono py-[11px] px-3" style={{ fontSize: 11, color: conf != null ? (conf > 75 ? '#00e5cc' : '#f0b429') : 'var(--color-tx3)' }}>
-                      {conf != null ? `${conf}%` : '—'}
-                    </td>
+                    {/* D1 Bias */}
+                    {(() => {
+                      const bias = s.gate_results?.d1_bias
+                      return (
+                        <td className="font-mono py-[11px] px-3" style={{ fontSize: 11, color: bias === 'bullish' ? '#00e5cc' : bias === 'bearish' ? '#ff3d5a' : 'var(--color-tx3)' }}>
+                          {bias ? (bias === 'bullish' ? '▲ BULL' : '▼ BEAR') : '—'}
+                        </td>
+                      )
+                    })()}
 
                     {/* News — not in API */}
                     <td className="py-[11px] px-3">

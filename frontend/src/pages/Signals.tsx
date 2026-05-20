@@ -34,6 +34,7 @@ function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; co
 
 function regimeBadgeType(regime: string): BadgeType {
   if (regime === 'trending') return 'cyan'
+  if (regime === 'volatile') return 'gold'
   if (regime === 'ranging')  return 'gold'
   return 'red'
 }
@@ -181,9 +182,16 @@ export default function Signals() {
                 <div className="flex flex-wrap items-center gap-2" style={{ marginTop: 10 }}>
                   {s.regime && (
                     <Badge type={regimeBadgeType(s.regime)}>
-                      {s.regime.toUpperCase()}
-                      {s.regime_adx > 0 ? ` · ADX ${s.regime_adx}` : ''}
+                      D1 {s.regime.toUpperCase()}
                     </Badge>
+                  )}
+                  {s.gate_results?.d1_bias && (
+                    <Badge type={s.gate_results.d1_bias === 'bullish' ? 'cyan' : 'red'}>
+                      {s.gate_results.d1_bias === 'bullish' ? '▲' : '▼'} {s.gate_results.d1_bias.toUpperCase()}
+                    </Badge>
+                  )}
+                  {s.gate_results?.fvg_top != null && (
+                    <Badge type="gray">FVG ✓</Badge>
                   )}
                   {isRanging && (
                     <span className="font-mono text-[9px]" style={{ color: '#f0b429' }}>⊘ BLOCKED</span>

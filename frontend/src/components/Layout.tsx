@@ -12,7 +12,7 @@ const NAV_GROUPS = [
     label: 'Trading',
     items: [
       { to: '/dashboard', label: 'Dashboard',        icon: '⬛' },
-      { to: '/regime',    label: 'Regime Detector',  icon: '◈' },
+      { to: '/regime',    label: 'Market Structure',  icon: '◈' },
       { to: '/signals',   label: 'Signals',          icon: '◆' },
       { to: '/trades',    label: 'Trades',           icon: '↯' },
       { to: '/news',      label: 'News',             icon: '📰' },

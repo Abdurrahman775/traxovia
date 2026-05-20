@@ -32,7 +32,7 @@ async def list_signals(
         rows = await db.fetch(
             """SELECT id, pair, direction, entry_price, stop_loss, take_profit,
                       regime, regime_adx, ai_probability, shap_values, reasoning,
-                      status, triggered_at, created_at
+                      gate_results, status, triggered_at, created_at
                FROM trade_signals WHERE user_id=$1 AND status=$2
                ORDER BY created_at DESC LIMIT $3""",
             user["sub"], status, limit,
@@ -41,7 +41,7 @@ async def list_signals(
         rows = await db.fetch(
             """SELECT id, pair, direction, entry_price, stop_loss, take_profit,
                       regime, regime_adx, ai_probability, shap_values, reasoning,
-                      status, triggered_at, created_at
+                      gate_results, status, triggered_at, created_at
                FROM trade_signals WHERE user_id=$1
                ORDER BY created_at DESC LIMIT $2""",
             user["sub"], limit,
@@ -117,11 +117,17 @@ async def create_signal(request: Request, body: dict, db=Depends(get_db)):
     if missing:
         raise HTTPException(400, f"Missing fields: {missing}")
 
+    import json as _json
+    gate_results = {
+        k: body[k] for k in ("d1_bias", "fvg_top", "fvg_bottom", "bias_strength", "zone_strength")
+        if body.get(k) is not None
+    }
+
     row_id = await db.fetchval(
         """INSERT INTO trade_signals
                (user_id, pair, direction, entry_price, stop_loss, take_profit,
-                lot_size, regime, regime_adx, ai_probability, reasoning, timeframe)
-           VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                lot_size, regime, regime_adx, ai_probability, reasoning, timeframe, gate_results)
+           VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
            RETURNING id""",
         body["user_id"],
         body["pair"],
@@ -135,6 +141,7 @@ async def create_signal(request: Request, body: dict, db=Depends(get_db)):
         body.get("ai_probability"),
         body.get("reasoning"),
         body.get("timeframe", "M15"),
+        _json.dumps(gate_results) if gate_results else None,
     )
 
     # Fire signal_alerts notification

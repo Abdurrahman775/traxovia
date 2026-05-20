@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 
 interface RegimeData {
-  regime:      'trending' | 'ranging' | 'volatile' | 'unknown' | 'bridge_offline'
-  adx:         number
-  atr_ratio:   number
-  signal_gate: 'open' | 'blocked' | 'reduced'
+  regime:        'trending' | 'ranging' | 'volatile' | 'unknown' | 'bridge_offline'
+  adx:           number
+  d1_bias:       'bullish' | 'bearish' | null
+  d1_bos_level?: number | null
+  signal_gate:   'open' | 'blocked' | 'reduced'
 }
 
 interface RegimeResponse {
@@ -34,12 +35,6 @@ function gateMeta(gate: string) {
   if (gate === 'open')    return { label: 'OPEN',         color: 'var(--color-cy)' }
   if (gate === 'reduced') return { label: 'OPEN (0.5×)',  color: '#f0b429' }
   return                         { label: 'BLOCKED',      color: '#ff3d5a' }
-}
-
-function adxColor(adx: number) {
-  if (adx > 25) return 'var(--color-cy)'
-  if (adx > 20) return '#f0b429'
-  return '#ff3d5a'
 }
 
 function MiniBar({ pct, color }: { pct: number; color: string }) {
@@ -73,8 +68,8 @@ export default function RegimeDetector() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-tx font-head">Regime Detector</h1>
-          <p className="text-tx2 text-sm mt-0.5">Live market condition classification per pair</p>
+          <h1 className="text-xl font-bold text-tx font-head">Market Structure</h1>
+          <p className="text-tx2 text-sm mt-0.5">D1 ICT structure bias and signal gate per pair</p>
         </div>
         <div className="flex items-center gap-3">
           {lastUpdated && (
@@ -102,7 +97,7 @@ export default function RegimeDetector() {
       {(!data || data.bridge_online) && (
         <div className="px-4 py-3 rounded-xl font-mono text-[11px]"
           style={{ background: 'rgba(240,180,41,0.06)', border: '1px solid rgba(240,180,41,0.2)', color: '#f0b429' }}>
-          REGIME FILTER ACTIVE — Signals suppressed when ADX &lt; 20. Only price-action signals pass in trending/volatile markets.
+          ICT STRUCTURE FILTER ACTIVE — Signals require clear D1 BOS (Break of Structure). Volatile regime = half position size.
         </div>
       )}
 
@@ -139,11 +134,10 @@ export default function RegimeDetector() {
         )}
 
         {!isLoading && !isError && entries.map(e => {
-          const rm   = regimeMeta(e.regime)
-          const gm   = gateMeta(e.signal_gate)
-          const adc  = adxColor(e.adx)
-          const atrColor = e.atr_ratio > 2 ? '#f0b429' : 'var(--color-cy)'
-          const offline  = e.regime === 'bridge_offline' || e.regime === 'unknown'
+          const rm      = regimeMeta(e.regime)
+          const gm      = gateMeta(e.signal_gate)
+          const offline = e.regime === 'bridge_offline' || e.regime === 'unknown'
+          const biasColor = e.d1_bias === 'bullish' ? 'var(--color-cy)' : e.d1_bias === 'bearish' ? '#ff3d5a' : 'var(--color-tx3)'
 
           return (
             <div key={e.key} className="px-5 py-4 border-b border-s3 last:border-0"
@@ -165,22 +159,24 @@ export default function RegimeDetector() {
               {/* Metrics */}
               {!offline && (
                 <div className="grid grid-cols-3 gap-5">
-                  {/* ADX */}
+                  {/* D1 Bias */}
                   <div>
-                    <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">ADX</div>
-                    <div className="font-mono text-lg font-bold" style={{ color: adc }}>{e.adx.toFixed(1)}</div>
-                    <MiniBar pct={(e.adx / 60) * 100} color={adc} />
-                    <div className="text-[10px] text-tx3 font-mono mt-1">&lt;20 = ranging</div>
+                    <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">D1 Bias</div>
+                    <div className="font-mono text-lg font-bold" style={{ color: biasColor }}>
+                      {e.d1_bias ? (e.d1_bias === 'bullish' ? '▲ BULL' : '▼ BEAR') : '—'}
+                    </div>
+                    <MiniBar pct={e.d1_bias ? 100 : 0} color={biasColor} />
+                    <div className="text-[10px] text-tx3 font-mono mt-1">D1 break of structure</div>
                   </div>
 
-                  {/* ATR Ratio */}
+                  {/* BOS Level */}
                   <div>
-                    <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">ATR Ratio</div>
-                    <div className="font-mono text-lg font-bold" style={{ color: atrColor }}>
-                      {e.atr_ratio.toFixed(2)}
+                    <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-1">BOS Level</div>
+                    <div className="font-mono text-lg font-bold" style={{ color: 'var(--color-tx2)' }}>
+                      {e.d1_bos_level != null ? Number(e.d1_bos_level).toFixed(3) : '—'}
                     </div>
-                    <MiniBar pct={(e.atr_ratio / 4) * 100} color={atrColor} />
-                    <div className="text-[10px] text-tx3 font-mono mt-1">&gt;2.0 = volatile</div>
+                    <MiniBar pct={50} color="var(--color-tx3)" />
+                    <div className="text-[10px] text-tx3 font-mono mt-1">last swing level</div>
                   </div>
 
                   {/* Signal Gate */}

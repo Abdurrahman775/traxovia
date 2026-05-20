@@ -1,6 +1,6 @@
 """
-api/routes/regime.py — Live regime status for all pairs.
-Reads H4 candles from the ohlc_h4 DB table and runs RegimeClassifier.
+api/routes/regime.py — Live D1 market structure status for all pairs.
+Reads H4 candles from the ohlc_h4 DB table and runs HTFStructure (Phase 1 ICT).
 No MT5 dependency — works entirely from stored candle data.
 """
 import json
@@ -8,13 +8,13 @@ import pandas as pd
 from fastapi import APIRouter, Depends
 from api.auth import get_current_user
 from database.connection import get_db, set_rls_user
-from core.structure_engine.regime_classifier import RegimeClassifier
+from core.strategy_engine.htf_structure import HTFStructure
 
 router = APIRouter(tags=["regime"])
-_clf = RegimeClassifier()
+_clf = HTFStructure()
 
-_FALLBACK_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"]
-_UNKNOWN = {"regime": "unknown", "adx": 0.0, "atr_ratio": 0.0, "signal_gate": "blocked"}
+_FALLBACK_PAIRS = ["USDJPY", "XAUUSD"]
+_UNKNOWN = {"regime": "unknown", "adx": 0.0, "d1_bias": None, "signal_gate": "blocked"}
 
 
 def _normalize(pair: str) -> str:
@@ -67,11 +67,18 @@ async def regime_current(user=Depends(get_current_user), db=Depends(get_db)):
             has_data = True
             df = pd.DataFrame(bars)
             r  = _clf.classify(df)
+            # Map HTFStructure's "pass" gate to "open"/"reduced" for frontend compat
+            raw_gate = r.get("signal_gate", "blocked")
+            if raw_gate == "pass":
+                gate = "reduced" if r.get("regime") == "volatile" else "open"
+            else:
+                gate = "blocked"
             result[pair] = {
                 "regime":      r["regime"],
                 "adx":         round(r["adx"], 2),
-                "atr_ratio":   round(min(float(r["atr_ratio"]), 99.99), 2),
-                "signal_gate": r["signal_gate"],
+                "d1_bias":     r.get("d1_bias"),
+                "d1_bos_level": r.get("d1_bos_level"),
+                "signal_gate": gate,
             }
         else:
             result[pair] = {**_UNKNOWN}

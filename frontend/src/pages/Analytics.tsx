@@ -108,10 +108,10 @@ export default function Analytics() {
           ))}
         </div>
 
-        {/* By Regime */}
+        {/* By D1 Structure */}
         <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
           <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
-            By Regime
+            By D1 Structure
           </div>
           {regList.length === 0 ? (
             <div className="font-mono text-xs text-center py-8" style={{ color: 'var(--color-tx3)' }}>No closed trades yet</div>
