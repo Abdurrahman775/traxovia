@@ -29,7 +29,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 PAIRS = ["USDJPY", "XAUUSD"]
-M5_MONTHS_BACK = 14    # ~1 year of M5 data
+M5_MONTHS_BACK = 72    # 6 years — matches H4 + M15 history
 BASE_URL       = "https://datafeed.dukascopy.com/datafeed"
 RETRY_COUNT    = 3
 RETRY_DELAY    = 2.0
