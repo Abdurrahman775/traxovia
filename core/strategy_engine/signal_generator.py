@@ -80,6 +80,11 @@ async def generate_signal(
                 if ot["pair"] in group and ot["pair"] != symbol:
                     return _blocked(0, f"correlated_pair_open_{ot['pair']}")
 
+    # ── Gate 0d: Session / killzone filter ───────────────────────────────────
+    session = is_valid_session(symbol, now_utc)
+    if not session["passed"]:
+        return _blocked(0, f"outside_session_hour_{session['hour_utc']}")
+
     # ── Gate 0e: News/event filter ────────────────────────────────────────────
     try:
         news = await check_news_window(symbol, now_utc)

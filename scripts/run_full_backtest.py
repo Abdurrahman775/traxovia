@@ -43,6 +43,7 @@ from core.strategy_engine.session_filter   import is_valid_session
 from core.structure_engine.order_block_detector import OrderBlockDetector
 from core.structure_engine.regime_classifier import RegimeClassifier
 from core.structure_engine.zone_detector   import ZoneDetector
+from datetime import timezone as _tz
 
 PAIRS = ["USDJPY", "XAUUSD"]  # EURUSD/GBPUSD dropped — consistent losers
 
@@ -167,6 +168,12 @@ def run_pair(
         bar_time = bar["time"]
         h4_idx   = bisect_right(h4_times, bar_time) - 1
         if h4_idx < H4_WINDOW:
+            continue
+
+        # ── Session / killzone filter ─────────────────────────────────────────
+        bar_dt = bar_time if hasattr(bar_time, "hour") else \
+                 pd.Timestamp(bar_time, tz="UTC")
+        if not is_valid_session(pair, bar_dt.to_pydatetime().replace(tzinfo=_tz.utc) if bar_dt.tzinfo is None else bar_dt.to_pydatetime())["passed"]:
             continue
 
         # ── Gate 1: Regime (cached per H4 bar) ───────────────────────────────

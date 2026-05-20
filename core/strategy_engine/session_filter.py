@@ -1,22 +1,20 @@
 """core/strategy_engine/session_filter.py — Only trade during high-liquidity sessions.
 
-Low-liquidity sessions (e.g. Asian session for EURUSD) produce choppy
-fake-out moves that trigger SLs before the real move starts. This filter
-restricts each pair to its highest-probability session window.
+ICT killzone windows: entries only during peak institutional participation.
+Outside these windows, smart money is absent and setups fail more often.
 
 All times are UTC.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone, time as dtime
+from datetime import datetime, timezone
 
-# Session windows per pair: list of (start_hour_utc, end_hour_utc)
+# Killzone windows per pair (start_hour_utc inclusive, end_hour_utc exclusive)
+# USDJPY: Tokyo open + London overlap — 00:00–09:00 UTC
+# XAUUSD: London open + NY session  — 07:00–17:00 UTC
 _SESSION_MAP: dict[str, list[tuple[int, int]]] = {
-    "EURUSD": [(7, 17)],   # London + NY
-    "GBPUSD": [(7, 17)],   # London + NY
-    "USDJPY": [(0, 10)],   # Asian + London overlap
-    "XAUUSD": [(0, 22)],   # Gold trades nearly 24hrs — Asian, London, NY all valid
-    "AUDUSD": [(0, 10), (7, 17)],  # Asian + London
+    "USDJPY": [(0, 9)],    # Tokyo open → London overlap
+    "XAUUSD": [(7, 17)],   # London open → NY close
 }
 
 _DEFAULT_SESSIONS = [(7, 17)]
