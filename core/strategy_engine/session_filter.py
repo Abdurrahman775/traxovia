@@ -10,10 +10,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 # Killzone windows per pair (start_hour_utc inclusive, end_hour_utc exclusive)
-# USDJPY: Tokyo open + London overlap — 00:00–09:00 UTC
+# USDJPY: 4 precise killzone windows — hours 1,2,4,7 removed after diagnostic
+#   0h = Tokyo open (27.5% WR)
+#   3h, 5h, 6h = mid-Tokyo active (33% WR each)
+#   8h = London open (53% WR — best hour)
+#   Removed: 1h/2h (Asian dead zone), 4h (16.7% WR), 7h (0% — pre-London stop hunt)
 # XAUUSD: London open + NY session  — 07:00–17:00 UTC
 _SESSION_MAP: dict[str, list[tuple[int, int]]] = {
-    "USDJPY": [(0, 9)],    # Tokyo open → London overlap
+    "USDJPY": [(0, 1), (3, 4), (5, 7), (8, 9)],
     "XAUUSD": [(7, 17)],   # London open → NY close
 }
 

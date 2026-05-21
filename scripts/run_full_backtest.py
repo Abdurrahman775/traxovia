@@ -32,17 +32,10 @@ load_dotenv()
 
 from core.strategy_engine.bias_analyzer    import BiasAnalyzer
 from core.strategy_engine.choch_detector   import detect_choch
-from core.strategy_engine.daily_bias_filter import check_daily_alignment
-from core.strategy_engine.entry_analyzer   import EntryAnalyzer
 from core.strategy_engine.fvg_detector     import check_fvg
 from core.strategy_engine.htf_structure    import HTFStructure
-from core.strategy_engine.liquidity_sweep  import check_liquidity_sweep
-from core.strategy_engine.ote_entry        import calculate_ote
-from core.strategy_engine.rsi_divergence   import check_rsi_divergence
 from core.strategy_engine.session_filter   import is_valid_session
 from core.structure_engine.order_block_detector import OrderBlockDetector
-from core.structure_engine.regime_classifier import RegimeClassifier
-from core.structure_engine.zone_detector   import ZoneDetector
 from datetime import timezone as _tz
 
 PAIRS = ["USDJPY", "XAUUSD"]  # EURUSD/GBPUSD dropped — consistent losers
@@ -114,7 +107,6 @@ def run_pair(
     regime_clf = HTFStructure()       # Phase 1: D1 structure
     bias_clf   = BiasAnalyzer()
     zone_det   = OrderBlockDetector() # Phase 2: Order Blocks replace supply/demand zones
-    entry_an   = EntryAnalyzer()
 
     # Pre-build a sorted list of H4 timestamps for fast alignment
     h4_times = h4["time"].tolist()
@@ -210,26 +202,11 @@ def run_pair(
         if not fvg["passed"]:
             continue
 
-        # ── Gate 4: Liquidity Sweep (Phase 4 — replaces Entry Analyzer) ─────────
-        sweep = check_liquidity_sweep(m15_win, bias["direction"])
-        if not sweep["passed"]:
-            continue
-
-        # ── Gate 4b: CHOCH confirmation ────────────────────────────────────────
+        # ── Gate 4b: CHOCH confirmation (matches live pipeline) ───────────────
         choch = detect_choch(m15_win, bias["direction"], tp_rr=3.0)
         if not choch["passed"]:
             continue
-
-        # ── Gate 4c: OTE entry at 0.618–0.786 Fib (mandatory — no fallback) ─────
-        ote = calculate_ote(
-            df          = m15_win,
-            direction   = bias["direction"],
-            sweep_price = sweep["sweep_price"],
-            choch_level = choch["choch_level"],
-        )
-        if not ote["passed"]:
-            continue
-        entry = ote
+        entry = choch
 
         # Gate 4d (RSI divergence) removed — too restrictive on M15, kills trade count
 
