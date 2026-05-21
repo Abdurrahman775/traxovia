@@ -17,6 +17,7 @@ router = APIRouter(tags=["settings"])
 class SettingsPatch(BaseModel):
     # trading tab
     trading_mode:           str   | None = None
+    trading_paused:         bool  | None = None
     news_blocking:          bool  | None = None
     friday_cutoff:          bool  | None = None
     copy_trade_enabled:     bool  | None = None
@@ -78,6 +79,13 @@ async def get_settings(user=Depends(get_current_user), db=Depends(get_db)):
             d["telegram_bot_username"] = cfg["telegram_bot_username"]
     except Exception:
         pass
+
+    # Include bridge_state.trading_paused so frontend reflects Telegram /pause
+    try:
+        bridge = await db.fetchrow("SELECT trading_paused FROM bridge_state LIMIT 1")
+        d["trading_paused"] = bool(bridge["trading_paused"]) if bridge else False
+    except Exception:
+        d["trading_paused"] = False
 
     return d
 
@@ -186,6 +194,25 @@ async def update_settings(
             f"UPDATE users SET {', '.join(updates)}, updated_at=NOW() WHERE id=${i}",
             *params,
         )
+
+    # bridge_state.trading_paused mirrors Telegram /pause — update separately
+    if body.trading_paused is not None:
+        await db.execute(
+            "UPDATE bridge_state SET trading_paused=$1, updated_at=NOW()",
+            body.trading_paused,
+        )
+        await db.execute(
+            "UPDATE risk_state SET trading_allowed=$1, updated_at=NOW() WHERE user_id=$2",
+            not body.trading_paused,
+            user["sub"],
+        )
+        await db.execute(
+            "INSERT INTO audit_log(user_id, action, detail) VALUES($1,$2,$3)",
+            user["sub"],
+            "risk_change",
+            f"trading {'paused' if body.trading_paused else 'resumed'} via web dashboard",
+        )
+
     return {"status": "updated"}
 
 

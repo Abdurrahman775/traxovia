@@ -38,12 +38,12 @@ const CARD: React.CSSProperties = {
   padding: 20,
 }
 
-function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({ checked, onChange, disabled, activeColor = '#00e5cc' }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; activeColor?: string }) {
   return (
     <label style={{ position: 'relative', width: 38, height: 20, flexShrink: 0, display: 'inline-block', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
       <input type="checkbox" checked={checked} onChange={e => !disabled && onChange(e.target.checked)}
         style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
-      <span style={{ position: 'absolute', inset: 0, background: checked ? '#00e5cc' : 'rgba(255,255,255,0.1)', borderRadius: 20, transition: '0.3s' }}>
+      <span style={{ position: 'absolute', inset: 0, background: checked ? activeColor : 'rgba(255,255,255,0.1)', borderRadius: 20, transition: '0.3s' }}>
         <span style={{ position: 'absolute', width: 14, height: 14, left: checked ? 21 : 3, top: 3, background: '#fff', borderRadius: '50%', transition: '0.3s' }} />
       </span>
     </label>
@@ -427,6 +427,7 @@ export default function Settings() {
   const [showBindForm, setShowBindForm] = useState(false)
 
   // Local state mirrors — hydrated from API
+  const [tradingPaused, setTradingPaused]   = useState(false)
   const [tradingMode, setTradingMode]       = useState('signal_approval')
   const [newsBlocking, setNewsBlocking]     = useState(true)
   const [fridayCutoff, setFridayCutoff]     = useState(true)
@@ -461,6 +462,7 @@ export default function Settings() {
   useEffect(() => {
     if (!settings) return
     const s = settings as any
+    if (s.trading_paused  !== undefined) setTradingPaused(s.trading_paused)
     if (s.trading_mode)    setTradingMode(s.trading_mode)
     if (s.news_blocking   !== undefined) setNewsBlocking(s.news_blocking)
     if (s.friday_cutoff   !== undefined) setFridayCutoff(s.friday_cutoff)
@@ -546,6 +548,14 @@ export default function Settings() {
           <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
             Trading Configuration
           </div>
+
+          <RowItem label="Pause Trading" sub="Halt all automated trade execution (mirrors Telegram /pause)" el={
+            <Toggle
+              checked={tradingPaused}
+              onChange={v => { setTradingPaused(v); patch({ trading_paused: v }) }}
+              activeColor="#f59e0b"
+            />
+          } />
 
           <RowItem label="Trading Mode" sub="Auto-execute or require approval before each trade" el={
             <select

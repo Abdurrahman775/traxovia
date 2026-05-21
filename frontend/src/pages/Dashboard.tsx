@@ -325,17 +325,25 @@ export default function Dashboard() {
           </div>
 
           {/* System status */}
-          <div style={{
-            marginTop: 10, padding: '9px 12px', borderRadius: 8,
-            background: 'rgba(0,229,204,0.1)', border: '1px solid rgba(0,229,204,0.18)',
-            display: 'flex', alignItems: 'center',
-          }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#00e596', boxShadow: '0 0 6px #00e596', display: 'inline-block', marginRight: 8, flexShrink: 0 }} />
-            <span className="font-mono" style={{ fontSize: 10, color: '#00e5cc' }}>
-              SYSTEM: TRADING · MODE: APPROVAL
-            </span>
-            <span className="font-mono" style={{ fontSize: 9, color: 'var(--color-tx3)', marginLeft: 'auto' }}>NEWS: CLEAR</span>
-          </div>
+          {(() => {
+            const paused = (settings as any)?.trading_paused === true
+            const dotColor = paused ? '#f59e0b' : '#00e596'
+            const mode = ((settings as any)?.trading_mode ?? 'signal_approval').replace('_', ' ').toUpperCase()
+            return (
+              <div style={{
+                marginTop: 10, padding: '9px 12px', borderRadius: 8,
+                background: paused ? 'rgba(245,158,11,0.08)' : 'rgba(0,229,204,0.1)',
+                border: `1px solid ${paused ? 'rgba(245,158,11,0.3)' : 'rgba(0,229,204,0.18)'}`,
+                display: 'flex', alignItems: 'center',
+              }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, boxShadow: `0 0 6px ${dotColor}`, display: 'inline-block', marginRight: 8, flexShrink: 0 }} />
+                <span className="font-mono" style={{ fontSize: 10, color: paused ? '#f59e0b' : '#00e5cc' }}>
+                  SYSTEM: {paused ? 'PAUSED' : 'TRADING'} · MODE: {mode}
+                </span>
+                <span className="font-mono" style={{ fontSize: 9, color: 'var(--color-tx3)', marginLeft: 'auto' }}>NEWS: CLEAR</span>
+              </div>
+            )
+          })()}
         </div>
       </div>
 
