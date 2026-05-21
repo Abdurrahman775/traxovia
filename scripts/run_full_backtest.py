@@ -77,6 +77,8 @@ class Trade:
     tp_price:    float
     sl_pips:     float
     tp_pips:     float
+    one_r_price: float = 0.0   # price at +1R (triggers partial close)
+    half_closed: bool  = False  # True after partial close at 1R → SL moved to BE
     exit_bar:    int = -1
     exit_price:  float = 0.0
     outcome:     str = ""
@@ -129,25 +131,36 @@ def run_pair(
         if active is not None:
             lo = float(bar["low"])
             hi = float(bar["high"])
-            hit = None
 
+            # ── Trade management: move SL to BE at 1R (full position rides to 3R) ──
+            if not active.half_closed:
+                if active.direction == "bullish" and hi >= active.one_r_price:
+                    active.half_closed = True
+                    active.sl_price    = active.entry_price
+                elif active.direction == "bearish" and lo <= active.one_r_price:
+                    active.half_closed = True
+                    active.sl_price    = active.entry_price
+
+            hit = None
             if active.direction == "bullish":
                 if lo <= active.sl_price:
-                    hit, close_p = "loss", active.sl_price
+                    hit, close_p = ("be_close" if active.half_closed else "loss"), active.sl_price
                 elif hi >= active.tp_price:
-                    hit, close_p = "win",  active.tp_price
+                    hit, close_p = "win", active.tp_price
             else:
                 if hi >= active.sl_price:
-                    hit, close_p = "loss", active.sl_price
+                    hit, close_p = ("be_close" if active.half_closed else "loss"), active.sl_price
                 elif lo <= active.tp_price:
-                    hit, close_p = "win",  active.tp_price
+                    hit, close_p = "win", active.tp_price
 
             if hit:
                 active.exit_bar   = i
                 active.exit_price = close_p
                 active.outcome    = hit
                 if hit == "win":
-                    active.pnl_r = round(active.tp_pips / active.sl_pips, 4)
+                    active.pnl_r = round(active.tp_pips / active.sl_pips, 4)  # full 3R
+                elif hit == "be_close":
+                    active.pnl_r = 0.0  # closed at BE — no gain, no loss
                 else:
                     active.pnl_r = -1.0
                 trades.append(active)
@@ -210,6 +223,9 @@ def run_pair(
 
         # Gate 4d (RSI divergence) removed — too restrictive on M15, kills trade count
 
+        # 1R target: price at exactly 1× risk from entry
+        one_r = 2 * entry["entry_price"] - entry["sl_price"]
+
         active = Trade(
             pair        = pair,
             direction   = bias["direction"],
@@ -219,11 +235,12 @@ def run_pair(
             tp_price    = entry["tp_price"],
             sl_pips     = entry["sl_pips"],
             tp_pips     = entry["tp_pips"],
+            one_r_price = one_r,
         )
 
     # If still in trade at end of data, discard (incomplete)
     total  = len(trades)
-    wins   = sum(1 for t in trades if t.outcome == "win")
+    wins   = sum(1 for t in trades if t.outcome in ("win", "be_close"))
     losses = total - wins
     net_r  = round(sum(t.pnl_r for t in trades), 4)
     wr     = round(100 * wins / total, 1) if total else 0.0
@@ -308,7 +325,7 @@ async def main(args: argparse.Namespace) -> None:
     # ── Aggregate ──────────────────────────────────────────────────────────────
     all_trades = [t for r in results for t in r.trades]
     total  = len(all_trades)
-    wins   = sum(1 for t in all_trades if t.outcome == "win")
+    wins   = sum(1 for t in all_trades if t.outcome in ("win", "be_close"))
     net_r  = sum(t.pnl_r for t in all_trades)
     avg_r  = net_r / total if total else 0.0
     wr     = 100 * wins / total if total else 0.0

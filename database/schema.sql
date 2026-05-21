@@ -163,6 +163,7 @@ CREATE TABLE trades (
     duration_hours  DECIMAL(8,2),
     mt5_ticket      BIGINT,
     is_paper        BOOLEAN      NOT NULL DEFAULT FALSE,
+    partial_closed  BOOLEAN      NOT NULL DEFAULT FALSE,
     regime          VARCHAR(20),
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
