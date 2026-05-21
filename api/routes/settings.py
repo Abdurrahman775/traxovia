@@ -198,6 +198,12 @@ async def update_settings(
     # bridge_state.trading_paused mirrors Telegram /pause — update separately
     if body.trading_paused is not None:
         await db.execute(
+            "INSERT INTO bridge_state (active_url, primary_url, standby_url, trading_paused)"
+            " SELECT '','','',$1::boolean FROM (SELECT 1) t"
+            " WHERE NOT EXISTS (SELECT 1 FROM bridge_state)",
+            body.trading_paused,
+        )
+        await db.execute(
             "UPDATE bridge_state SET trading_paused=$1, updated_at=NOW()",
             body.trading_paused,
         )

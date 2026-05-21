@@ -122,6 +122,10 @@ async def cmd_pause(update, context) -> None:
             user["id"],
         )
         await db.execute(
+            "INSERT INTO bridge_state (active_url, primary_url, standby_url, trading_paused)"
+            " SELECT '','','',TRUE FROM (SELECT 1) t WHERE NOT EXISTS (SELECT 1 FROM bridge_state)"
+        )
+        await db.execute(
             "UPDATE bridge_state SET trading_paused=TRUE, updated_at=NOW()"
         )
         await db.execute(
@@ -148,6 +152,10 @@ async def cmd_resume(update, context) -> None:
             "UPDATE risk_state SET trading_allowed=TRUE, updated_at=NOW() "
             "WHERE user_id=$1::uuid",
             user["id"],
+        )
+        await db.execute(
+            "INSERT INTO bridge_state (active_url, primary_url, standby_url, trading_paused)"
+            " SELECT '','','',FALSE FROM (SELECT 1) t WHERE NOT EXISTS (SELECT 1 FROM bridge_state)"
         )
         await db.execute(
             "UPDATE bridge_state SET trading_paused=FALSE, updated_at=NOW()"
