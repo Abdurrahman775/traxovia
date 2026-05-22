@@ -62,7 +62,7 @@ logger = logging.getLogger("paper_loop")
 
 import uuid
 
-PAIRS    = ["GBPUSD", "USDJPY", "XAUUSD"]  # AUDUSD + EURUSD dropped — consistent losers in backtest
+PAIRS    = ["USDJPY", "XAUUSD"]  # GBPUSD dropped — CHOCH on M15 proxy hurts its WR
 INTERVAL = int(os.getenv("PAPER_LOOP_INTERVAL", "900"))   # 15 min default
 TARGET   = int(os.getenv("PAPER_TRADE_TARGET",  "50"))
 USER_ID  = str(uuid.uuid5(uuid.NAMESPACE_DNS, "paper-demo-106464235"))  # deterministic UUID
@@ -70,6 +70,7 @@ USER_ID  = str(uuid.uuid5(uuid.NAMESPACE_DNS, "paper-demo-106464235"))  # determ
 _TF_MAP = {
     "H4":  mt5.TIMEFRAME_H4  if _MT5_AVAILABLE else None,
     "M15": mt5.TIMEFRAME_M15 if _MT5_AVAILABLE else None,
+    "M5":  mt5.TIMEFRAME_M5  if _MT5_AVAILABLE else None,
 }
 
 # ── Graceful shutdown ──────────────────────────────────────────────────────────
@@ -118,9 +119,15 @@ async def run_cycle(stats: dict) -> None:
     import pandas as pd
     from core.strategy_engine.signal_generator import generate_signal
     from core.execution_engine.mt5_executor import open_order, MT5ExecutorError
-    from core.execution_engine.trade_manager import check_open_trades
+    from core.execution_engine.trade_manager import check_open_trades, check_partial_close
 
     async with get_db_direct() as db:
+        # ── Check bridge_state — /pause from Telegram stops all execution ─────
+        bridge = await db.fetchrow("SELECT trading_paused FROM bridge_state LIMIT 1")
+        if bridge and bridge["trading_paused"]:
+            logger.info("Trading paused via Telegram /pause — skipping cycle")
+            return
+
         # ── Pre-fetch portfolio state for circuit breaker + correlation gate ──
         open_rows = await db.fetch(
             "SELECT pair, direction FROM trades WHERE user_id=$1 AND status='open' AND is_paper=TRUE",
@@ -174,6 +181,7 @@ async def run_cycle(stats: dict) -> None:
                     db=db,
                     open_trades=open_trades,
                     daily_pnl_r=float(daily_pnl_r),
+                    ltf_df=None,   # M15 proxy for CHOCH — M5 tested and reverted 2026-05-22
                 )
             except Exception as exc:
                 logger.error("Signal generation error %s: %s", symbol, exc)
@@ -184,11 +192,37 @@ async def run_cycle(stats: dict) -> None:
                             symbol, result.get("gate"), result.get("reason", ""))
                 continue
 
-            # ── 2. Execute on demo account ─────────────────────────────────
+            # ── 2. Record signal in trade_signals (visible on Signals page) ──
+            import json as _json
+            direction_db = "buy" if result["direction"] == "bullish" else "sell"
+            gate_results = {
+                k: result[k] for k in ("d1_bias", "fvg_top", "fvg_bottom",
+                                       "bias_strength", "zone_strength")
+                if result.get(k) is not None
+            }
+            signal_id = await db.fetchval(
+                """INSERT INTO trade_signals
+                       (user_id, pair, direction, entry_price, stop_loss, take_profit,
+                        lot_size, regime, regime_adx, timeframe, gate_results, status)
+                   VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,'M15',$10::jsonb,'approved')
+                   RETURNING id""",
+                USER_ID,
+                symbol,
+                direction_db,
+                result["entry_price"],
+                result["sl_price"],
+                result["tp_price"],
+                result["lot_size"],
+                result.get("regime"),
+                result.get("adx"),
+                _json.dumps(gate_results) if gate_results else None,
+            )
+
+            # ── 3. Execute on demo account ─────────────────────────────────
             try:
                 order = await open_order(
                     symbol=symbol,
-                    direction="buy" if result["direction"] == "bullish" else "sell",
+                    direction=direction_db,
                     lot_size=result["lot_size"],
                     stop_loss=result["sl_price"],
                     take_profit=result["tp_price"],
@@ -207,10 +241,10 @@ async def run_cycle(stats: dict) -> None:
                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'open',TRUE,NOW())
                        ON CONFLICT DO NOTHING""",
                     USER_ID,
-                    result.get("signal_id"),
+                    signal_id,
                     order.ticket,
                     symbol,
-                    "buy" if result["direction"] == "bullish" else "sell",
+                    direction_db,
                     result["lot_size"],
                     order.open_price,
                     result["sl_price"],
@@ -219,7 +253,12 @@ async def run_cycle(stats: dict) -> None:
             except MT5ExecutorError as exc:
                 logger.error("%-8s  EXEC ERR  %s", symbol, exc)
 
-        # ── 3. Monitor + close positions ───────────────────────────────────
+        # ── 3a. Partial close at 1R + move SL to BE ───────────────────────
+        partial_result = await check_partial_close()
+        if partial_result.get("triggered"):
+            logger.info("Partial closes triggered this cycle: %d", partial_result["triggered"])
+
+        # ── 3b. Monitor + close remaining positions ────────────────────────
         monitor_result = await check_open_trades()
         newly_closed   = monitor_result.get("closed", 0)
         stats["closed"] += newly_closed
