@@ -42,6 +42,7 @@ PAIRS = ["USDJPY", "XAUUSD"]  # EURUSD/GBPUSD dropped — consistent losers
 
 H4_WINDOW  = 200   # H4 bars fed to regime + bias
 M15_WINDOW = 150   # M15 bars fed to zone + entry
+M5_WINDOW  = 150   # M5 bars fed to CHOCH (live pipeline prefers M5, falls back to M15)
 
 _HR  = "═" * 72
 _HR2 = "─" * 72
@@ -105,6 +106,7 @@ def run_pair(
     pair: str,
     h4:   pd.DataFrame,
     m15:  pd.DataFrame,
+    m5:   pd.DataFrame | None = None,
 ) -> PairResult:
     regime_clf = HTFStructure()       # Phase 1: D1 structure
     bias_clf   = BiasAnalyzer()
@@ -112,6 +114,8 @@ def run_pair(
 
     # Pre-build a sorted list of H4 timestamps for fast alignment
     h4_times = h4["time"].tolist()
+    # Pre-build M5 index for fast bar lookup by time
+    m5_times = m5["time"].tolist() if m5 is not None and not m5.empty else []
 
     trades:   list[Trade] = []
     active:   Trade | None = None
@@ -215,8 +219,15 @@ def run_pair(
         if not fvg["passed"]:
             continue
 
-        # ── Gate 4b: CHOCH confirmation (matches live pipeline) ───────────────
-        choch = detect_choch(m15_win, bias["direction"], tp_rr=3.0)
+        # ── Gate 4b: CHOCH on M5 (preferred) or M15 proxy ───────────────────
+        choch_df = m15_win  # default: M15 proxy
+        if m5_times:
+            m5_idx = bisect_right(m5_times, bar_time) - 1
+            if m5_idx >= M5_WINDOW:
+                m5_win = m5.iloc[m5_idx - M5_WINDOW + 1 : m5_idx + 1].reset_index(drop=True)
+                if len(m5_win) >= 40:
+                    choch_df = m5_win
+        choch = detect_choch(choch_df, bias["direction"], tp_rr=3.0)
         if not choch["passed"]:
             continue
         entry = choch
@@ -285,7 +296,7 @@ async def main(args: argparse.Namespace) -> None:
 
     print(_HR)
     print("  Traxovia AI — Full Strategy Backtest")
-    print(f"  Gates   : Regime → HTF Bias → Zone → Entry (exact live pipeline)")
+    print(f"  Gates   : Regime → HTF Bias → Zone → Entry (M5 CHOCH + M15 proxy)")
     print(f"  Pairs   : {', '.join(pairs)}")
     print(f"  Since   : {since.date() if since else '2020-05-18 (all data)'}")
     print(_HR)
@@ -298,12 +309,14 @@ async def main(args: argparse.Namespace) -> None:
             print(f"\n  Loading {pair} ...", end="", flush=True)
             h4  = await fetch(conn, "ohlc_h4",  pair, since)
             m15 = await fetch(conn, "ohlc_m15", pair, since)
+            m5  = await fetch(conn, "ohlc_m5",  pair, since)
             if h4.empty or m15.empty:
                 print(f"  no data — skipped")
                 continue
-            print(f"  H4={len(h4):,} bars  M15={len(m15):,} bars", flush=True)
+            m5_info = f"  M5={len(m5):,} bars" if not m5.empty else "  M5=none (M15 proxy)"
+            print(f"  H4={len(h4):,} bars  M15={len(m15):,} bars{m5_info}", flush=True)
             print(f"  Running backtest ...", end="", flush=True)
-            r = run_pair(pair, h4, m15)
+            r = run_pair(pair, h4, m15, m5 if not m5.empty else None)
             results.append(r)
             print(f"  {r.total_trades} trades  WR={r.win_rate:.1f}%  Net={r.net_r:+.2f}R  MaxDD={r.max_dd_r:.2f}R")
     finally:
