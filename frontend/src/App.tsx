@@ -21,17 +21,21 @@ import DataManagement from './pages/DataManagement'
 import News from './pages/News'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import NotFound from './pages/NotFound'
+import ServerError from './pages/ServerError'
+import Unauthorized from './pages/Unauthorized'
+import UpgradeRequired from './pages/UpgradeRequired'
 import { useAdminUser } from './hooks/useAdminUser'
 import { getToken } from './api/client'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  return getToken() ? children : <Navigate to="/login" replace />
+  return getToken() ? children : <Unauthorized />
 }
 
 function RequireAdmin({ children }: { children: JSX.Element }) {
   const { isAdmin } = useAdminUser()
-  if (!getToken()) return <Navigate to="/login" replace />
-  return isAdmin ? children : <Navigate to="/dashboard" replace />
+  if (!getToken()) return <Unauthorized />
+  return isAdmin ? children : <UpgradeRequired requiredPlan="elite" />
 }
 
 // Listens for auth:logout events dispatched by the axios interceptor and
@@ -74,6 +78,8 @@ export default function App() {
           <Route path="admin"           element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
           <Route path="data-management" element={<RequireAdmin><DataManagement /></RequireAdmin>} />
         </Route>
+        <Route path="/500" element={<ServerError />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
     </ThemeProvider>
