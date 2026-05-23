@@ -1,11 +1,14 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import api from '../api/client'
 
 const PLAN_ORDER = ['community', 'starter', 'trader', 'pro', 'elite']
-const PLAN_COLORS: Record<string, string> = {
+
+const FALLBACK_COLORS: Record<string, string> = {
   community: '#8899b4', starter: '#4f8ef7', trader: '#00e5cc', pro: '#f0b429', elite: '#8b5cf6',
 }
-const PLAN_PRICES: Record<string, string> = {
-  starter: '$29/mo', trader: '$79/mo', pro: '$149/mo', elite: '$299/mo',
+const FALLBACK_PRICES: Record<string, string> = {
+  community: 'Free', starter: '$29/mo', trader: '$79/mo', pro: '$149/mo', elite: '$299/mo',
 }
 
 // Feature → minimum plan required
@@ -31,9 +34,18 @@ const FEATURE_PLAN: Record<string, string> = {
   'data-management':'elite',
 }
 
-function PlanCard({ planId, current }: { planId: string; current: boolean }) {
-  const color = PLAN_COLORS[planId] ?? '#8899b4'
-  const price = PLAN_PRICES[planId] ?? 'Free'
+interface PlanDef {
+  plan_id: string
+  name: string
+  price: number
+  color: string
+}
+
+function PlanCard({
+  planDef, current, currencySymbol,
+}: { planDef: PlanDef; current: boolean; currencySymbol: string }) {
+  const { plan_id, price, color } = planDef
+  const priceLabel = price === 0 ? 'Free' : `${currencySymbol}${price}/mo`
   return (
     <div className="rounded-xl p-4 transition-all"
       style={{
@@ -42,10 +54,10 @@ function PlanCard({ planId, current }: { planId: string; current: boolean }) {
         opacity: current ? 1 : 0.5,
       }}>
       <div className="font-mono text-[9px] tracking-widest uppercase mb-1" style={{ color }}>
-        {planId}
+        {plan_id}
       </div>
       <div className="font-head font-bold text-sm" style={{ color: 'var(--color-tx)' }}>
-        {price}
+        {priceLabel}
       </div>
       {current && (
         <div className="font-mono text-[9px] mt-1" style={{ color }}>REQUIRED</div>
@@ -63,8 +75,30 @@ export default function UpgradeRequired({ feature, requiredPlan }: UpgradeRequir
   const { state } = useLocation() as { state?: { feature?: string; requiredPlan?: string } }
   const feat    = feature     ?? state?.feature     ?? ''
   const minPlan = requiredPlan ?? state?.requiredPlan ?? FEATURE_PLAN[feat] ?? 'starter'
-  const color   = PLAN_COLORS[minPlan] ?? '#4f8ef7'
   const minIdx  = PLAN_ORDER.indexOf(minPlan)
+
+  const { data: plansResponse } = useQuery({
+    queryKey: ['billing-plans'],
+    queryFn: () => api.get('/billing/plans').then(r => r.data).catch(() => null),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const rawPlans: PlanDef[] = plansResponse?.plans ?? []
+  const currencySymbol: string = plansResponse?.symbol ?? '$'
+
+  // Build display list — use API data when available, fallback to static
+  const displayPlans = PLAN_ORDER.filter(p => p !== 'community').map(id => {
+    const fromApi = rawPlans.find(p => p.plan_id === id)
+    return fromApi ?? {
+      plan_id: id,
+      name: id.charAt(0).toUpperCase() + id.slice(1),
+      price: { starter: 29, trader: 79, pro: 149, elite: 299 }[id] ?? 0,
+      color: FALLBACK_COLORS[id] ?? '#4f8ef7',
+    }
+  })
+
+  const minPlanDef = rawPlans.find(p => p.plan_id === minPlan)
+  const color = minPlanDef?.color ?? FALLBACK_COLORS[minPlan] ?? '#4f8ef7'
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4"
@@ -75,7 +109,6 @@ export default function UpgradeRequired({ feature, requiredPlan }: UpgradeRequir
           ERR_PLAN_INSUFFICIENT
         </div>
 
-        {/* Lock icon */}
         <div className="text-5xl mb-2 select-none">⬡</div>
         <div className="font-head font-bold text-2xl mb-1" style={{ color }}>
           Upgrade Required
@@ -90,8 +123,13 @@ export default function UpgradeRequired({ feature, requiredPlan }: UpgradeRequir
 
         {/* Plan ladder */}
         <div className="grid grid-cols-4 gap-2 mt-6">
-          {PLAN_ORDER.filter(p => p !== 'community').map((p, i) => (
-            <PlanCard key={p} planId={p} current={i + 1 === minIdx} />
+          {displayPlans.map((p, i) => (
+            <PlanCard
+              key={p.plan_id}
+              planDef={p}
+              current={i + 1 === minIdx}
+              currencySymbol={currencySymbol}
+            />
           ))}
         </div>
 
