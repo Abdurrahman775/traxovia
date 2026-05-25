@@ -16,9 +16,17 @@ from datetime import datetime, timezone
 #   8h = London open (53% WR — best hour)
 #   Removed: 1h/2h (Asian dead zone), 4h (16.7% WR), 7h (0% — pre-London stop hunt)
 # XAUUSD: London open + NY session  — 07:00–17:00 UTC
+# EURUSD: ICT killzones — London pre-open (4h), London open (7–10h), NY open (12–13h), NY mid (16h)
+#   Diagnostic 2024–2026 (114 trades, no filter):
+#     KEEP: 4h (75%WR +1.25R), 7h (80%WR +1.00R), 10h (67%WR +0.67R),
+#           12h (70%WR +0.60R), 13h (100%WR +0.60R), 16h (50%WR +0.25R)
+#     DROP: 5h/6h (pre-London fake-outs 17–37%WR), 17h (0%WR NY close),
+#           1h/3h/14h/19h/21h (33% WR or lower)
+#   Projected result with these windows: 46 trades, Avg R +0.391R (up from +0.063R)
 _SESSION_MAP: dict[str, list[tuple[int, int]]] = {
     "USDJPY": [(0, 1), (3, 4), (5, 7), (8, 9)],
     "XAUUSD": [(7, 17)],   # London open → NY close
+    "EURUSD": [(4, 5), (7, 11), (12, 14), (16, 17)],  # London pre + London + NY open + NY mid
 }
 
 _DEFAULT_SESSIONS = [(7, 17)]
