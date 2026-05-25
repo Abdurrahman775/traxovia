@@ -38,7 +38,7 @@ from core.strategy_engine.session_filter   import is_valid_session
 from core.structure_engine.order_block_detector import OrderBlockDetector
 from datetime import timezone as _tz
 
-PAIRS = ["USDJPY", "XAUUSD"]  # EURUSD/GBPUSD dropped — consistent losers
+PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "AUDUSD"]
 
 H4_WINDOW  = 200   # H4 bars fed to regime + bias
 M15_WINDOW = 150   # M15 bars fed to zone + entry
