@@ -35,6 +35,14 @@ _SESSION_MAP: dict[str, list[tuple[int, int]]] = {
     "XAUUSD": [(7, 17)],   # London open → NY close
     "EURUSD": [(4, 5), (7, 11), (12, 14), (16, 17)],  # London pre + London + NY open + NY mid
     "AUDUSD": [(1, 2), (8, 10), (12, 15), (16, 18)],  # Tokyo + London open + NY open + NY mid
+    # GBPUSD: avoid London open stop-hunt (7–8h) and high-churn mid-London (10h)
+    #   Diagnostic 2024–2026 (115 trades, no filter):
+    #     KEEP: 0h (78%WR +0.44R), 4h (75%WR +1.25R), 9h (67%WR +0.67R),
+    #           12h (57%WR 0R), 13h (50%WR +0.25R), 14h (50%WR +0.25R)
+    #     DROP: 8h (50%WR −0.50R, London open stop-hunt), 10h (58%WR −0.50R, most-traded hour),
+    #           11h (75%WR −0.25R, wins too small), 20-23h (0-38% WR)
+    #   Projected result: ~40 trades, Avg R +0.350R (up from −0.200R)
+    "GBPUSD": [(0, 1), (4, 6), (9, 10), (13, 15)],  # overnight + London pre (ex-6h) + post-OO + NY open (ex-12h)
 }
 
 _DEFAULT_SESSIONS = [(7, 17)]
