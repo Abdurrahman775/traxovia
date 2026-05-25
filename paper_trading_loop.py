@@ -83,20 +83,50 @@ def _handle_signal(*_):
 
 # ── MT5 direct helpers ─────────────────────────────────────────────────────────
 
-async def _fetch_candles(symbol: str, timeframe: str) -> list[dict]:
-    if not _MT5_AVAILABLE or not mt5.initialize():
-        logger.warning("MT5 not available — cannot fetch candles for %s/%s", symbol, timeframe)
+async def _fetch_candles_from_db(symbol: str, timeframe: str, count: int = 200) -> list[dict]:
+    """Fallback: fetch latest N candles from TimescaleDB when MT5 is unavailable."""
+    table = {"H4": "ohlc_h4", "M15": "ohlc_m15"}.get(timeframe)
+    if not table:
         return []
-    tf    = _TF_MAP.get(timeframe)
-    rates = mt5.copy_rates_from_pos(symbol, tf, 0, 200)
-    if rates is None:
-        logger.warning("copy_rates_from_pos failed %s/%s: %s", symbol, timeframe, mt5.last_error())
+    async with get_db_direct() as db:
+        rows = await db.fetch(
+            f"SELECT time, open, high, low, close, volume FROM {table} "
+            f"WHERE symbol = $1 ORDER BY time DESC LIMIT $2",
+            symbol, count,
+        )
+    if not rows:
         return []
     return [
-        {"time": int(r["time"]), "open": float(r["open"]), "high": float(r["high"]),
-         "low": float(r["low"]), "close": float(r["close"]), "volume": int(r["tick_volume"])}
-        for r in rates
+        {
+            "time":   int(r["time"].timestamp()),
+            "open":   float(r["open"]),
+            "high":   float(r["high"]),
+            "low":    float(r["low"]),
+            "close":  float(r["close"]),
+            "volume": int(r["volume"]),
+        }
+        for r in reversed(rows)   # oldest → newest (same order as MT5 output)
     ]
+
+
+async def _fetch_candles(symbol: str, timeframe: str) -> list[dict]:
+    """Fetch candles — tries MT5 first, falls back to TimescaleDB."""
+    if _MT5_AVAILABLE and mt5.initialize():
+        tf    = _TF_MAP.get(timeframe)
+        rates = mt5.copy_rates_from_pos(symbol, tf, 0, 200)
+        if rates is not None:
+            return [
+                {"time": int(r["time"]), "open": float(r["open"]), "high": float(r["high"]),
+                 "low": float(r["low"]), "close": float(r["close"]), "volume": int(r["tick_volume"])}
+                for r in rates
+            ]
+        logger.warning("copy_rates_from_pos failed %s/%s: %s", symbol, timeframe, mt5.last_error())
+
+    # DB fallback — uses stored candles (refreshed by data pipeline)
+    candles = await _fetch_candles_from_db(symbol, timeframe)
+    if not candles:
+        logger.warning("No candle data in DB for %s/%s", symbol, timeframe)
+    return candles
 
 
 async def _get_open_positions() -> list[dict]:
@@ -116,9 +146,10 @@ async def _get_open_positions() -> list[dict]:
 
 async def run_cycle(stats: dict) -> None:
     """One full paper trading cycle across all pairs."""
+    import time as _time
     import pandas as pd
     from core.strategy_engine.signal_generator import generate_signal
-    from core.execution_engine.mt5_executor import open_order, MT5ExecutorError
+    from core.execution_engine.mt5_executor import open_order, MT5ExecutorError, OrderOpenResult
     from core.execution_engine.trade_manager import check_open_trades, check_partial_close
 
     async with get_db_direct() as db:
@@ -218,7 +249,7 @@ async def run_cycle(stats: dict) -> None:
                 _json.dumps(gate_results) if gate_results else None,
             )
 
-            # ── 3. Execute on demo account ─────────────────────────────────
+            # ── 3. Execute on demo account (or simulate if MT5 unavailable) ──
             try:
                 order = await open_order(
                     symbol=symbol,
@@ -228,30 +259,41 @@ async def run_cycle(stats: dict) -> None:
                     take_profit=result["tp_price"],
                     comment="PAPER",
                 )
-                stats["opened"] += 1
-                logger.info("%-8s  OPENED   ticket=%-10s  dir=%-5s  lot=%.2f  [%d opened]",
-                            symbol, order.ticket, result["direction"],
-                            result["lot_size"], stats["opened"])
-
-                # Persist to DB so trade_manager can monitor it
-                await db.execute(
-                    """INSERT INTO trades
-                       (user_id, signal_id, mt5_ticket, pair, direction,
-                        lot_size, entry_price, stop_loss, take_profit, status, is_paper, entry_time)
-                       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'open',TRUE,NOW())
-                       ON CONFLICT DO NOTHING""",
-                    USER_ID,
-                    signal_id,
-                    order.ticket,
-                    symbol,
-                    direction_db,
-                    result["lot_size"],
-                    order.open_price,
-                    result["sl_price"],
-                    result["tp_price"],
+                mode_tag = "OPENED  "
+            except MT5ExecutorError:
+                # MT5 not available (Linux dev / WSL2) — simulate at last bar close
+                entry_price = m15_raw[-1]["close"] if m15_raw else result["entry_price"]
+                sim_ticket  = int(_time.time()) % 2_000_000_000  # unique positive int
+                order = OrderOpenResult(
+                    ticket=sim_ticket, symbol=symbol, direction=direction_db,
+                    lot_size=result["lot_size"], open_price=entry_price,
+                    stop_loss=result["sl_price"], take_profit=result["tp_price"],
+                    comment="PAPER_SIM",
                 )
-            except MT5ExecutorError as exc:
-                logger.error("%-8s  EXEC ERR  %s", symbol, exc)
+                mode_tag = "SIMULATED"
+
+            stats["opened"] += 1
+            logger.info("%-8s  %-9s  ticket=%-10s  dir=%-5s  entry=%.5f  [%d opened]",
+                        symbol, mode_tag, order.ticket, result["direction"],
+                        order.open_price, stats["opened"])
+
+            # Persist to DB so trade_manager can monitor it
+            await db.execute(
+                """INSERT INTO trades
+                   (user_id, signal_id, mt5_ticket, pair, direction,
+                    lot_size, entry_price, stop_loss, take_profit, status, is_paper, entry_time)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'open',TRUE,NOW())
+                   ON CONFLICT DO NOTHING""",
+                USER_ID,
+                signal_id,
+                order.ticket,
+                symbol,
+                direction_db,
+                result["lot_size"],
+                order.open_price,
+                result["sl_price"],
+                result["tp_price"],
+            )
 
         # ── 3a. Partial close at 1R + move SL to BE ───────────────────────
         partial_result = await check_partial_close()
@@ -293,18 +335,46 @@ async def main() -> None:
 
     stats = {"opened": 0, "closed": 0}
     single_shot = os.getenv("PAPER_SINGLE_SHOT", "0").strip() == "1"
+    _mt5_mode   = "LIVE (MT5)" if _MT5_AVAILABLE else "SIMULATED (DB fallback)"
 
     logger.info("=" * 60)
     logger.info("Paper trading cycle started")
     logger.info("  Account : #106464235 (demo)")
     logger.info("  Pairs   : %s", ", ".join(PAIRS))
     logger.info("  Mode    : %s", "single-shot (Task Scheduler)" if single_shot else f"daemon ({INTERVAL}s interval)")
+    logger.info("  Exec    : %s", _mt5_mode)
     logger.info("  Target  : %d trades", TARGET)
     logger.info("=" * 60)
+
+    # ── Refresh DB candles on startup (and every 4 h in daemon mode) ──────────
+    _last_refresh: list[float] = [0.0]   # mutable container so inner fn can write
+
+    async def _maybe_refresh_db() -> None:
+        import time as _t
+        now = _t.monotonic()
+        if now - _last_refresh[0] >= 4 * 3600:  # every 4 hours
+            logger.info("Refreshing OHLC data from yfinance ...")
+            try:
+                from scripts.refresh_ohlc import refresh
+                import asyncpg as _pg
+                db_url = os.environ["DATABASE_URL"].replace("postgresql://", "postgres://", 1)
+                conn   = await _pg.connect(db_url)
+                result = await refresh(conn)
+                await conn.close()
+                total  = sum(v.get("m15", 0) for v in result.values())
+                logger.info("OHLC refresh complete — %d M15 bars inserted", total)
+            except Exception as e:
+                logger.warning("OHLC refresh failed (non-fatal): %s", e)
+            _last_refresh[0] = now
+
+    await _maybe_refresh_db()   # always refresh on startup
 
     while not _shutdown.is_set():
         cycle_start = datetime.now(timezone.utc)
         logger.info("── Cycle start %s ──", cycle_start.strftime("%Y-%m-%d %H:%M:%S UTC"))
+
+        # Periodic DB refresh (every 4h) so DB-fallback candles stay current
+        await _maybe_refresh_db()
 
         try:
             await run_cycle(stats)

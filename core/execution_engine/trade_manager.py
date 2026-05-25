@@ -177,6 +177,22 @@ def _get_actual_close_price(ticket: int, entry_time) -> float | None:
     return None
 
 
+async def _get_db_tick(pair: str) -> dict | None:
+    """Fallback: use latest M15 bar close as bid/ask when MT5 is unavailable."""
+    try:
+        from database.connection import get_db_direct
+        async with get_db_direct() as db:
+            row = await db.fetchrow(
+                "SELECT close FROM ohlc_m15 WHERE symbol=$1 ORDER BY time DESC LIMIT 1", pair
+            )
+        if row:
+            price = float(row["close"])
+            return {"bid": price, "ask": price}
+    except Exception:
+        pass
+    return None
+
+
 async def check_open_trades() -> dict:
     from database.connection import get_db_direct
 
@@ -194,19 +210,27 @@ async def check_open_trades() -> dict:
         try:
             tick = await asyncio.to_thread(_get_tick_sync, trade["pair"])
             if not tick:
+                # MT5 unavailable — fall back to latest DB bar price
+                tick = await _get_db_tick(trade["pair"])
+            if not tick:
                 continue
             hit = _sl_tp_hit(trade, bid=tick["bid"], ask=tick["ask"])
             if not hit:
                 continue
-            close_price = await asyncio.to_thread(_close_position_sync, trade["mt5_ticket"])
-            if close_price is None:
-                # Position already auto-closed by broker (SL/TP hit) — look up actual
-                # close price from MT5 deal history instead of using stale tick price.
-                close_price = await asyncio.to_thread(
-                    _get_actual_close_price, trade["mt5_ticket"], trade["entry_time"]
-                )
-            if close_price is None:
-                close_price = tick["bid"] if trade["direction"] == "buy" else tick["ask"]
+
+            # Simulated trades (PAPER_SIM, no real MT5 position) close at the SL/TP price
+            is_simulated = not _MT5_AVAILABLE
+            if is_simulated:
+                close_price = trade["sl_price"] if hit in ("sl", "be_close") else trade["take_profit"]
+            else:
+                close_price = await asyncio.to_thread(_close_position_sync, trade["mt5_ticket"])
+                if close_price is None:
+                    # Position already auto-closed by broker — look up actual close price
+                    close_price = await asyncio.to_thread(
+                        _get_actual_close_price, trade["mt5_ticket"], trade["entry_time"]
+                    )
+                if close_price is None:
+                    close_price = tick["bid"] if trade["direction"] == "buy" else tick["ask"]
             pnl_r, pips = _compute_pnl(trade, close_price)
             async with get_db_direct() as db:
                 await db.execute(
@@ -273,6 +297,9 @@ async def check_partial_close() -> dict:
     for trade in trades:
         try:
             tick = await asyncio.to_thread(_get_tick_sync, trade["pair"])
+            if not tick:
+                # MT5 unavailable — fall back to latest DB bar price
+                tick = await _get_db_tick(trade["pair"])
             if not tick:
                 continue
 
