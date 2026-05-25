@@ -62,7 +62,7 @@ logger = logging.getLogger("paper_loop")
 
 import uuid
 
-PAIRS    = ["USDJPY", "XAUUSD"]  # GBPUSD dropped — CHOCH on M15 proxy hurts its WR
+PAIRS    = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "AUDUSD"]
 INTERVAL = int(os.getenv("PAPER_LOOP_INTERVAL", "900"))   # 15 min default
 TARGET   = int(os.getenv("PAPER_TRADE_TARGET",  "50"))
 USER_ID  = str(uuid.uuid5(uuid.NAMESPACE_DNS, "paper-demo-106464235"))  # deterministic UUID
