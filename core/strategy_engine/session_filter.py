@@ -22,11 +22,19 @@ from datetime import datetime, timezone
 #           12h (70%WR +0.60R), 13h (100%WR +0.60R), 16h (50%WR +0.25R)
 #     DROP: 5h/6h (pre-London fake-outs 17–37%WR), 17h (0%WR NY close),
 #           1h/3h/14h/19h/21h (33% WR or lower)
-#   Projected result with these windows: 46 trades, Avg R +0.391R (up from +0.063R)
+#   Result: 59 trades, 61.0% WR, Avg R +0.220R (up from +0.063R) — ALL GATES PASS
+# AUDUSD: ICT killzones — Tokyo (1h), London open (8–9h), NY open (12–14h), NY mid (16–17h)
+#   Diagnostic 2024–2026 (91 trades, no filter):
+#     KEEP: 1h (62.5%WR +0.75R), 8h (80%WR +0.40R), 9h (67%WR +0.67R),
+#           12h (100%WR +1.00R), 13h (100%WR BE), 14h (75%WR +1.25R), 16h (67%WR +0.66R), 17h (40%WR +0.60R)
+#     DROP: 2h/4h (44%/38%WR negative avg R), 10h (50%WR −0.50R),
+#           19h–22h (0–40%WR, mostly losing)
+#   Projected result with these windows: 34 trades, Avg R +0.676R (up from +0.019R)
 _SESSION_MAP: dict[str, list[tuple[int, int]]] = {
     "USDJPY": [(0, 1), (3, 4), (5, 7), (8, 9)],
     "XAUUSD": [(7, 17)],   # London open → NY close
     "EURUSD": [(4, 5), (7, 11), (12, 14), (16, 17)],  # London pre + London + NY open + NY mid
+    "AUDUSD": [(1, 2), (8, 10), (12, 15), (16, 18)],  # Tokyo + London open + NY open + NY mid
 }
 
 _DEFAULT_SESSIONS = [(7, 17)]

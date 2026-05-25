@@ -1,16 +1,17 @@
 """
 scripts/eurusd_session_diagnostic.py
 ─────────────────────────────────────
-Per-hour WR / Net-R breakdown for EURUSD (no session filter applied).
+Per-hour WR / Net-R breakdown for any pair (no session filter applied).
 
-Runs the full 4-gate pipeline on EURUSD data and groups results by entry hour
+Runs the full 4-gate pipeline on H4+M15 data and groups results by entry hour
 so we can find the dead hours dragging Avg R down — same approach used to
-tighten USDJPY killzones.
+tighten USDJPY and EURUSD killzones.
 
 Usage:
     source venv/bin/activate
-    python3 scripts/eurusd_session_diagnostic.py
-    python3 scripts/eurusd_session_diagnostic.py --from 2024-01-01
+    python3 scripts/eurusd_session_diagnostic.py --pair EURUSD
+    python3 scripts/eurusd_session_diagnostic.py --pair AUDUSD --from 2024-01-01
+    python3 scripts/eurusd_session_diagnostic.py --pair GBPUSD --from 2022-01-01
 """
 from __future__ import annotations
 
@@ -38,7 +39,6 @@ from core.strategy_engine.htf_structure             import HTFStructure
 from core.structure_engine.order_block_detector     import OrderBlockDetector
 from datetime import timezone as _tz
 
-PAIR       = "EURUSD"
 H4_WINDOW  = 200
 M15_WINDOW = 150
 
@@ -77,8 +77,8 @@ async def fetch(conn, table: str, symbol: str, since: datetime | None) -> pd.Dat
     return df.reset_index(drop=True)
 
 
-def run_eurusd_no_filter(h4: pd.DataFrame, m15: pd.DataFrame) -> list[Trade]:
-    """Run full 4-gate pipeline on EURUSD, NO session filter, record entry hour."""
+def run_pair_no_filter(pair: str, h4: pd.DataFrame, m15: pd.DataFrame) -> list[Trade]:
+    """Run full 4-gate pipeline on any pair, NO session filter, record entry hour."""
     regime_clf = HTFStructure()
     bias_clf   = BiasAnalyzer()
     zone_det   = OrderBlockDetector()
@@ -153,9 +153,9 @@ def run_eurusd_no_filter(h4: pd.DataFrame, m15: pd.DataFrame) -> list[Trade]:
         if h4_idx != _cached_h4_idx:
             h4_win       = h4.iloc[h4_idx - H4_WINDOW + 1 : h4_idx + 1].reset_index(drop=True)
             _cached_reg  = regime_clf.classify(h4_win)
-            _cached_bias = bias_clf.analyze(h4_win, PAIR)
+            _cached_bias = bias_clf.analyze(h4_win, pair)
             if _cached_bias.get("direction"):
-                _cached_bias["symbol"] = PAIR
+                _cached_bias["symbol"] = pair
             _cached_h4_idx = h4_idx
 
         if _cached_reg.get("signal_gate") == "blocked":
@@ -271,25 +271,32 @@ def recommend_windows(rows: list[tuple]) -> list[tuple[int, int]]:
 
 async def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--pair", default="EURUSD",
+                        help="Pair to analyse e.g. AUDUSD (default: EURUSD)")
     parser.add_argument("--from", dest="since", default="",
                         help="Start date e.g. 2024-01-01 (default: all data)")
-    args = parser.parse_args()
-
+    args  = parser.parse_args()
+    pair  = args.pair.upper()
     since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc) if args.since else None
 
+    # Look up what the current session window is for this pair
+    from core.strategy_engine.session_filter import _SESSION_MAP, _DEFAULT_SESSIONS
+    cur_windows = _SESSION_MAP.get(pair, _DEFAULT_SESSIONS)
+
     print(f"\n{_HR}")
-    print(f"  EURUSD Session Diagnostic — Traxovia AI")
-    print(f"  Pipeline : Regime → HTF Bias → OB → FVG → CHOCH")
-    print(f"  Filter   : NONE (all 24h, finding dead zones)")
-    print(f"  Since    : {since.date() if since else 'all data'}")
+    print(f"  {pair} Session Diagnostic — Traxovia AI")
+    print(f"  Pipeline    : Regime → HTF Bias → OB → FVG → CHOCH")
+    print(f"  Filter      : NONE (all 24h, finding dead zones)")
+    print(f"  Since       : {since.date() if since else 'all data'}")
+    print(f"  Current win : {cur_windows}")
     print(f"{_HR}")
 
     db_url = os.environ["DATABASE_URL"].replace("postgresql://", "postgres://", 1)
     conn   = await asyncpg.connect(db_url)
 
-    print(f"\n  Loading EURUSD H4 + M15 data...", end="", flush=True)
-    h4  = await fetch(conn, "ohlc_h4",  PAIR, since)
-    m15 = await fetch(conn, "ohlc_m15", PAIR, since)
+    print(f"\n  Loading {pair} H4 + M15 data...", end="", flush=True)
+    h4  = await fetch(conn, "ohlc_h4",  pair, since)
+    m15 = await fetch(conn, "ohlc_m15", pair, since)
     await conn.close()
     print(f"  H4={len(h4):,} bars  M15={len(m15):,} bars")
 
@@ -298,35 +305,36 @@ async def main():
         return
 
     print(f"  Running pipeline (no session filter)...", end="", flush=True)
-    trades = run_eurusd_no_filter(h4, m15)
+    trades = run_pair_no_filter(pair, h4, m15)
     print(f"  {len(trades)} trades found\n")
 
     rows = print_hourly_breakdown(trades)
 
     # ── Overall summary ────────────────────────────────────────────────────────
-    wins   = sum(1 for t in trades if t.outcome in ("win", "be_close"))
-    net_r  = round(sum(t.pnl_r for t in trades), 2)
-    wr     = round(100 * wins / len(trades), 1) if trades else 0.0
-    avg_r  = round(net_r / len(trades), 4) if trades else 0.0
+    wins  = sum(1 for t in trades if t.outcome in ("win", "be_close"))
+    net_r = round(sum(t.pnl_r for t in trades), 2)
+    wr    = round(100 * wins / len(trades), 1) if trades else 0.0
+    avg_r = round(net_r / len(trades), 4) if trades else 0.0
     print(f"\n  Overall (no filter):  {len(trades)} trades  WR={wr}%  Net={net_r:+.2f}R  Avg={avg_r:+.4f}R")
 
     # ── Current window performance ─────────────────────────────────────────────
-    cur_trades = [t for t in trades if 7 <= t.hour < 17]
+    cur_trades = [t for t in trades if any(s <= t.hour < e for s, e in cur_windows)]
     if cur_trades:
         cw   = sum(1 for t in cur_trades if t.outcome in ("win", "be_close"))
         cn   = round(sum(t.pnl_r for t in cur_trades), 2)
         cwr  = round(100 * cw / len(cur_trades), 1)
         cavg = round(cn / len(cur_trades), 4)
-        print(f"  Current window (7–17):  {len(cur_trades)} trades  WR={cwr}%  Net={cn:+.2f}R  Avg={cavg:+.4f}R")
+        win_str = ", ".join(f"{s}–{e}h" for s, e in cur_windows)
+        print(f"  Current window ({win_str}):  {len(cur_trades)} trades  WR={cwr}%  Net={cn:+.2f}R  Avg={cavg:+.4f}R")
 
     # ── Recommendation ────────────────────────────────────────────────────────
     windows = recommend_windows(rows)
     print(f"\n{_HR}")
-    print(f"  Recommended session windows for EURUSD:")
+    print(f"  Recommended session windows for {pair}:")
     for s, e in windows:
         print(f"    {s:02d}:00–{e:02d}:00 UTC")
     print(f"\n  Add to session_filter.py:")
-    print(f'    "EURUSD": {windows},')
+    print(f'    "{pair}": {windows},')
 
     # ── Projected improvement ─────────────────────────────────────────────────
     proj = [t for t in trades if any(s <= t.hour < e for s, e in windows)]
