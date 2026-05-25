@@ -26,7 +26,7 @@ interface NewsResponse {
   events:         NewsEvent[]
 }
 
-const PAIRS = ['All Pairs', 'USDJPY', 'XAUUSD']
+const PAIRS = ['All Pairs', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD']
 const IMPACTS = ['all', 'high', 'medium', 'low']
 
 function impactMeta(impact: string) {

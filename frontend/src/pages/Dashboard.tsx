@@ -347,6 +347,110 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── Paper Trading Progress ── */}
+      {(() => {
+        const PAPER_TARGET = 50
+        const paperTrades  = tradeList.filter((t: any) => t.is_paper)
+        const paperClosed  = paperTrades.filter((t: any) => t.status === 'closed')
+        const paperOpen    = paperTrades.filter((t: any) => t.status === 'open')
+        const paperWins    = paperClosed.filter((t: any) => t.pnl_r > 0).length
+        const paperNetR    = paperClosed.reduce((s: number, t: any) => s + (Number(t.pnl_r) || 0), 0)
+        const paperWR      = paperClosed.length > 0 ? Math.round(paperWins / paperClosed.length * 100) : 0
+        const paperAvgR    = paperClosed.length > 0 ? paperNetR / paperClosed.length : 0
+
+        // Max drawdown from paper equity curve
+        let pPeak = 0, pEq = 0, pMaxDD = 0
+        paperClosed.forEach((t: any) => {
+          pEq += Number(t.pnl_r) || 0
+          if (pEq > pPeak) pPeak = pEq
+          const dd = pPeak > 0 ? ((pPeak - pEq) / pPeak) * 100 : 0
+          if (dd > pMaxDD) pMaxDD = dd
+        })
+
+        const gates = [
+          { label: 'Win Rate',    val: paperWR,             fmt: `${paperWR}%`,              target: '≥ 50%',   pass: paperWR >= 50 },
+          { label: 'Avg R',       val: paperAvgR,           fmt: `${paperAvgR.toFixed(3)}R`, target: '≥ 0.15R', pass: paperAvgR >= 0.15 },
+          { label: 'Max DD',      val: pMaxDD,              fmt: `${pMaxDD.toFixed(1)}%`,    target: '≤ 10%',   pass: pMaxDD <= 10 },
+          { label: 'Trades',      val: paperClosed.length,  fmt: `${paperClosed.length}`,    target: '≥ 50',    pass: paperClosed.length >= PAPER_TARGET },
+        ]
+        const allPass   = gates.every(g => g.pass)
+        const pct       = Math.min(100, (paperClosed.length / PAPER_TARGET) * 100)
+        const progressColor = allPass ? '#00e596' : paperClosed.length > 0 ? '#00e5cc' : '#4f8ef7'
+
+        return (
+          <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
+              <div className="font-mono text-[10px] tracking-[2px] uppercase" style={{ color: 'var(--color-tx3)' }}>
+                Paper Trading Progress
+              </div>
+              <div className="flex items-center gap-2">
+                {paperOpen.length > 0 && (
+                  <span className="font-mono text-[9px] px-2 py-0.5 rounded tracking-widest"
+                    style={{ background: 'rgba(79,142,247,0.1)', color: '#4f8ef7', border: '1px solid rgba(79,142,247,0.2)' }}>
+                    {paperOpen.length} OPEN
+                  </span>
+                )}
+                {allPass
+                  ? <span className="font-mono text-[9px] px-2 py-0.5 rounded tracking-widest" style={{ background: 'rgba(0,229,150,0.1)', color: '#00e596', border: '1px solid rgba(0,229,150,0.25)' }}>🎯 READY FOR LIVE</span>
+                  : <span className="font-mono text-[9px] px-2 py-0.5 rounded tracking-widest" style={{ background: 'rgba(240,180,41,0.08)', color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)' }}>IN PROGRESS</span>
+                }
+              </div>
+            </div>
+
+            {/* Big progress bar */}
+            <div style={{ marginBottom: 10 }}>
+              <div className="flex justify-between font-mono" style={{ fontSize: 11, marginBottom: 6, color: 'var(--color-tx2)' }}>
+                <span>{paperClosed.length} closed trades</span>
+                <span style={{ color: progressColor }}>{pct.toFixed(0)}% of {PAPER_TARGET} target</span>
+              </div>
+              <div style={{ height: 8, background: 'var(--color-card-border)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 4, transition: 'width .6s', width: `${pct}%`, background: progressColor }} />
+              </div>
+            </div>
+
+            {/* 4 deployment gates */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" style={{ marginTop: 12 }}>
+              {gates.map(g => (
+                <div key={g.label} className="rounded-[8px] px-3 py-2.5"
+                  style={{
+                    background: paperClosed.length === 0 ? 'var(--color-s3)' : g.pass ? 'rgba(0,229,150,0.06)' : 'rgba(255,61,90,0.06)',
+                    border: `1px solid ${paperClosed.length === 0 ? 'var(--color-card-border)' : g.pass ? 'rgba(0,229,150,0.2)' : 'rgba(255,61,90,0.2)'}`,
+                  }}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span style={{ fontSize: 10 }}>{paperClosed.length === 0 ? '○' : g.pass ? '✓' : '✗'}</span>
+                    <span className="font-mono text-[9px] tracking-widest uppercase" style={{ color: 'var(--color-tx3)' }}>{g.label}</span>
+                  </div>
+                  <div className="font-mono font-bold" style={{ fontSize: 14, color: paperClosed.length === 0 ? 'var(--color-tx3)' : g.pass ? '#00e596' : '#ff3d5a' }}>
+                    {paperClosed.length === 0 ? '—' : g.fmt}
+                  </div>
+                  <div className="font-mono" style={{ fontSize: 9, color: 'var(--color-tx3)', marginTop: 2 }}>{g.target}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Active pairs scanning */}
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--color-card-border)' }}>
+              <div className="font-mono text-[9px] tracking-widest uppercase mb-2" style={{ color: 'var(--color-tx3)' }}>Scanning Pairs</div>
+              <div className="flex flex-wrap gap-1.5">
+                {['EURUSD','GBPUSD','USDJPY','XAUUSD','AUDUSD'].map(pair => {
+                  const pairOpen = paperOpen.filter((t: any) => t.pair === pair).length
+                  return (
+                    <span key={pair} className="font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-widest"
+                      style={{
+                        background: pairOpen > 0 ? 'rgba(0,229,204,0.12)' : 'var(--color-s3)',
+                        color:      pairOpen > 0 ? '#00e5cc' : 'var(--color-tx3)',
+                        border:     `1px solid ${pairOpen > 0 ? 'rgba(0,229,204,0.25)' : 'var(--color-card-border)'}`,
+                      }}>
+                      {pair}{pairOpen > 0 ? ' ●' : ''}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ── Pending Signals table ── */}
       <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
         <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>

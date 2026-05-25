@@ -10,6 +10,15 @@ type PlanId = 'community' | 'starter' | 'trader' | 'pro' | 'elite'
 const PLAN_ORDER: PlanId[] = ['community', 'starter', 'trader', 'pro', 'elite']
 const PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD']
 
+// ICT killzone windows + backtest performance per pair (2024–2026)
+const PAIR_META: Record<string, { sessions: string; wr: number; avgR: number; flag: string }> = {
+  'EUR/USD': { sessions: '04–05h · 07–11h · 12–14h · 16–17h', wr: 61.0, avgR: 0.220, flag: '🇪🇺' },
+  'GBP/USD': { sessions: '00–01h · 04–06h · 09–10h · 13–15h', wr: 55.8, avgR: 0.192, flag: '🇬🇧' },
+  'USD/JPY': { sessions: '00–01h · 03–04h · 05–07h · 08–09h', wr: 55.6, avgR: 0.167, flag: '🇯🇵' },
+  'AUD/USD': { sessions: '01–02h · 08–10h · 12–15h · 16–18h', wr: 56.4, avgR: 0.273, flag: '🇦🇺' },
+  'XAU/USD': { sessions: '07–17h UTC (London → NY)',            wr: 60.5, avgR: 0.372, flag: '🥇' },
+}
+
 const TG_COMMANDS = [
   { cmd: '/status',             desc: 'Account equity, open positions, system status',     plan: 'starter'  as PlanId },
   { cmd: '/signals',            desc: 'List pending signals awaiting action',               plan: 'starter'  as PlanId },
@@ -673,38 +682,67 @@ export default function Settings() {
               {Object.values(activePairs).filter(Boolean).length} / {maxPairs} active
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             {PAIRS.map((pair, i) => {
               const allowed = i < maxPairs
               const active  = activePairs[pair] && allowed
+              const meta    = PAIR_META[pair]
               return (
-                <div key={pair} className="flex items-center justify-between sm:flex-col sm:items-center sm:justify-center gap-3 sm:gap-2 rounded-[10px] px-3 py-3 sm:py-[14px]"
+                <div key={pair} className="flex flex-col gap-2.5 rounded-[12px] p-4"
                   style={{
                     background: 'var(--color-s3)',
                     border: `1px solid ${active ? 'rgba(0,229,204,0.3)' : 'var(--color-card-border)'}`,
                     opacity: allowed ? 1 : 0.5,
                   }}>
-                  <div style={{
-                    fontFamily: '"IBM Plex Mono",monospace', fontSize: 12, fontWeight: 700,
-                    color: active ? '#00e5cc' : 'var(--color-tx3)',
-                  }}>
-                    {pair}
+
+                  {/* Header row: flag + pair name + toggle */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontSize: 16 }}>{meta?.flag}</span>
+                      <span style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 12, fontWeight: 700, color: active ? '#00e5cc' : 'var(--color-tx)' }}>
+                        {pair}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Toggle checked={active} disabled={!allowed}
+                        onChange={v => {
+                          if (!allowed) return
+                          const updated = { ...activePairs, [pair]: v }
+                          setActivePairs(updated)
+                          patch({ active_pairs: updated })
+                        }}
+                      />
+                      {!allowed && (
+                        <span style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 9, color: 'var(--color-tx3)' }}>UPGRADE</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <Toggle checked={active} disabled={!allowed}
-                      onChange={v => {
-                        if (!allowed) return
-                        const updated = { ...activePairs, [pair]: v }
-                        setActivePairs(updated)
-                        patch({ active_pairs: updated })
-                      }}
-                    />
-                    {!allowed && (
-                      <div style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 9, color: 'var(--color-tx3)' }}>
-                        UPGRADE
+
+                  {/* Backtest performance */}
+                  {meta && (
+                    <div className="flex gap-2">
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(0,229,204,0.08)', color: '#00e5cc', border: '1px solid rgba(0,229,204,0.15)' }}>
+                        {meta.wr}% WR
+                      </span>
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(79,142,247,0.08)', color: '#4f8ef7', border: '1px solid rgba(79,142,247,0.15)' }}>
+                        +{meta.avgR.toFixed(3)}R
+                      </span>
+                    </div>
+                  )}
+
+                  {/* ICT session windows */}
+                  {meta && (
+                    <div>
+                      <div style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 8, color: 'var(--color-tx3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>
+                        ICT Killzones (UTC)
                       </div>
-                    )}
-                  </div>
+                      <div style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 9, color: 'var(--color-tx2)', lineHeight: 1.5 }}>
+                        {meta.sessions}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}

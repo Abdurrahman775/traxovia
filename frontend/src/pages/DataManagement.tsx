@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/client'
 
-const PAIRS      = ['USDJPY', 'XAUUSD']
+const PAIRS      = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD']
 const TIMEFRAMES = ['M5', 'M15', 'M30', 'H1', 'H4', 'W1']
 
 interface CoverageInfo {

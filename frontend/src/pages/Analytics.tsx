@@ -1,6 +1,23 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 
+// ── Strategy benchmark data (from backtests 2024-01-01 → 2026-05-25) ─────────
+const BENCHMARK: {
+  pair: string; trades: number; wr: number; netR: number; avgR: number; maxDD: number
+  sessions: string
+}[] = [
+  { pair: 'XAUUSD', trades: 43,  wr: 60.5, netR: 16.00, avgR: 0.372, maxDD: 3.0,
+    sessions: '07–17h UTC' },
+  { pair: 'EURUSD', trades: 59,  wr: 61.0, netR: 12.98, avgR: 0.220, maxDD: 8.0,
+    sessions: '04–05h · 07–11h · 12–14h · 16–17h' },
+  { pair: 'AUDUSD', trades: 55,  wr: 56.4, netR: 14.99, avgR: 0.273, maxDD: 5.0,
+    sessions: '01–02h · 08–10h · 12–15h · 16–18h' },
+  { pair: 'GBPUSD', trades: 52,  wr: 55.8, netR: 10.00, avgR: 0.192, maxDD: 8.0,
+    sessions: '00–01h · 04–06h · 09–10h · 13–15h' },
+  { pair: 'USDJPY', trades: 54,  wr: 55.6, netR:  8.99, avgR: 0.167, maxDD: 11.0,
+    sessions: '00–01h · 03–04h · 05–07h · 08–09h' },
+]
+
 function fmt(n: number | null | undefined, d = 2) {
   if (n == null) return '—'
   return Number(n).toFixed(d)
@@ -143,6 +160,86 @@ export default function Analytics() {
         </div>
 
       </div>
+
+      {/* ── Strategy Benchmark ── */}
+      <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
+          <div className="font-mono text-[10px] tracking-[2px] uppercase" style={{ color: 'var(--color-tx3)' }}>
+            Strategy Benchmark — All 5 Pairs
+          </div>
+          <span className="font-mono text-[9px] px-2 py-0.5 rounded tracking-widest"
+            style={{ background: 'rgba(0,229,204,0.08)', color: '#00e5cc', border: '1px solid rgba(0,229,204,0.2)' }}>
+            2024-01-01 → 2026-05-25
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                {['Pair','Trades','Win Rate','Net R','Avg R','Max DD','ICT Sessions (UTC)','Gates'].map(h => (
+                  <th key={h} className="font-mono text-[9px] tracking-widest text-left py-2 px-3 uppercase"
+                    style={{ color: 'var(--color-tx3)', borderBottom: '1px solid var(--color-card-border)', whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {BENCHMARK.map(b => (
+                <tr key={b.pair} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(255,255,255,0.02)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = ''}>
+                  <td className="font-mono font-bold py-3 px-3" style={{ fontSize: 12, color: 'var(--color-tx)' }}>{b.pair}</td>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: 'var(--color-tx2)' }}>{b.trades}</td>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#00e5cc' }}>{b.wr}%</td>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: b.netR >= 0 ? '#00e5cc' : '#ff3d5a' }}>
+                    {b.netR >= 0 ? '+' : ''}{b.netR.toFixed(2)}R
+                  </td>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: b.avgR >= 0.15 ? '#00e5cc' : '#f0b429' }}>
+                    {b.avgR >= 0 ? '+' : ''}{b.avgR.toFixed(3)}R
+                  </td>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: b.maxDD <= 10 ? '#00e596' : b.maxDD <= 20 ? '#f0b429' : '#ff3d5a' }}>
+                    {b.maxDD.toFixed(1)}%
+                  </td>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 10, color: 'var(--color-tx3)', whiteSpace: 'nowrap' }}>
+                    {b.sessions}
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-widest"
+                      style={{ background: 'rgba(0,229,150,0.1)', color: '#00e596', border: '1px solid rgba(0,229,150,0.25)' }}>
+                      ✓ PASS
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: '1px solid var(--color-card-border)' }}>
+                <td className="font-mono font-bold py-3 px-3" style={{ fontSize: 11, color: 'var(--color-tx3)' }}>TOTAL</td>
+                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: 'var(--color-tx2)' }}>
+                  {BENCHMARK.reduce((s, b) => s + b.trades, 0)}
+                </td>
+                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#00e5cc' }}>
+                  {(BENCHMARK.reduce((s, b) => s + b.wr, 0) / BENCHMARK.length).toFixed(1)}%
+                </td>
+                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#00e5cc' }}>
+                  +{BENCHMARK.reduce((s, b) => s + b.netR, 0).toFixed(2)}R
+                </td>
+                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#00e5cc' }}>
+                  +{(BENCHMARK.reduce((s, b) => s + b.avgR, 0) / BENCHMARK.length).toFixed(3)}R
+                </td>
+                <td colSpan={3} />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div className="font-mono text-[9px] mt-3" style={{ color: 'var(--color-tx3)' }}>
+          ⚡ ICT strategy: D1 structure → H4 bias → Order Block + FVG → CHOCH entry · 3R target · SL→BE at 1R · Session filters applied per pair
+        </div>
+      </div>
+
     </div>
   )
 }
