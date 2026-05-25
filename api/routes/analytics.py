@@ -19,7 +19,9 @@ async def analytics_summary(user=Depends(get_current_user), db=Depends(get_db)):
     _require_paid(user)
     await set_rls_user(db, user["sub"])
     total = await db.fetchval("SELECT COUNT(*) FROM trades WHERE user_id=$1 AND status='closed'", user["sub"]) or 0
-    wins  = await db.fetchval("SELECT COUNT(*) FROM trades WHERE user_id=$1 AND status='closed' AND pnl_r > 0", user["sub"]) or 0
+    # pnl_r >= 0 counts both wins (3R) and break-even trades (SL→BE → 0R) as wins,
+    # matching the backtest methodology where BE = no loss = trade managed correctly
+    wins  = await db.fetchval("SELECT COUNT(*) FROM trades WHERE user_id=$1 AND status='closed' AND pnl_r >= 0", user["sub"]) or 0
     net   = await db.fetchval("SELECT COALESCE(SUM(pnl_r),0) FROM trades WHERE user_id=$1 AND status='closed'", user["sub"]) or 0
     win_rate = round(wins / total * 100, 1) if total > 0 else 0
     return {
@@ -35,7 +37,7 @@ async def analytics_by_pair(user=Depends(get_current_user), db=Depends(get_db)):
     rows = await db.fetch(
         """SELECT pair,
                   COUNT(*) AS total,
-                  COUNT(*) FILTER (WHERE pnl_r > 0) AS wins,
+                  COUNT(*) FILTER (WHERE pnl_r >= 0) AS wins,
                   COALESCE(SUM(pnl_r), 0) AS net_r
            FROM trades WHERE user_id=$1 AND status='closed'
            GROUP BY pair ORDER BY net_r DESC""",
@@ -58,7 +60,7 @@ async def analytics_by_regime(user=Depends(get_current_user), db=Depends(get_db)
     rows = await db.fetch(
         """SELECT regime,
                   COUNT(*) AS total,
-                  COUNT(*) FILTER (WHERE pnl_r > 0) AS wins,
+                  COUNT(*) FILTER (WHERE pnl_r >= 0) AS wins,
                   COALESCE(SUM(pnl_r), 0) AS net_r
            FROM trades WHERE user_id=$1 AND status='closed' AND regime IS NOT NULL
            GROUP BY regime""",
