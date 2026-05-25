@@ -5,6 +5,9 @@ import api from '../api/client'
 const PAIRS      = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD']
 const TIMEFRAMES = ['M5', 'M15', 'M30', 'H1', 'H4', 'W1']
 
+// Timeframes actively read by the ICT strategy pipeline
+const ACTIVE_TFS = new Set(['M5', 'M15', 'H4'])
+
 interface CoverageInfo {
   timeframes: Record<string, Record<string, number>>
 }
@@ -26,13 +29,18 @@ function fmt(n: number): string {
 
 function CoverageTable({ data }: { data: CoverageInfo }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto space-y-3">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-s3">
             <th className="text-left py-2.5 pr-6 text-[10px] font-mono text-tx2 uppercase tracking-widest">Pair</th>
             {TIMEFRAMES.map(tf => (
-              <th key={tf} className="text-center py-2.5 px-4 text-[10px] font-mono text-tx2 uppercase tracking-widest">{tf}</th>
+              <th key={tf} className="text-center py-2.5 px-4 text-[10px] font-mono uppercase tracking-widest">
+                <span className={ACTIVE_TFS.has(tf) ? 'text-cy' : 'text-tx2 opacity-50'}>{tf}</span>
+                {ACTIVE_TFS.has(tf) && (
+                  <span className="block text-[8px] text-cy/50 tracking-normal normal-case mt-0.5">active</span>
+                )}
+              </th>
             ))}
           </tr>
         </thead>
@@ -41,15 +49,18 @@ function CoverageTable({ data }: { data: CoverageInfo }) {
             <tr key={pair} className={`border-b border-s3/50 ${i % 2 === 0 ? '' : 'bg-s2/30'}`}>
               <td className="py-2.5 pr-6 font-mono text-sm text-cy font-medium">{pair}</td>
               {TIMEFRAMES.map(tf => {
-                const count = data.timeframes[tf]?.[pair] ?? 0
-                const good  = count > 10_000
-                const some  = count > 0 && !good
+                const count  = data.timeframes[tf]?.[pair] ?? 0
+                const good   = count > 10_000
+                const some   = count > 0 && !good
+                const isUsed = ACTIVE_TFS.has(tf)
                 return (
                   <td key={tf} className="text-center py-2.5 px-4 font-mono text-xs">
                     {count < 0
                       ? <span className="text-rd">err</span>
                       : count === 0
-                        ? <span className="text-tx2 opacity-30">—</span>
+                        ? <span className={isUsed ? 'text-yellow-400/70' : 'text-tx2 opacity-25'}>
+                            {isUsed ? 'none' : '—'}
+                          </span>
                         : <span className={good ? 'text-green-400' : some ? 'text-yellow-400' : 'text-tx2'}>
                             {fmt(count)}
                           </span>
@@ -61,10 +72,18 @@ function CoverageTable({ data }: { data: CoverageInfo }) {
           ))}
         </tbody>
       </table>
-      <div className="flex items-center gap-4 mt-3 text-[10px] font-mono text-tx2">
+
+      <div className="flex flex-wrap items-center gap-4 text-[10px] font-mono text-tx2">
         <span><span className="text-green-400">■</span> &gt;10k rows (good)</span>
         <span><span className="text-yellow-400">■</span> partial</span>
-        <span><span className="text-tx2 opacity-30">—</span> empty</span>
+        <span><span className="text-tx2 opacity-30">—</span> not used by strategy</span>
+        <span><span className="text-yellow-400/70">none</span> missing — upload needed</span>
+      </div>
+
+      <div className="rounded-lg bg-s2 border border-s3/60 px-4 py-3 text-[11px] font-mono text-tx2 space-y-1">
+        <p><span className="text-cy">M15 + H4</span> — core strategy timeframes (CHOCH entry + H4 bias). All 5 pairs populated via yfinance refresh.</p>
+        <p><span className="text-cy">M5</span> — used for tight SL placement. Available for USDJPY &amp; XAUUSD (Dukascopy export). Upload MT5 M5 CSV for other pairs.</p>
+        <p><span className="text-tx2 opacity-50">M30 / H1 / W1</span> — not read by the current strategy pipeline. Kept for reference / future use.</p>
       </div>
     </div>
   )

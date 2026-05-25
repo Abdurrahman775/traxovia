@@ -4,7 +4,7 @@ data_engine/csv_loader.py — Bulk historical CSV loader.
 Drop MT5-exported CSV files into data/historical_csvs/ named:
     EURUSD_M15.csv   GBPUSD_H4.csv   XAUUSD_M30.csv  ...
 
-Supported timeframes : M15  M30  H1  H4  W1
+Supported timeframes : M5  M15  M30  H1  H4  W1
 Supported pairs      : EURUSD  GBPUSD  USDJPY  AUDUSD  XAUUSD
 
 Handles all common MT5 export column layouts automatically.
@@ -42,6 +42,7 @@ DEFAULT_CSV_DIR = PROJECT_ROOT / "data" / "historical_csvs"
 VALID_PAIRS = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "XAUUSD"}
 
 TABLE_MAP: dict[str, str] = {
+    "M5":  "ohlc_m5",
     "M15": "ohlc_m15",
     "M30": "ohlc_m30",
     "H1":  "ohlc_h1",
@@ -50,6 +51,7 @@ TABLE_MAP: dict[str, str] = {
 }
 
 HAS_SPREAD: dict[str, bool] = {
+    "M5":  True,
     "M15": True,
     "M30": True,
     "H1":  True,
