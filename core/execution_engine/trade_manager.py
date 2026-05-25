@@ -224,3 +224,93 @@ async def check_open_trades() -> dict:
             logger.error("Error in check_open_trades for %s: %s", trade.get("id"), e)
 
     return {"checked": checked, "closed": closed}
+
+
+# ── SL → Break-even at 1R ──────────────────────────────────────────────────────
+
+def _move_sl_to_be_sync(ticket: int, symbol: str, direction: str, entry_price: float) -> bool:
+    """Send a SLTP modify order to move SL to entry (break-even)."""
+    if not _MT5_AVAILABLE or not mt5.initialize():
+        return False
+    positions = mt5.positions_get(ticket=ticket)
+    if not positions:
+        return False
+    pos = positions[0]
+    # Only move SL closer to price, never widen it
+    if direction == "buy" and pos.sl >= entry_price:
+        return False   # already at or past BE
+    if direction == "sell" and pos.sl <= entry_price and pos.sl != 0:
+        return False
+    request = {
+        "action":   mt5.TRADE_ACTION_SLTP,
+        "position": ticket,
+        "symbol":   symbol,
+        "sl":       entry_price,
+        "tp":       pos.tp,
+    }
+    result = mt5.order_send(request)
+    return bool(result and result.retcode == mt5.TRADE_RETCODE_DONE)
+
+
+async def check_partial_close() -> dict:
+    """Move SL to break-even for any open trade that has reached +1R profit.
+
+    Returns {"triggered": <int>} — count of trades where SL was moved to BE.
+    Strategy: SL→BE only (no actual partial volume close).
+    """
+    from database.connection import get_db_direct
+
+    async with get_db_direct() as db:
+        rows = await db.fetch(
+            "SELECT id, pair, direction, entry_price, stop_loss, take_profit, "
+            "mt5_ticket, partial_closed FROM trades "
+            "WHERE status='open' AND mt5_ticket IS NOT NULL AND partial_closed = FALSE"
+        )
+        trades = [dict(r) for r in rows]
+
+    triggered = 0
+
+    for trade in trades:
+        try:
+            tick = await asyncio.to_thread(_get_tick_sync, trade["pair"])
+            if not tick:
+                continue
+
+            entry  = float(trade["entry_price"])
+            sl     = float(trade["stop_loss"])
+            risk   = abs(entry - sl)
+            if risk == 0:
+                continue
+
+            direction = trade["direction"]
+            price     = tick["bid"] if direction == "buy" else tick["ask"]
+            one_r_price = (entry + risk) if direction == "buy" else (entry - risk)
+
+            # Check if price has reached +1R
+            reached = (direction == "buy" and price >= one_r_price) or \
+                      (direction == "sell" and price <= one_r_price)
+            if not reached:
+                continue
+
+            # Move SL to BE on MT5
+            moved = await asyncio.to_thread(
+                _move_sl_to_be_sync,
+                trade["mt5_ticket"], trade["pair"], direction, entry,
+            )
+            # Mark partial_closed=TRUE in DB so we don't trigger again
+            # (even if MT5 is unavailable — prevents repeated attempts)
+            async with get_db_direct() as db:
+                await db.execute(
+                    "UPDATE trades SET partial_closed=TRUE, stop_loss=$1 WHERE id=$2",
+                    entry, trade["id"],
+                )
+            logger.info(
+                "%-8s  SL→BE  ticket=%s  entry=%.5f  mt5_moved=%s",
+                trade["pair"], trade["mt5_ticket"], entry, moved,
+            )
+            triggered += 1
+
+        except Exception as e:
+            logger.error("Error in check_partial_close for %s: %s", trade.get("id"), e)
+
+    return {"triggered": triggered}
