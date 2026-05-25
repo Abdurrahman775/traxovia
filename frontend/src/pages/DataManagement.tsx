@@ -2,10 +2,7 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/client'
 
-const PAIRS      = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD']
 const TIMEFRAMES = ['M5', 'M15', 'M30', 'H1', 'H4', 'W1']
-
-// Timeframes actively read by the ICT strategy pipeline
 const ACTIVE_TFS = new Set(['M5', 'M15', 'H4'])
 
 interface CoverageInfo {
@@ -27,7 +24,7 @@ function fmt(n: number): string {
   return String(n)
 }
 
-function CoverageTable({ data }: { data: CoverageInfo }) {
+function CoverageTable({ data, pairs }: { data: CoverageInfo; pairs: string[] }) {
   return (
     <div className="overflow-x-auto space-y-3">
       <table className="w-full text-sm">
@@ -45,7 +42,7 @@ function CoverageTable({ data }: { data: CoverageInfo }) {
           </tr>
         </thead>
         <tbody>
-          {PAIRS.map((pair, i) => (
+          {pairs.map((pair, i) => (
             <tr key={pair} className={`border-b border-s3/50 ${i % 2 === 0 ? '' : 'bg-s2/30'}`}>
               <td className="py-2.5 pr-6 font-mono text-sm text-cy font-medium">{pair}</td>
               {TIMEFRAMES.map(tf => {
@@ -98,7 +95,17 @@ export default function DataManagement() {
     retry: false,
   })
 
-  const [pair,      setPair]      = useState(PAIRS[0])
+  // Fetch active pairs dynamically from managed_pairs
+  const { data: managedPairs = [] } = useQuery<{ symbol: string }[]>({
+    queryKey: ['managed-pairs'],
+    queryFn:  () => api.get('/admin/pairs').then(r => r.data),
+    retry: false,
+  })
+  const activePairs = managedPairs.map(p => p.symbol).sort()
+  const pairs = activePairs.length > 0 ? activePairs : ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD']
+
+  const [pair,      setPair]      = useState('')
+  const selectedPair = pair || pairs[0] || ''
   const [timeframe, setTimeframe] = useState(TIMEFRAMES[0])
   const [file,      setFile]      = useState<File | null>(null)
   const [result,    setResult]    = useState<UploadResult | null>(null)
@@ -109,7 +116,7 @@ export default function DataManagement() {
     mutationFn: async () => {
       if (!file) throw new Error('No file selected')
       const form = new FormData()
-      form.append('pair',      pair)
+      form.append('pair',      selectedPair)
       form.append('timeframe', timeframe)
       form.append('file',      file)
       const res = await api.post('/admin/data/upload', form, {
@@ -167,7 +174,7 @@ export default function DataManagement() {
         {infoError && (
           <p className="text-sm text-rd">Failed to load coverage — API error</p>
         )}
-        {info && <CoverageTable data={info} />}
+        {info && <CoverageTable data={info} pairs={pairs} />}
       </div>
 
       {/* Upload panel */}
@@ -183,8 +190,8 @@ export default function DataManagement() {
           <div className="space-y-1.5">
             <label className="text-[10px] font-mono text-tx2 uppercase tracking-widest block">Pair</label>
             <div className="relative">
-              <select value={pair} onChange={e => setPair(e.target.value)} className={selectCls}>
-                {PAIRS.map(p => <option key={p} value={p}>{p}</option>)}
+              <select value={selectedPair} onChange={e => setPair(e.target.value)} className={selectCls}>
+                {pairs.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-tx2 text-xs">▾</span>
             </div>

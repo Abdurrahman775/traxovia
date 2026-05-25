@@ -35,6 +35,7 @@ const ADMIN_ITEMS = [
   { to: '/admin',           label: 'Admin Panel',     icon: '◈' },
   { to: '/model',           label: 'Model & Retrain', icon: '◉' },
   { to: '/data-management', label: 'Data Management', icon: '⬢' },
+  { to: '/pairs',           label: 'Pair Manager',    icon: '⊕' },
   { to: '/community',       label: 'Community',       icon: '⬡' },
 ]
 

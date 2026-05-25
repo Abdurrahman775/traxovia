@@ -18,6 +18,7 @@ import AuditLog from './pages/AuditLog'
 import Community from './pages/Community'
 import Profile from './pages/Profile'
 import DataManagement from './pages/DataManagement'
+import AdminPairs from './pages/AdminPairs'
 import News from './pages/News'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="community"       element={<RequireAdmin><Community /></RequireAdmin>} />
           <Route path="admin"           element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
           <Route path="data-management" element={<RequireAdmin><DataManagement /></RequireAdmin>} />
+          <Route path="pairs"           element={<RequireAdmin><AdminPairs /></RequireAdmin>} />
         </Route>
         <Route path="/500" element={<ServerError />} />
         <Route path="*" element={<NotFound />} />
