@@ -97,8 +97,9 @@ def _handle_signal(*_):
 def _assert_mt5_live() -> str:
     """Initialize MT5 and return the connected account number as a string.
 
-    Exits the process if MT5 is unavailable or the account is a demo account.
-    Supports explicit credential login when MT5_LOGIN is provided.
+    Exits the process only if MT5 is unavailable. Demo accounts are allowed
+    with a warning — trades execute with virtual money. Supports explicit
+    credential login when MT5_LOGIN is provided.
     """
     if not _MT5_AVAILABLE:
         logger.critical("MetaTrader5 package not installed. Live loop requires a Windows VPS with MT5.")
@@ -124,13 +125,11 @@ def _assert_mt5_live() -> str:
         sys.exit(1)
 
     if info.trade_mode != mt5.ACCOUNT_TRADE_MODE_REAL:
-        logger.critical(
-            "MT5 account #%s is NOT a live account (trade_mode=%s). "
-            "Set MT5_LOGIN to your live account or log in to the live terminal.",
+        logger.warning(
+            "MT5 account #%s is a DEMO account (trade_mode=%s). "
+            "Trades will use virtual money. Set MT5_LOGIN to switch to a live account.",
             info.login, info.trade_mode,
         )
-        mt5.shutdown()
-        sys.exit(1)
 
     return str(info.login)
 
