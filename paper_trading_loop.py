@@ -334,12 +334,12 @@ async def run_cycle(stats: dict) -> None:
             )
 
         # ── 3a. Partial close at 1R + move SL to BE ───────────────────────
-        partial_result = await check_partial_close()
+        partial_result = await check_partial_close(is_paper=True)
         if partial_result.get("triggered"):
             logger.info("Partial closes triggered this cycle: %d", partial_result["triggered"])
 
         # ── 3b. Monitor + close remaining positions ────────────────────────
-        monitor_result = await check_open_trades()
+        monitor_result = await check_open_trades(is_paper=True)
         newly_closed   = monitor_result.get("closed", 0)
         stats["closed"] += newly_closed
 

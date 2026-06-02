@@ -193,14 +193,22 @@ async def _get_db_tick(pair: str) -> dict | None:
     return None
 
 
-async def check_open_trades() -> dict:
+async def check_open_trades(is_paper: bool | None = None) -> dict:
     from database.connection import get_db_direct
 
     async with get_db_direct() as db:
-        rows = await db.fetch(
-            "SELECT id, user_id, pair, direction, entry_price, stop_loss, take_profit, "
-            "lot_size, mt5_ticket, entry_time FROM trades WHERE status='open' AND mt5_ticket IS NOT NULL"
-        )
+        if is_paper is None:
+            rows = await db.fetch(
+                "SELECT id, user_id, pair, direction, entry_price, stop_loss, take_profit, "
+                "lot_size, mt5_ticket, entry_time FROM trades WHERE status='open' AND mt5_ticket IS NOT NULL"
+            )
+        else:
+            rows = await db.fetch(
+                "SELECT id, user_id, pair, direction, entry_price, stop_loss, take_profit, "
+                "lot_size, mt5_ticket, entry_time FROM trades "
+                "WHERE status='open' AND mt5_ticket IS NOT NULL AND is_paper=$1",
+                is_paper,
+            )
         trades = [dict(r) for r in rows]
 
     checked = len(trades)
@@ -276,7 +284,7 @@ def _move_sl_to_be_sync(ticket: int, symbol: str, direction: str, entry_price: f
     return bool(result and result.retcode == mt5.TRADE_RETCODE_DONE)
 
 
-async def check_partial_close() -> dict:
+async def check_partial_close(is_paper: bool | None = None) -> dict:
     """Move SL to break-even for any open trade that has reached +1R profit.
 
     Returns {"triggered": <int>} — count of trades where SL was moved to BE.
@@ -285,11 +293,19 @@ async def check_partial_close() -> dict:
     from database.connection import get_db_direct
 
     async with get_db_direct() as db:
-        rows = await db.fetch(
-            "SELECT id, pair, direction, entry_price, stop_loss, take_profit, "
-            "mt5_ticket, partial_closed FROM trades "
-            "WHERE status='open' AND mt5_ticket IS NOT NULL AND partial_closed = FALSE"
-        )
+        if is_paper is None:
+            rows = await db.fetch(
+                "SELECT id, pair, direction, entry_price, stop_loss, take_profit, "
+                "mt5_ticket, partial_closed FROM trades "
+                "WHERE status='open' AND mt5_ticket IS NOT NULL AND partial_closed = FALSE"
+            )
+        else:
+            rows = await db.fetch(
+                "SELECT id, pair, direction, entry_price, stop_loss, take_profit, "
+                "mt5_ticket, partial_closed FROM trades "
+                "WHERE status='open' AND mt5_ticket IS NOT NULL AND partial_closed = FALSE AND is_paper=$1",
+                is_paper,
+            )
         trades = [dict(r) for r in rows]
 
     triggered = 0
