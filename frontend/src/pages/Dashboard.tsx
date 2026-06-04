@@ -213,8 +213,8 @@ export default function Dashboard() {
   const netPnl   = stats?.net_pnl_r ?? null
 
   // Risk state derived from trades
-  const maxDD       = Number((settings as any)?.risk_maxDD ?? 15)
-  const maxDaily    = Number((settings as any)?.risk_daily ?? 5)
+  const maxDD       = Number((settings as any)?.risk_max_drawdown_pct ?? 15)
+  const maxDaily    = Number((settings as any)?.risk_daily_pct ?? 5)
   const today       = new Date().toDateString()
   const todayTrades = closed.filter(t => t.entry_time && new Date(t.entry_time).toDateString() === today)
   const dailyUsed   = Math.abs(todayTrades.reduce((s, t) => s + (t.pnl_r < 0 ? t.pnl_r : 0), 0))

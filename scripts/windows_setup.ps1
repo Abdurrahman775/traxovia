@@ -156,6 +156,16 @@ nssm set TraxoviaBot AppStderr "$projDir\logs\bot.log"
 nssm set TraxoviaBot Start SERVICE_AUTO_START
 Write-Ok "TraxoviaBot service registered"
 
+# Live trading loop (Windows-only — requires MT5 terminal running and logged in)
+# Set MT5_LOGIN / MT5_PASSWORD / MT5_SERVER / LIVE_USER_ID in .env before starting.
+nssm install TraxoviaLiveTrading $python "live_trading_loop.py"
+nssm set TraxoviaLiveTrading AppDirectory $projDir
+nssm set TraxoviaLiveTrading AppEnvironmentExtra "PYTHONPATH=$projDir"
+nssm set TraxoviaLiveTrading AppStdout "$projDir\logs\live_trading.log"
+nssm set TraxoviaLiveTrading AppStderr "$projDir\logs\live_trading.log"
+nssm set TraxoviaLiveTrading Start SERVICE_DEMAND_START
+Write-Ok "TraxoviaLiveTrading service registered (demand-start — start manually when ready)"
+
 # ── 9. Create logs directory ──────────────────────────────────────────────────
 
 New-Item -ItemType Directory -Path "$projDir\logs" -Force | Out-Null
@@ -173,8 +183,11 @@ nssm start TraxoviaAPI
 nssm start TraxoviaWorker
 nssm start TraxoviaBeat
 nssm start TraxoviaBot
+# TraxoviaLiveTrading is demand-start — do NOT auto-start here.
+# Start it manually once MT5 credentials are set in .env:
+#   nssm start TraxoviaLiveTrading
 
-Write-Ok "All services started"
+Write-Ok "All services started (live trading loop NOT auto-started — start manually)"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 
@@ -191,10 +204,16 @@ Write-Host "       [x] Allow automated trading" -ForegroundColor Yellow
 Write-Host "       [x] Allow DLL imports" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Services running:" -ForegroundColor Cyan
-Write-Host "    TraxoviaAPI    http://localhost:8000" -ForegroundColor Cyan
-Write-Host "    TraxoviaWorker Celery tasks" -ForegroundColor Cyan
-Write-Host "    TraxoviaBeat   Celery scheduler" -ForegroundColor Cyan
-Write-Host "    TraxoviaBot    Telegram bot" -ForegroundColor Cyan
+Write-Host "    TraxoviaAPI          http://localhost:8000" -ForegroundColor Cyan
+Write-Host "    TraxoviaWorker       Celery tasks" -ForegroundColor Cyan
+Write-Host "    TraxoviaBeat         Celery scheduler" -ForegroundColor Cyan
+Write-Host "    TraxoviaBot          Telegram bot" -ForegroundColor Cyan
+Write-Host "    TraxoviaLiveTrading  LIVE MT5 loop (start manually)" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "  To start live trading:" -ForegroundColor Yellow
+Write-Host "    1. Set MT5_LOGIN, MT5_PASSWORD, MT5_SERVER in .env" -ForegroundColor Yellow
+Write-Host "    2. Ensure MT5 terminal is open and logged in" -ForegroundColor Yellow
+Write-Host "    3. nssm start TraxoviaLiveTrading" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Manage services:" -ForegroundColor Cyan
 Write-Host "    nssm start|stop|restart TraxoviaAPI" -ForegroundColor Cyan

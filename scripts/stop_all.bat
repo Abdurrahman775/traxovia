@@ -4,6 +4,7 @@
 
 echo.
 echo ==> Stopping Windows services...
+nssm stop TraxoviaLiveTrading
 nssm stop TraxoviaBot
 nssm stop TraxoviaBeat
 nssm stop TraxoviaWorker

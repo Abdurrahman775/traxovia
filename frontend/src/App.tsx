@@ -26,6 +26,7 @@ import NotFound from './pages/NotFound'
 import ServerError from './pages/ServerError'
 import Unauthorized from './pages/Unauthorized'
 import UpgradeRequired from './pages/UpgradeRequired'
+import Trial from './pages/Trial'
 import { useAdminUser } from './hooks/useAdminUser'
 import { getToken } from './api/client'
 
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="referral"  element={<Referral />} />
           <Route path="auditlog"  element={<AuditLog />} />
           <Route path="settings"  element={<Settings />} />
+          <Route path="trial"     element={<Trial />} />
           <Route path="profile"   element={<Profile />} />
           <Route path="community"       element={<RequireAdmin><Community /></RequireAdmin>} />
           <Route path="admin"           element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
