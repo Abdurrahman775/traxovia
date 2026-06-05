@@ -42,9 +42,10 @@ import sys
 import uuid
 from datetime import datetime, timezone
 
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).parent / ".env")
 
 try:
     import MetaTrader5 as mt5
