@@ -1,15 +1,18 @@
 import MetaTrader5 as mt5
 
-print("MT5 version:", mt5.__version__)
-
 r = mt5.initialize(
     path=r"C:\Program Files\MetaTrader 5\terminal64.exe",
     login=436208369,
     password="309612.Aa",
     server="Exness-MT5Trial9"
 )
-print("Result:", r, "| Error:", mt5.last_error())
-if r:
-    info = mt5.account_info()
-    print("Account:", info.login, "| Balance:", info.balance, "| Server:", info.server)
-    mt5.shutdown()
+print("Init:", r, mt5.last_error())
+
+symbols = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "AUDUSD"]
+for sym in symbols:
+    sel = mt5.symbol_select(sym, True)
+    info = mt5.symbol_info(sym)
+    rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_H4, 0, 5)
+    print(f"{sym}: select={sel}, visible={info.visible if info else 'N/A'}, rates={len(rates) if rates is not None else None}, err={mt5.last_error()}")
+
+mt5.shutdown()
