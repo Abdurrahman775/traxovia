@@ -24,7 +24,7 @@ from database.sync_connection import get_sync_db, sync_execute, sync_fetchall, s
 
 # ── Celery app ─────────────────────────────────────────────────────────────────
 
-app = Celery('trading_ai')
+app = Celery('traxovia_ai')
 
 app.conf.update(
     broker_url=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'),

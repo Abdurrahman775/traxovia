@@ -7,7 +7,7 @@
 # Installs and configures:
 #   - PostgreSQL 16 + TimescaleDB 2.x
 #   - Redis 7
-#   - Creates the trading_ai database and runs schema migrations
+#   - Creates the traxovia_ai database and runs schema migrations
 # =============================================================================
 
 set -euo pipefail
@@ -92,8 +92,8 @@ else
 fi
 
 # Allow connections from Windows host (WSL2 gateway)
-if ! grep -q "host.*trading_ai" "$PG_HBA" 2>/dev/null; then
-    echo "host trading_ai trading_app 0.0.0.0/0 scram-sha-256" \
+if ! grep -q "host.*traxovia_ai" "$PG_HBA" 2>/dev/null; then
+    echo "host traxovia_ai trading_app 0.0.0.0/0 scram-sha-256" \
         | sudo tee -a "$PG_HBA" > /dev/null
     ok "pg_hba.conf updated"
 fi
@@ -121,7 +121,7 @@ step "Creating database user and database"
 # Read credentials from .env if available (Windows path mounted as /mnt/c/...)
 DB_USER="${DB_USER:-trading_app}"
 DB_PASSWORD="${DB_PASSWORD:-changeme_in_env}"
-DB_NAME="${DB_NAME:-trading_ai}"
+DB_NAME="${DB_NAME:-traxovia_ai}"
 
 # Try to source .env from project directory (WSL path)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

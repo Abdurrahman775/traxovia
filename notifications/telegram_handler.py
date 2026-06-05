@@ -28,7 +28,7 @@ def _get_bot_token() -> str:
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST", "localhost"),
             port=int(os.getenv("DB_PORT", "5432")),
-            dbname=os.getenv("DB_NAME", "trading_ai"),
+            dbname=os.getenv("DB_NAME", "traxovia_ai"),
             user=os.getenv("DB_USER", "trading_app"),
             password=os.getenv("DB_PASSWORD", ""),
         )
@@ -50,7 +50,7 @@ def _get_admin_chat_id() -> str | None:
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST", "localhost"),
             port=int(os.getenv("DB_PORT", "5432")),
-            dbname=os.getenv("DB_NAME", "trading_ai"),
+            dbname=os.getenv("DB_NAME", "traxovia_ai"),
             user=os.getenv("DB_USER", "trading_app"),
             password=os.getenv("DB_PASSWORD", ""),
         )
@@ -109,7 +109,7 @@ def notify_user_sync(user_id: str, msg: str, pref_key: str) -> None:
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST", "localhost"),
             port=int(os.getenv("DB_PORT", "5432")),
-            dbname=os.getenv("DB_NAME", "trading_ai"),
+            dbname=os.getenv("DB_NAME", "traxovia_ai"),
             user=os.getenv("DB_USER", "trading_app"),
             password=os.getenv("DB_PASSWORD", ""),
         )

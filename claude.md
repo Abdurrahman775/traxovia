@@ -23,7 +23,7 @@ PHASES 1–9 COMPLETE. Platform is in active production.
 - Paper trading loop (paper_trading_loop.py)
 - MT5 bridge (primary + hot standby)
 - Notifications system
-- Frontend: React 18 + Vite + TanStack Query, deployed at /home/kira/trading-bot/frontend
+- Frontend: React 18 + Vite + TanStack Query, deployed at /home/kira/projects/traxovia/frontend
 
 ## Non-Negotiable Architecture Decisions
 - Database: TimescaleDB (NOT plain Postgres). Chunk intervals per schema.sql.

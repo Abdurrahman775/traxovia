@@ -27,7 +27,7 @@ def _build_dsn() -> str:
     return (
         f"host={os.getenv('DB_HOST', 'localhost')} "
         f"port={os.getenv('DB_PORT', '5432')} "
-        f"dbname={os.getenv('DB_NAME', 'trading_ai')} "
+        f"dbname={os.getenv('DB_NAME', 'traxovia_ai')} "
         f"user={os.getenv('DB_USER', 'postgres')} "
         f"password={os.getenv('DB_PASSWORD', '')} "
         f"sslmode={os.getenv('DB_SSLMODE', 'prefer')}"

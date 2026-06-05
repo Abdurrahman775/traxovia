@@ -20,7 +20,7 @@ from database.sync_connection import get_sync_db          # synchronous psycopg2
 from core.ai_engine.model_manager import get_active_model
 from notifications.websocket_manager import websocket_manager
 
-app = Celery('trading_ai')
+app = Celery('traxovia_ai')
 
 
 def generate_plain_english_summary(top_pos: list, top_neg: list) -> str:

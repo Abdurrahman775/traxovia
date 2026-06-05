@@ -3,7 +3,7 @@ Seed an admin user into the users table.
 Inserts only if the email does not already exist.
 
 Usage:
-    cd /home/kira/trading-bot
+    cd /home/kira/projects/traxovia
     python scripts/seed_admin.py
 """
 import asyncio

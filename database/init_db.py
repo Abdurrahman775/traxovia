@@ -58,7 +58,7 @@ def _build_dsn() -> str:
     return (
         f"host={os.getenv('DB_HOST', 'localhost')} "
         f"port={os.getenv('DB_PORT', '5432')} "
-        f"dbname={os.getenv('DB_NAME', 'trading_ai')} "
+        f"dbname={os.getenv('DB_NAME', 'traxovia_ai')} "
         f"user={os.getenv('DB_USER', 'postgres')} "
         f"password={os.getenv('DB_PASSWORD', '')} "
         f"sslmode={os.getenv('DB_SSLMODE', 'prefer')}"
@@ -113,8 +113,8 @@ def _check_already_initialised(conn: psycopg2.extensions.connection) -> None:
         print("  Re-running init_db.py on an initialised database will fail at")
         print("  the first CREATE TABLE statement. If you want a clean slate,")
         print("  drop and recreate the database first:\n")
-        print("      docker compose exec db dropdb  -U trading_app trading_ai")
-        print("      docker compose exec db createdb -U trading_app trading_ai\n")
+        print("      docker compose exec db dropdb  -U trading_app traxovia_ai")
+        print("      docker compose exec db createdb -U trading_app traxovia_ai\n")
         print("  Proceeding anyway — if this is intentional, ignore this warning.\n")
 
 
@@ -215,7 +215,7 @@ def _print_hint(pgcode: str | None, filename: str) -> None:
                  f"The user in DB_USER must have SUPERUSER or CREATEROLE rights to run {filename}.",
         # 3D000 — invalid catalog name (database does not exist)
         "3D000": "The database does not exist. "
-                 "Create it first:  createdb -U postgres trading_ai",
+                 "Create it first:  createdb -U postgres traxovia_ai",
         # 28P01 — authentication failure
         "28P01": "Authentication failed. Check DB_USER and DB_PASSWORD in .env.",
         # 08006 — connection failure

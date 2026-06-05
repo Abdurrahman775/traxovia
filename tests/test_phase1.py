@@ -28,7 +28,7 @@ def _db_conn():
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST", "localhost"),
             port=os.getenv("DB_PORT", "5432"),
-            dbname=os.getenv("DB_NAME", "trading_ai"),
+            dbname=os.getenv("DB_NAME", "traxovia_ai"),
             user=os.getenv("DB_USER", "trading_app"),
             password=os.getenv("DB_PASSWORD", ""),
             sslmode=os.getenv("DB_SSLMODE", "prefer"),
