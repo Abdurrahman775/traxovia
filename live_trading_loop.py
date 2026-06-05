@@ -74,6 +74,9 @@ logger = logging.getLogger("live_loop")
 PAIRS    = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "AUDUSD"]
 INTERVAL = int(os.getenv("LIVE_LOOP_INTERVAL", "900"))   # 15 min default
 
+# Exness appends 'm' to all symbol names — map canonical → broker name
+MT5_SYMBOL = {p: p + "m" for p in PAIRS}
+
 _live_user_id = os.getenv("LIVE_USER_ID", "").strip()
 if not _live_user_id:
     logger.critical("LIVE_USER_ID env var is not set. Cannot start live loop.")
@@ -149,8 +152,9 @@ async def _fetch_candles(symbol: str, timeframe: str) -> list[dict]:
         logger.error("MT5 connection lost fetching %s/%s", symbol, timeframe)
         return []
 
-    mt5.symbol_select(symbol, True)
-    rates = mt5.copy_rates_from_pos(symbol, tf, 0, 200)
+    broker_symbol = MT5_SYMBOL.get(symbol, symbol)
+    mt5.symbol_select(broker_symbol, True)
+    rates = mt5.copy_rates_from_pos(broker_symbol, tf, 0, 200)
     if rates is None:
         logger.warning("copy_rates_from_pos failed %s/%s: %s", symbol, timeframe, mt5.last_error())
         return []
@@ -304,7 +308,7 @@ async def run_cycle(stats: dict) -> None:
             # ── 3. Execute on live account — no simulation fallback ────────────
             try:
                 order = await open_order(
-                    symbol=symbol,
+                    symbol=MT5_SYMBOL.get(symbol, symbol),
                     direction=direction_db,
                     lot_size=result["lot_size"],
                     stop_loss=result["sl_price"],
