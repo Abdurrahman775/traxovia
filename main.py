@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from config import settings
 from database.connection import create_pool, close_pool
@@ -69,3 +70,15 @@ app.include_router(data_mgmt_router)
 app.include_router(news_router)
 app.include_router(admin_pairs_router)
 app.include_router(trial_router)
+
+# Serve React SPA — must be last so API routes take priority
+_FRONTEND_DIST = pathlib.Path(__file__).parent / "frontend" / "dist"
+if _FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=_FRONTEND_DIST / "assets"), name="spa-assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        file = _FRONTEND_DIST / full_path
+        if file.exists() and file.is_file():
+            return FileResponse(file)
+        return FileResponse(_FRONTEND_DIST / "index.html")
