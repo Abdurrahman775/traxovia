@@ -18,9 +18,12 @@ Command tiers:
 from __future__ import annotations
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from telegram import BotCommand
+
+load_dotenv(Path(__file__).parent.parent / ".env")
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 from tg_bot.handlers.account_handlers import (
@@ -38,7 +41,6 @@ from tg_bot.handlers.pro_handlers import (
     cmd_bridge_status, cmd_pairs, cmd_setsl, cmd_api_key,
 )
 
-load_dotenv()
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
     level=logging.INFO,
