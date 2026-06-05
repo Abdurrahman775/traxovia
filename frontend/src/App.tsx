@@ -27,11 +27,12 @@ import ServerError from './pages/ServerError'
 import Unauthorized from './pages/Unauthorized'
 import UpgradeRequired from './pages/UpgradeRequired'
 import Trial from './pages/Trial'
+import Landing from './pages/Landing'
 import { useAdminUser } from './hooks/useAdminUser'
 import { getToken } from './api/client'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  return getToken() ? children : <Unauthorized />
+  return getToken() ? children : <Landing />
 }
 
 function RequireAdmin({ children }: { children: JSX.Element }) {
