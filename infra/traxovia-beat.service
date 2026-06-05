@@ -6,9 +6,9 @@ Wants=redis.service
 [Service]
 Type=simple
 User=kira
-WorkingDirectory=/home/kira/projects/trading-bot
-EnvironmentFile=/home/kira/projects/trading-bot/.env
-ExecStart=/home/kira/projects/trading-bot/venv/bin/celery \
+WorkingDirectory=/home/kira/projects/traxovia
+EnvironmentFile=/home/kira/projects/traxovia/.env
+ExecStart=/home/kira/projects/traxovia/venv/bin/celery \
     -A scheduler.tasks beat \
     --loglevel=info
 Restart=on-failure

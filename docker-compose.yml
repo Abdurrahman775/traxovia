@@ -7,14 +7,14 @@ services:
     image: timescale/timescaledb:latest-pg16
     restart: unless-stopped
     environment:
-      POSTGRES_DB:       trading_ai
+      POSTGRES_DB:       traxovia_ai
       POSTGRES_USER:     trading_app      # matches the role in rls_policies.sql
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
     volumes:
       # Named volume — data survives container restarts and image upgrades.
       - timescaledb_data:/var/lib/postgresql/data
       # Mount schema files so they can be applied manually on first run:
-      #   docker compose exec db psql -U trading_app -d trading_ai -f /sql/schema.sql
+      #   docker compose exec db psql -U trading_app -d traxovia_ai -f /sql/schema.sql
       - ./database:/sql:ro
     ports:
       # Expose to host for psql / pgAdmin access during development.
@@ -24,13 +24,13 @@ services:
       # pg_isready exits 0 only when the DB is fully accepting connections.
       # start_period gives TimescaleDB time to run its first-run extension setup
       # before the health probe starts counting failures.
-      test: ["CMD-SHELL", "pg_isready -U trading_app -d trading_ai"]
+      test: ["CMD-SHELL", "pg_isready -U trading_app -d traxovia_ai"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
     networks:
-      - trading_net
+      - traxovia_net
 
   # ── Redis ────────────────────────────────────────────────────────────────────
   # Redis 7 alpine — Celery broker (DB 0) + result backend (DB 1).
@@ -53,7 +53,7 @@ services:
       retries: 3
       start_period: 5s
     networks:
-      - trading_net
+      - traxovia_net
 
   # ── FastAPI application ──────────────────────────────────────────────────────
   api:
@@ -70,13 +70,13 @@ services:
     environment:
       # ── Database (asyncpg) ──────────────────────────────────────────────────
       # Overrides the DATABASE_URL in .env which points at localhost.
-      DATABASE_URL: postgresql://trading_app:${DB_PASSWORD:?DB_PASSWORD must be set in .env}@db:5432/trading_ai
+      DATABASE_URL: postgresql://trading_app:${DB_PASSWORD:?DB_PASSWORD must be set in .env}@db:5432/traxovia_ai
 
       # ── Database (psycopg2 / Celery) ───────────────────────────────────────
       # Overrides the DB_HOST in .env which points at localhost.
       DB_HOST:     db
       DB_PORT:     "5432"
-      DB_NAME:     trading_ai
+      DB_NAME:     traxovia_ai
       DB_USER:     trading_app
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
       DB_SSLMODE:  prefer
@@ -91,18 +91,20 @@ services:
       redis:
         condition: service_healthy   # wait for redis-cli ping before starting
     networks:
-      - trading_net
+      - traxovia_net
 
 # ── Named volumes ────────────────────────────────────────────────────────────
 volumes:
   timescaledb_data:
-    # Default driver (local) — data stored in /var/lib/docker/volumes/.
-    # Replace with a cloud-backed driver (e.g. rexray, portworx) in production.
+    external: true
+    name: trading-bot_timescaledb_data
   redis_data:
+    external: true
+    name: trading-bot_redis_data
 
 # ── Internal network ─────────────────────────────────────────────────────────
 networks:
-  trading_net:
+  traxovia_net:
     driver: bridge
     # All three services communicate over this private network.
     # Only the ports listed above are reachable from the host.
