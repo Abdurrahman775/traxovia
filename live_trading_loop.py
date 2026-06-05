@@ -149,6 +149,7 @@ async def _fetch_candles(symbol: str, timeframe: str) -> list[dict]:
         logger.error("MT5 connection lost fetching %s/%s", symbol, timeframe)
         return []
 
+    mt5.symbol_select(symbol, True)
     rates = mt5.copy_rates_from_pos(symbol, tf, 0, 200)
     if rates is None:
         logger.warning("copy_rates_from_pos failed %s/%s: %s", symbol, timeframe, mt5.last_error())
