@@ -54,6 +54,7 @@ except ImportError:
     _MT5_AVAILABLE = False
 
 from database.connection import create_pool, close_pool, get_db_direct
+from notifications.telegram_handler import notify_admin
 
 _LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "live_trading.log")
 os.makedirs(os.path.dirname(_LOG_FILE), exist_ok=True)
@@ -323,6 +324,16 @@ async def run_cycle(stats: dict) -> None:
             logger.info("%-8s  LIVE      ticket=%-10s  dir=%-5s  entry=%.5f  lot=%.2f  [%d opened]",
                         symbol, order.ticket, result["direction"],
                         order.open_price, order.lot_size, stats["opened"])
+            notify_admin(
+                f"🟢 <b>LIVE TRADE OPENED</b>\n"
+                f"Pair:    <code>{symbol}</code>\n"
+                f"Dir:     <b>{result['direction'].upper()}</b>\n"
+                f"Entry:   <code>{order.open_price:.5f}</code>\n"
+                f"SL:      <code>{result['sl_price']:.5f}</code>\n"
+                f"TP:      <code>{result['tp_price']:.5f}</code>\n"
+                f"Lot:     <code>{order.lot_size:.2f}</code>\n"
+                f"Ticket:  <code>{order.ticket}</code>"
+            )
 
             # Persist with is_paper=FALSE
             await db.execute(
@@ -353,6 +364,11 @@ async def run_cycle(stats: dict) -> None:
         stats["closed"] += newly_closed
         if newly_closed:
             logger.info("Positions closed this cycle: %d", newly_closed)
+            notify_admin(
+                f"🔴 <b>LIVE TRADE CLOSED</b>\n"
+                f"Positions closed this cycle: <b>{newly_closed}</b>\n"
+                f"Total closed: <b>{stats['closed']}</b>"
+            )
 
     logger.info(
         "── Live trades: %d opened total, %d closed total ──",
