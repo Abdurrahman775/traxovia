@@ -8,11 +8,14 @@ r = mt5.initialize(
 )
 print("Init:", r, mt5.last_error())
 
-symbols = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "AUDUSD"]
-for sym in symbols:
-    sel = mt5.symbol_select(sym, True)
-    info = mt5.symbol_info(sym)
-    rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_H4, 0, 5)
-    print(f"{sym}: select={sel}, visible={info.visible if info else 'N/A'}, rates={len(rates) if rates is not None else None}, err={mt5.last_error()}")
+# Find all symbols matching our pairs
+targets = ["EUR", "GBP", "JPY", "XAU", "AUD"]
+all_symbols = mt5.symbols_get()
+if all_symbols:
+    for s in all_symbols:
+        if any(t in s.name for t in targets):
+            print(s.name)
+else:
+    print("No symbols returned:", mt5.last_error())
 
 mt5.shutdown()
