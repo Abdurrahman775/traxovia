@@ -1,5 +1,10 @@
-# Install these inside Wine Python (not system Python):
-# wine python -m pip install -r mt5_bridge/requirements_server.txt
+# Packages to install inside Wine Python 3.8 (not system Python).
+# Use: wine C:\Python38\Scripts\pip.exe install -r requirements_server.txt
+#
+# Version constraints: fastapi <=0.103.2 required — newer versions use
+# `X | Y` union syntax internally which requires Python 3.10+.
 MetaTrader5
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
+fastapi==0.103.2
+starlette==0.27.0
+uvicorn==0.33.0
+requests
