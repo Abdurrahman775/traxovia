@@ -51,7 +51,11 @@ try:
     import MetaTrader5 as mt5
     _MT5_AVAILABLE = True
 except ImportError:
-    _MT5_AVAILABLE = False
+    try:
+        from mt5_bridge import client as mt5
+        _MT5_AVAILABLE = True
+    except Exception:
+        _MT5_AVAILABLE = False
 
 from database.connection import create_pool, close_pool, get_db_direct
 from notifications.telegram_handler import notify_admin
@@ -107,7 +111,7 @@ def _assert_mt5_live() -> str:
     credential login when MT5_LOGIN is provided.
     """
     if not _MT5_AVAILABLE:
-        logger.critical("MetaTrader5 package not installed. Live loop requires a Windows VPS with MT5.")
+        logger.critical("MT5 not available. Start mt5-bridge.service (see scripts/setup_wine_mt5.sh).")
         sys.exit(1)
 
     login    = int(os.getenv("MT5_LOGIN", "0"))

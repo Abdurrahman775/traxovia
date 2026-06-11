@@ -12,7 +12,11 @@ try:
     import MetaTrader5 as mt5
     _MT5_AVAILABLE = True
 except ImportError:
-    _MT5_AVAILABLE = False
+    try:
+        from mt5_bridge import client as mt5
+        _MT5_AVAILABLE = True
+    except Exception:
+        _MT5_AVAILABLE = False
 
 
 # ── Pip multipliers ────────────────────────────────────────────────────────────

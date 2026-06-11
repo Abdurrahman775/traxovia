@@ -1,0 +1,13 @@
+[Unit]
+Description=Xvfb virtual display :0 (required by Wine/MT5)
+After=network.target
+
+[Service]
+Type=simple
+User=kira
+ExecStart=/usr/bin/Xvfb :0 -screen 0 1024x768x24 -nolisten tcp
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

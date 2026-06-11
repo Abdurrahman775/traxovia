@@ -1,0 +1,28 @@
+[Unit]
+Description=MT5 Bridge Server (Wine Python)
+After=xvfb.service network.target
+Requires=xvfb.service
+
+[Service]
+Type=simple
+User=kira
+# Virtual display created by xvfb.service
+Environment=DISPLAY=:0
+# Wine 64-bit prefix where MT5 and Python are installed
+Environment=WINEPREFIX=/home/kira/.mt5wine
+Environment=WINEARCH=win64
+# Bridge listens on this port — must match MT5_BRIDGE_URL in .env
+Environment=MT5_BRIDGE_PORT=8001
+WorkingDirectory=/home/kira/trading-bot
+
+# Wine runs Windows Python which has the real MetaTrader5 package
+ExecStart=/usr/bin/wine /home/kira/.mt5wine/drive_c/Python310/python.exe \
+    /home/kira/trading-bot/mt5_bridge/server.py
+
+Restart=always
+RestartSec=15
+StandardOutput=append:/home/kira/trading-bot/logs/mt5_bridge.log
+StandardError=append:/home/kira/trading-bot/logs/mt5_bridge.log
+
+[Install]
+WantedBy=multi-user.target

@@ -14,7 +14,11 @@ try:
     import MetaTrader5 as mt5
     _MT5_AVAILABLE = True
 except ImportError:
-    _MT5_AVAILABLE = False
+    try:
+        from mt5_bridge import client as mt5
+        _MT5_AVAILABLE = True
+    except Exception:
+        _MT5_AVAILABLE = False
 
 SPREAD_BASELINES: dict[str, float] = {
     "USDJPY": 1.0,
@@ -57,7 +61,7 @@ async def check_spread(symbol: str) -> dict:
     if not _MT5_AVAILABLE:
         return _result(
             allowed=False, symbol=sym, current_spread=None, baseline=baseline, threshold=threshold,
-            reason="MT5 not available on this platform — deploy on Windows VPS",
+            reason="MT5 not available — start mt5-bridge.service (see scripts/setup_wine_mt5.sh)",
         )
 
     current_pips = await asyncio.to_thread(_get_spread_pips_sync, sym)

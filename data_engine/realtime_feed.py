@@ -27,7 +27,11 @@ try:
     import MetaTrader5 as mt5
     _MT5_AVAILABLE = True
 except ImportError:
-    _MT5_AVAILABLE = False
+    try:
+        from mt5_bridge import client as mt5
+        _MT5_AVAILABLE = True
+    except Exception:
+        _MT5_AVAILABLE = False
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
@@ -55,7 +59,7 @@ def _is_monday_utc() -> bool:
 def _fetch_bars(symbol: str, timeframe: str, count: int) -> list[dict]:
     if not _MT5_AVAILABLE:
         raise RuntimeError(
-            "MetaTrader5 package not installed — deploy on Windows VPS."
+            "MT5 not available — start mt5-bridge.service (see scripts/setup_wine_mt5.sh)."
         )
     if not mt5.initialize():
         raise RuntimeError(f"MT5 initialize() failed: {mt5.last_error()}")
@@ -142,7 +146,7 @@ def _upsert_bars(
 
 def run_realtime_update() -> None:
     if not _MT5_AVAILABLE:
-        logger.error("realtime_feed: MetaTrader5 not available — skipping run (Windows VPS required)")
+        logger.error("realtime_feed: MT5 not available — skipping run (start mt5-bridge.service)")
         return
 
     today_is_monday = _is_monday_utc()

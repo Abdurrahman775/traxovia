@@ -21,9 +21,8 @@ stripe==9.9.0
 
 # AI / ML
 xgboost==2.0.3
-# MetaTrader5 — Windows-only, install only on the Windows VPS running MT5
-# pip install MetaTrader5
-# MetaTrader5==5.0.45
+# MetaTrader5 — Windows-only; install inside Wine Python on Linux via setup_wine_mt5.sh
+# wine python -m pip install MetaTrader5  (in ~/.mt5wine)
 shap==0.45.0
 scikit-learn==1.4.2
 pandas==2.2.2
@@ -34,6 +33,7 @@ python-telegram-bot==20.8
 
 # HTTP client
 httpx==0.26.0
+requests==2.32.3
 
 # Config
 python-dotenv==1.0.1

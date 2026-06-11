@@ -1,10 +1,10 @@
-"""core/execution_engine/mt5_executor.py — Direct MetaTrader5 trade execution.
+"""core/execution_engine/mt5_executor.py — MT5 trade execution.
 
-On Windows VPS: MetaTrader5 package is available and calls go directly to the
-terminal running on the same machine — no HTTP bridge needed.
+On Linux with Wine bridge: MetaTrader5 package is not installed natively, but
+mt5_bridge.client provides the same interface via HTTP to the Wine-hosted server.
 
-On Linux (dev / CI): MetaTrader5 is not available. All functions raise BridgeError
-with a clear message so the rest of the stack still imports cleanly.
+On Linux without the bridge (dev / CI): _MT5_AVAILABLE = False; all functions
+raise BridgeError with a clear message so the stack still imports cleanly.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -13,7 +13,11 @@ try:
     import MetaTrader5 as mt5
     _MT5_AVAILABLE = True
 except ImportError:
-    _MT5_AVAILABLE = False
+    try:
+        from mt5_bridge import client as mt5
+        _MT5_AVAILABLE = True
+    except Exception:
+        _MT5_AVAILABLE = False
 
 
 class BridgeError(Exception):
@@ -52,8 +56,7 @@ CloseResult = OrderCloseResult
 def _require_mt5() -> None:
     if not _MT5_AVAILABLE:
         raise BridgeError(
-            "MetaTrader5 package not installed. "
-            "Deploy on Windows VPS with MT5 terminal running."
+            "MT5 not available. Start mt5-bridge.service (see scripts/setup_wine_mt5.sh)."
         )
     if not mt5.initialize():
         raise BridgeError(f"MT5 initialize() failed: {mt5.last_error()}")

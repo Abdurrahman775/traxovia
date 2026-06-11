@@ -1,0 +1,5 @@
+# Install these inside Wine Python (not system Python):
+# wine python -m pip install -r mt5_bridge/requirements_server.txt
+MetaTrader5
+fastapi==0.111.0
+uvicorn[standard]==0.29.0

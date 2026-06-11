@@ -1,15 +1,14 @@
 """
 data_engine/historical_loader.py — One-shot historical OHLC bootstrap.
 
-Fetches historical candle data from the MT5 bridge HTTP API and upserts it
+Fetches historical candle data from MT5 (via Wine bridge on Linux) and upserts
 into the TimescaleDB hypertables. Safe to re-run — ON CONFLICT DO NOTHING
 means existing rows are never overwritten.
 
 Architecture:
-    MT5 Bridge (Windows VPS)
-        GET /ohlc/{symbol}/{timeframe}?count=N
-                    ↓  httpx async
-    historical_loader.py  (Linux VPS — this file)
+    mt5-bridge.service (Wine + MT5 on same Linux machine, port 8001)
+                    ↓  mt5_bridge.client HTTP
+    historical_loader.py
                     ↓  asyncpg
     TimescaleDB  →  ohlc_m15 / ohlc_h4 / ohlc_w1
 
@@ -17,9 +16,8 @@ Run:
     python3 -m data_engine.historical_loader
 
 Environment variables (read from .env):
-    MT5_BRIDGE_URL       — primary bridge base URL, e.g. http://1.2.3.4:8001
-    (bridge removed — MT5 is now direct on Windows VPS)
-    DATABASE_URL         — asyncpg connection string
+    MT5_BRIDGE_URL   — bridge URL, default http://127.0.0.1:8001
+    DATABASE_URL     — asyncpg connection string
 """
 
 import asyncio
@@ -37,7 +35,11 @@ try:
     import MetaTrader5 as mt5
     _MT5_AVAILABLE = True
 except ImportError:
-    _MT5_AVAILABLE = False
+    try:
+        from mt5_bridge import client as mt5
+        _MT5_AVAILABLE = True
+    except Exception:
+        _MT5_AVAILABLE = False
 
 # ── Load plan ──────────────────────────────────────────────────────────────────
 # count is how many bars to request from the bridge.
@@ -92,7 +94,7 @@ _TF_MAP = {
 
 def _fetch_ohlc_sync(symbol: str, timeframe: str, count: int) -> list[dict]:
     if not _MT5_AVAILABLE:
-        raise RuntimeError("MetaTrader5 not installed — run on Windows VPS")
+        raise RuntimeError("MT5 not available — start mt5-bridge.service (see scripts/setup_wine_mt5.sh)")
     if not mt5.initialize():
         raise RuntimeError(f"MT5 initialize() failed: {mt5.last_error()}")
     tf    = _TF_MAP[timeframe]
@@ -208,7 +210,7 @@ def _print_row(
 
 def _check_mt5() -> None:
     if not _MT5_AVAILABLE:
-        print("ERROR: MetaTrader5 package not installed — run on Windows VPS", file=sys.stderr)
+        print("ERROR: MT5 not available — start mt5-bridge.service (see scripts/setup_wine_mt5.sh)", file=sys.stderr)
         sys.exit(1)
     if not mt5.initialize():
         print(f"ERROR: MT5 initialize() failed: {mt5.last_error()}", file=sys.stderr)
