@@ -11,6 +11,7 @@ Requires: xvfb.service must be running first (virtual display for Wine GUI).
 """
 import os
 from datetime import datetime, timezone
+from typing import Optional
 
 import MetaTrader5 as mt5
 from fastapi import FastAPI, HTTPException, Query
@@ -162,7 +163,7 @@ def rates(symbol: str, timeframe: str, count: int = Query(default=200, ge=1, le=
 # ── Positions ──────────────────────────────────────────────────────────────────
 
 @app.get("/positions")
-def positions(ticket: int | None = None):
+def positions(ticket: Optional[int] = None):
     _init()
     result = mt5.positions_get(ticket=ticket) if ticket else mt5.positions_get()
     if result is None:
