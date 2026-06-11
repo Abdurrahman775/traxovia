@@ -6,9 +6,9 @@ Wants=redis.service
 [Service]
 Type=simple
 User=kira
-WorkingDirectory=/home/kira/projects/traxovia
-EnvironmentFile=/home/kira/projects/traxovia/.env
-ExecStart=/home/kira/projects/traxovia/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/home/kira/trading-bot
+EnvironmentFile=/home/kira/trading-bot/.env
+ExecStart=/home/kira/.local/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=on-failure
 RestartSec=5
 

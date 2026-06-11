@@ -6,10 +6,10 @@ Wants=redis.service
 [Service]
 Type=simple
 User=kira
-WorkingDirectory=/home/kira/projects/traxovia
-Environment=PYTHONPATH=/home/kira/projects/traxovia
-EnvironmentFile=/home/kira/projects/traxovia/.env
-ExecStart=/home/kira/projects/traxovia/venv/bin/celery     -A scheduler.tasks worker     --pool=solo     --loglevel=info
+WorkingDirectory=/home/kira/trading-bot
+Environment=PYTHONPATH=/home/kira/trading-bot
+EnvironmentFile=/home/kira/trading-bot/.env
+ExecStart=/home/kira/.local/bin/celery -A scheduler.tasks worker --pool=solo --loglevel=info
 Restart=on-failure
 RestartSec=10
 
