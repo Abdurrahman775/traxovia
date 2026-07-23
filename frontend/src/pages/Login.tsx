@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import api, { setToken } from '../api/client'
 import { useBranding } from '../hooks/useBranding'
-import bgImage from '../bg-image.webp'
 import localLogo from '../logo.webp'
+
+const HERO = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1600&q=80&auto=format&fit=crop'
+const G    = '#d4a853'
+const TX3  = '#445570'
+const INPUT_STYLE: React.CSSProperties = { background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#dde4f0', fontSize: 14, padding: '10px 12px', width: '100%', outline: 'none', boxSizing: 'border-box' }
 
 export default function Login() {
   const [email,    setEmail]    = useState('')
@@ -13,6 +18,7 @@ export default function Login() {
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { app_name, app_logo_url } = useBranding()
 
   const submit = async (e: React.FormEvent) => {
@@ -22,6 +28,8 @@ export default function Login() {
     try {
       const res = await api.post('/auth/login', { email, password })
       setToken(res.data.access_token, remember)
+      // Force flags re-fetch so maintenance check re-evaluates with new isAdmin state
+      await qc.invalidateQueries({ queryKey: ['site-flags'] })
       navigate('/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed')
@@ -30,89 +38,59 @@ export default function Login() {
     }
   }
 
-  const INPUT = "w-full mt-1 px-3 py-2.5 bg-s3 border border-s3 rounded-lg text-sm text-tx focus:outline-none focus:border-cy/60 transition-colors"
-  const LABEL = "text-[10px] font-mono tracking-widest uppercase"
-
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(2px)' }} />
-      <div className="w-full max-w-sm rounded-2xl p-8" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)', position: 'relative', zIndex: 1 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#05080f', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${HERO})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.07 }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(212,168,83,0.09) 0%, transparent 65%)' }} />
 
-        <div className="mb-7 flex items-center gap-3">
-          <img src={app_logo_url} alt="logo" className="w-10 h-10 rounded-xl object-contain shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).src = localLogo }} />
+      <div style={{ background: '#0a0e19', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 20, padding: 32, width: '100%', maxWidth: 380, position: 'relative', zIndex: 1 }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+          <img src={app_logo_url} alt="logo" style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'contain', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).src = localLogo }} />
           <div>
-            <div className="font-head font-bold text-xl" style={{ color: 'var(--color-cy)' }}>{app_name}</div>
-            <div className="text-xs font-mono" style={{ color: 'var(--color-tx3)' }}>Sign in to your account</div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: G, fontFamily: 'Figtree,sans-serif' }}>{app_name}</div>
+            <div style={{ fontSize: 11, fontFamily: 'IBM Plex Mono,monospace', color: TX3 }}>Sign in to your account</div>
           </div>
         </div>
 
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label className={LABEL} style={{ color: 'var(--color-tx3)' }}>Email</label>
-            <input
-              value={email} onChange={e => setEmail(e.target.value)}
-              type="email" required autoFocus
-              className={INPUT}
-            />
+            <label style={{ fontSize: 10, fontFamily: 'IBM Plex Mono,monospace', letterSpacing: 3, textTransform: 'uppercase', color: TX3, display: 'block', marginBottom: 6 }}>Email</label>
+            <input value={email} onChange={e => setEmail(e.target.value)} type="email" required autoFocus style={INPUT_STYLE} />
           </div>
 
           <div>
-            <label className={LABEL} style={{ color: 'var(--color-tx3)' }}>Password</label>
-            <div className="relative mt-1">
-              <input
-                value={password} onChange={e => setPassword(e.target.value)}
-                type={show ? 'text' : 'password'} required
-                className="w-full px-3 py-2.5 pr-10 bg-s3 border border-s3 rounded-lg text-sm text-tx focus:outline-none focus:border-cy/60 transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => setShow(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs select-none transition-opacity"
-                style={{ color: 'var(--color-tx3)', opacity: 0.7 }}
-                tabIndex={-1}
-              >
+            <label style={{ fontSize: 10, fontFamily: 'IBM Plex Mono,monospace', letterSpacing: 3, textTransform: 'uppercase', color: TX3, display: 'block', marginBottom: 6 }}>Password</label>
+            <div style={{ position: 'relative' }}>
+              <input value={password} onChange={e => setPassword(e.target.value)} type={show ? 'text' : 'password'} required style={{ ...INPUT_STYLE, paddingRight: 40 }} />
+              <button type="button" onClick={() => setShow(v => !v)} tabIndex={-1} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: TX3 }}>
                 {show ? '🙈' : '👁'}
               </button>
             </div>
           </div>
 
-          {/* Remember me + Forgot password row */}
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={e => setRemember(e.target.checked)}
-                className="w-3.5 h-3.5 rounded accent-cy"
-              />
-              <span className="text-[11px] font-mono" style={{ color: 'var(--color-tx3)' }}>Remember me</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ width: 14, height: 14, accentColor: G }} />
+              <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono,monospace', color: TX3 }}>Remember me</span>
             </label>
-            <Link
-              to="/forgot-password"
-              className="text-[11px] font-mono hover:underline"
-              style={{ color: 'var(--color-cy)' }}
-            >
-              Forgot password?
-            </Link>
+            <Link to="/forgot-password" style={{ fontSize: 11, fontFamily: 'IBM Plex Mono,monospace', color: G, textDecoration: 'none' }}>Forgot password?</Link>
           </div>
 
           {error && (
-            <div className="text-xs font-mono px-3 py-2 rounded-lg"
-              style={{ background: 'rgba(255,61,90,0.08)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)' }}>
+            <div style={{ fontSize: 12, fontFamily: 'IBM Plex Mono,monospace', padding: '8px 12px', borderRadius: 8, background: 'rgba(232,84,79,0.08)', color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)' }}>
               ✗ {error}
             </div>
           )}
 
-          <button type="submit" disabled={loading}
-            className="w-full py-2.5 rounded-xl font-mono font-bold text-sm tracking-widest transition-colors disabled:opacity-50"
-            style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
+          <button type="submit" disabled={loading} style={{ background: G, color: '#000', border: 'none', borderRadius: 10, padding: '11px 0', fontFamily: 'IBM Plex Mono,monospace', fontWeight: 700, fontSize: 13, letterSpacing: 2, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
             {loading ? 'SIGNING IN…' : 'SIGN IN'}
           </button>
         </form>
 
-        <div className="mt-5 text-center text-xs font-mono" style={{ color: 'var(--color-tx3)' }}>
+        <div style={{ marginTop: 20, textAlign: 'center', fontSize: 12, fontFamily: 'IBM Plex Mono,monospace', color: TX3 }}>
           No account?{' '}
-          <Link to="/register" style={{ color: 'var(--color-cy)' }} className="hover:underline">Register</Link>
+          <Link to="/register" style={{ color: G, textDecoration: 'none' }}>Register</Link>
         </div>
       </div>
     </div>

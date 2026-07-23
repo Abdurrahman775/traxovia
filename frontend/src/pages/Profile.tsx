@@ -6,7 +6,7 @@ import api from '../api/client'
 type PlanId = 'community' | 'starter' | 'trader' | 'pro' | 'elite'
 
 const PLAN_COLORS: Record<string, string> = {
-  community: '#8899b4', starter: '#4f8ef7', trader: '#00e5cc', pro: '#f0b429', elite: '#8b5cf6',
+  community: '#8899b4', starter: '#4f8ef7', trader: '#d4a853', pro: '#f0b429', elite: '#8b5cf6',
 }
 const PLAN_PRICES: Record<string, number> = {
   community: 0, starter: 29, trader: 79, pro: 149, elite: 299,
@@ -23,9 +23,9 @@ function PlanBadge({ plan }: { plan: string }) {
 }
 
 function StatusBanner({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
-  const c = type === 'ok' ? '#00e5cc' : '#ff3d5a'
-  const bg = type === 'ok' ? 'rgba(0,229,204,0.08)' : 'rgba(255,61,90,0.08)'
-  const border = type === 'ok' ? 'rgba(0,229,204,0.2)' : 'rgba(255,61,90,0.2)'
+  const c = type === 'ok' ? '#d4a853' : '#e8544f'
+  const bg = type === 'ok' ? 'rgba(212,168,83,0.08)' : 'rgba(232,84,79,0.08)'
+  const border = type === 'ok' ? 'rgba(212,168,83,0.2)' : 'rgba(232,84,79,0.2)'
   return (
     <div className="font-mono text-[11px] rounded-lg px-4 py-2.5"
       style={{ background: bg, border: `1px solid ${border}`, color: c }}>
@@ -153,7 +153,7 @@ export default function Profile() {
               style={{
                 position: 'absolute', bottom: 0, right: 0,
                 width: 24, height: 24, borderRadius: '50%',
-                background: '#00e5cc', border: '2px solid var(--color-s2)',
+                background: '#d4a853', border: '2px solid var(--color-s2)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', fontSize: 12,
               }}>
@@ -201,7 +201,7 @@ export default function Profile() {
               value={displayName}
               placeholder="Your name"
               onChange={e => setDisplayName(e.target.value)}
-              onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#00e5cc'}
+              onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#d4a853'}
               onBlur={e =>  (e.target as HTMLInputElement).style.borderColor = 'var(--color-input-border)'}
             />
           </div>
@@ -224,7 +224,7 @@ export default function Profile() {
             onClick={() => saveName.mutate(displayName)}
             disabled={saveName.isPending || !displayName.trim()}
             className="font-mono text-[11px] font-bold tracking-widest px-[18px] py-[9px] rounded-lg cursor-pointer transition-all"
-            style={{ background: '#00e5cc', color: '#000', border: 'none', opacity: saveName.isPending ? 0.7 : 1 }}>
+            style={{ background: '#d4a853', color: '#000', border: 'none', opacity: saveName.isPending ? 0.7 : 1 }}>
             {saveName.isPending ? 'SAVING…' : 'SAVE CHANGES'}
           </button>
         </div>
@@ -250,7 +250,7 @@ export default function Profile() {
                   value={pwdForm[f.key as keyof typeof pwdForm]}
                   placeholder={f.placeholder}
                   onChange={e => setPwdForm(p => ({ ...p, [f.key]: e.target.value }))}
-                  onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#00e5cc'}
+                  onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#d4a853'}
                   onBlur={e =>  (e.target as HTMLInputElement).style.borderColor = 'var(--color-input-border)'}
                 />
               </div>
@@ -262,14 +262,14 @@ export default function Profile() {
               onClick={handlePwdSubmit}
               disabled={changePwd.isPending || !pwdForm.current || !pwdForm.next || !pwdForm.confirm}
               className="font-mono text-[11px] font-bold tracking-widest px-[18px] py-[9px] rounded-lg cursor-pointer transition-all"
-              style={{ background: '#00e5cc', color: '#000', border: 'none', opacity: changePwd.isPending ? 0.7 : 1 }}>
+              style={{ background: '#d4a853', color: '#000', border: 'none', opacity: changePwd.isPending ? 0.7 : 1 }}>
               {changePwd.isPending ? 'UPDATING…' : 'UPDATE PASSWORD'}
             </button>
           </div>
 
           {/* ── Danger zone ── */}
-          <div style={{ ...CARD, border: '1px solid rgba(255,61,90,0.15)' }}>
-            <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: '#ff3d5a' }}>
+          <div style={{ ...CARD, border: '1px solid rgba(232,84,79,0.15)' }}>
+            <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: '#e8544f' }}>
               Session
             </div>
 
@@ -283,9 +283,9 @@ export default function Profile() {
               <button
                 onClick={logout}
                 className="font-mono text-[11px] font-bold tracking-widest px-[18px] py-[9px] rounded-lg cursor-pointer transition-all"
-                style={{ background: 'rgba(255,61,90,0.1)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,61,90,0.18)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,61,90,0.1)' }}>
+                style={{ background: 'rgba(232,84,79,0.1)', color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(232,84,79,0.18)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(232,84,79,0.1)' }}>
                 ⏻ SIGN OUT
               </button>
             </div>

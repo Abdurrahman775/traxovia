@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 
@@ -9,10 +10,10 @@ function fmt(n: number | null | undefined, d = 2) {
 type BadgeType = 'cyan' | 'red' | 'gray' | 'gold' | 'green'
 
 const BADGE: Record<BadgeType, { bg: string; color: string; border: string }> = {
-  cyan:  { bg: 'rgba(0,229,204,0.1)',   color: '#00e5cc', border: '1px solid rgba(0,229,204,0.2)'   },
-  red:   { bg: 'rgba(255,61,90,0.1)',   color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)'   },
+  cyan:  { bg: 'rgba(212,168,83,0.1)',   color: '#d4a853', border: '1px solid rgba(212,168,83,0.2)'   },
+  red:   { bg: 'rgba(232,84,79,0.1)',   color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)'   },
   gold:  { bg: 'rgba(240,180,41,0.1)',  color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)'  },
-  green: { bg: 'rgba(0,229,150,0.1)',   color: '#00e596', border: '1px solid rgba(0,229,150,0.2)'   },
+  green: { bg: 'rgba(0,229,150,0.1)',   color: '#c9953a', border: '1px solid rgba(0,229,150,0.2)'   },
   gray:  { bg: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' },
 }
 
@@ -37,6 +38,8 @@ function result(pnl_r: number | null, status: string): { label: string; type: Ba
 }
 
 export default function Trades() {
+  const [filter, setFilter] = useState<'all' | 'live' | 'paper'>('all')
+
   const { data: raw = [] } = useQuery({
     queryKey: ['trades-all'],
     queryFn: () => api.get('/trades').then(r => Array.isArray(r.data) ? r.data : []),
@@ -44,7 +47,9 @@ export default function Trades() {
     refetchInterval: (q) => q.state.status === 'error' ? false : 30_000,
   })
 
-  const trades = raw as any[]
+  const trades  = (raw as any[]).filter((t: any) =>
+    filter === 'all' ? true : filter === 'paper' ? t.is_paper : !t.is_paper
+  )
   const closed = trades.filter((t: any) => t.status === 'closed')
   const wins   = closed.filter((t: any) => t.pnl_r > 0).length
   const netR   = closed.reduce((s: number, t: any) => s + (t.pnl_r || 0), 0)
@@ -52,9 +57,9 @@ export default function Trades() {
   const open   = trades.filter((t: any) => t.status === 'open').length
 
   const statCards = [
-    { t: 'Total Trades', v: closed.length,                                          c: '#00e5cc' },
-    { t: 'Win Rate',     v: `${wr}%`,                                               c: '#00e5cc' },
-    { t: 'Net P&L',      v: `${netR >= 0 ? '+' : ''}${netR.toFixed(1)}R`,           c: netR >= 0 ? '#00e5cc' : '#ff3d5a' },
+    { t: 'Total Trades', v: closed.length,                                          c: '#d4a853' },
+    { t: 'Win Rate',     v: `${wr}%`,                                               c: '#d4a853' },
+    { t: 'Net P&L',      v: `${netR >= 0 ? '+' : ''}${netR.toFixed(1)}R`,           c: netR >= 0 ? '#d4a853' : '#e8544f' },
     { t: 'Open Trades',  v: open,                                                    c: '#f0b429' },
   ]
 
@@ -74,6 +79,19 @@ export default function Trades() {
               {m.v}
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* ── Filter toggle ── */}
+      <div className="flex gap-1">
+        {(['all', 'live', 'paper'] as const).map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className="font-mono text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-lg transition-all"
+            style={filter === f
+              ? { background: 'rgba(212,168,83,0.12)', color: '#d4a853', border: '1px solid rgba(212,168,83,0.3)' }
+              : { background: 'var(--color-s2)', color: 'var(--color-tx3)', border: '1px solid var(--color-card-border)' }}>
+            {f.toUpperCase()}
+          </button>
         ))}
       </div>
 
@@ -129,7 +147,7 @@ export default function Trades() {
                     {/* P&L (R) */}
                     <td className="font-mono py-[11px] px-3" style={{
                       fontSize: 12,
-                      color: pnl == null ? 'var(--color-tx3)' : pnl > 0 ? '#00e5cc' : pnl < 0 ? '#ff3d5a' : 'var(--color-tx2)',
+                      color: pnl == null ? 'var(--color-tx3)' : pnl > 0 ? '#d4a853' : pnl < 0 ? '#e8544f' : 'var(--color-tx2)',
                     }}>
                       {pnl != null ? `${pnl > 0 ? '+' : ''}${fmt(pnl)}R` : '—'}
                     </td>
@@ -137,7 +155,7 @@ export default function Trades() {
                     {/* Pips */}
                     <td className="font-mono py-[11px] px-3" style={{
                       fontSize: 12,
-                      color: pips == null ? 'var(--color-tx3)' : pips > 0 ? '#00e5cc' : '#ff3d5a',
+                      color: pips == null ? 'var(--color-tx3)' : pips > 0 ? '#d4a853' : '#e8544f',
                     }}>
                       {pips != null ? `${pips > 0 ? '+' : ''}${fmt(pips, 1)}` : '—'}
                     </td>

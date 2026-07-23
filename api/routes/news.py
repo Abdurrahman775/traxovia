@@ -115,6 +115,19 @@ async def get_news(
             )
         if resp.status_code == 401:
             raise HTTPException(503, "Finnhub API key invalid")
+        if resp.status_code == 403:
+            # For free tier, return empty but valid response
+            logger.info("Finnhub free tier - Economic Calendar not available")
+            return {
+                "from":         str(from_dt),
+                "to":           str(to_dt), 
+                "total":        0,
+                "high_impact":  0,
+                "medium_impact": 0,
+                "low_impact":   0,
+                "events":       [],
+                "message":      "Economic Calendar requires paid Finnhub plan. Upgrade to access news features.",
+            }
         if resp.status_code != 200:
             raise HTTPException(502, f"Finnhub returned {resp.status_code}")
         raw_events = resp.json().get("economicCalendar", [])

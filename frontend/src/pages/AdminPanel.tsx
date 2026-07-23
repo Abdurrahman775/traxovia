@@ -800,6 +800,114 @@ function PlansEditor() {
   )
 }
 
+// ─── Feature Flags ───────────────────────────────────────────────────────────
+
+interface FeatureFlags {
+  registration_enabled:   boolean
+  maintenance_mode:       boolean
+  trial_enabled:          boolean
+  telegram_login_enabled: boolean
+}
+
+function FeatureFlagsPanel() {
+  const qc = useQueryClient()
+  const [flags,    setFlags]    = useState<FeatureFlags | null>(null)
+  const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-config'],
+    queryFn:  () => api.get('/admin/config').then(r => r.data),
+  })
+
+  useEffect(() => {
+    if (!data) return
+    setFlags({
+      registration_enabled:   data.registration_enabled   ?? true,
+      maintenance_mode:       data.maintenance_mode        ?? false,
+      trial_enabled:          data.trial_enabled           ?? true,
+      telegram_login_enabled: data.telegram_login_enabled ?? true,
+    })
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => api.patch('/admin/config', flags),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-config'] })
+      setFeedback({ ok: true, msg: 'Feature flags saved.' })
+      setTimeout(() => setFeedback(null), 3000)
+    },
+    onError: () => setFeedback({ ok: false, msg: 'Failed to save.' }),
+  })
+
+  if (isLoading || !flags) return null
+
+  const rows: { key: keyof FeatureFlags; label: string; sub: string; danger?: boolean }[] = [
+    {
+      key:    'registration_enabled',
+      label:  'Open Registration',
+      sub:    'Allow new users to create accounts. Disable to close signups.',
+    },
+    {
+      key:    'trial_enabled',
+      label:  'Free Trial',
+      sub:    'Allow users to start a free trial from the landing page.',
+    },
+    {
+      key:    'telegram_login_enabled',
+      label:  'Telegram Login',
+      sub:    'Show the "Connect via Telegram" login option on the login page.',
+    },
+    {
+      key:    'maintenance_mode',
+      label:  'Maintenance Mode',
+      sub:    'Show a maintenance page to all non-admin users. Admins can still log in.',
+      danger: true,
+    },
+  ]
+
+  return (
+    <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-tx">Feature Flags</h3>
+        <p className="text-xs text-tx3 mt-0.5">Toggle platform features without redeploying.</p>
+      </div>
+
+      {feedback && (
+        <div className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-mono ${feedback.ok ? 'bg-cy/5 border border-cy/20 text-cy' : 'bg-rd/5 border border-rd/20 text-rd'}`}>
+          <span>{feedback.ok ? '✓' : '✗'} {feedback.msg}</span>
+          <button onClick={() => setFeedback(null)} className="opacity-50 hover:opacity-100 ml-4">✕</button>
+        </div>
+      )}
+
+      <div className="divide-y divide-s3">
+        {rows.map(row => (
+          <div
+            key={row.key}
+            className="flex items-center justify-between py-3 cursor-pointer select-none"
+            onClick={() => setFlags(f => f ? { ...f, [row.key]: !f[row.key] } : f)}
+          >
+            <div>
+              <div className={`text-sm font-medium ${row.danger ? 'text-rd' : 'text-tx'}`}>{row.label}</div>
+              <div className="text-xs text-tx3 mt-0.5">{row.sub}</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full transition-colors flex items-center shrink-0 ml-4 ${flags[row.key] ? (row.danger ? 'bg-rd' : 'bg-cy') : 'bg-s3'}`}>
+              <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform mx-0.5 ${flags[row.key] ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={() => save.mutate()}
+        disabled={save.isPending}
+        className="px-5 py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50"
+      >
+        {save.isPending ? 'Saving…' : 'Save Flags'}
+      </button>
+    </div>
+  )
+}
+
 // ─── Email Config ─────────────────────────────────────────────────────────────
 
 function EmailConfig() {
@@ -947,73 +1055,77 @@ function EmailConfig() {
 
 function PaymentConfig() {
   const qc = useQueryClient()
-  const [gateway, setGateway] = useState<'stripe' | 'paystack'>('stripe')
-  const [stripe, setStripe] = useState({
-    stripe_secret_key: '', stripe_webhook_secret: '',
-    stripe_price_starter: '', stripe_price_trader: '',
-    stripe_price_pro: '', stripe_price_elite: '',
-  })
-  const [paystack, setPaystack] = useState({
-    paystack_secret_key: '', paystack_public_key: '',
-    paystack_plan_starter: '', paystack_plan_trader: '',
-    paystack_plan_pro: '', paystack_plan_elite: '',
-  })
+  const [keys, setKeys] = useState({ paystack_secret_key: '', paystack_public_key: '' })
+  const [planCodes, setPlanCodes] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null)
-  const [testing, setTesting] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const { data, isLoading } = useQuery({
+  const { data: config } = useQuery({
     queryKey: ['admin-config'],
     queryFn: () => api.get('/admin/config').then(r => r.data),
   })
+  const { data: plans } = useQuery({
+    queryKey: ['admin-plans'],
+    queryFn: () => api.get('/admin/plans').then(r => r.data as any[]),
+  })
+
+  const paidPlans = (plans ?? []).filter((p: any) => p.plan_id !== 'community')
 
   useEffect(() => {
-    if (!data) return
-    setGateway((data.payment_gateway as 'stripe' | 'paystack') ?? 'stripe')
-    setStripe({
-      stripe_secret_key:    data.stripe_secret_key    ?? '',
-      stripe_webhook_secret: data.stripe_webhook_secret ?? '',
-      stripe_price_starter: data.stripe_price_starter  ?? '',
-      stripe_price_trader:  data.stripe_price_trader   ?? '',
-      stripe_price_pro:     data.stripe_price_pro      ?? '',
-      stripe_price_elite:   data.stripe_price_elite    ?? '',
+    if (!config) return
+    setKeys({
+      paystack_secret_key: config.paystack_secret_key ?? '',
+      paystack_public_key: config.paystack_public_key ?? '',
     })
-    setPaystack({
-      paystack_secret_key:   data.paystack_secret_key   ?? '',
-      paystack_public_key:   data.paystack_public_key   ?? '',
-      paystack_plan_starter: data.paystack_plan_starter ?? '',
-      paystack_plan_trader:  data.paystack_plan_trader  ?? '',
-      paystack_plan_pro:     data.paystack_plan_pro     ?? '',
-      paystack_plan_elite:   data.paystack_plan_elite   ?? '',
-    })
-  }, [data])
+  }, [config])
+
+  // Load plan codes from plan_config.features.paystack_plan_code
+  useEffect(() => {
+    if (!plans) return
+    const codes: Record<string, string> = {}
+    for (const p of plans) {
+      if (p.plan_id !== 'community') {
+        codes[p.plan_id] = p.features?.paystack_plan_code ?? ''
+      }
+    }
+    setPlanCodes(codes)
+  }, [plans])
 
   const notify = (ok: boolean, msg: string) => {
     setFeedback({ ok, msg }); setTimeout(() => setFeedback(null), 4000)
   }
 
-  const save = useMutation({
-    mutationFn: () => api.patch('/admin/config', {
-      payment_gateway: gateway,
-      ...(gateway === 'stripe' ? stripe : paystack),
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-config'] }); notify(true, 'Payment settings saved.') },
-    onError: () => notify(false, 'Failed to save.'),
-  })
+  async function save() {
+    setSaving(true)
+    try {
+      // Save Paystack keys to bot_config
+      await api.patch('/admin/config', { payment_gateway: 'paystack', ...keys })
+      // Save each plan's paystack_plan_code into plan_config.features
+      await Promise.all(
+        paidPlans.map((p: any) =>
+          api.patch(`/admin/plans/${p.plan_id}`, {
+            features: { ...p.features, paystack_plan_code: planCodes[p.plan_id] ?? '' },
+          })
+        )
+      )
+      qc.invalidateQueries({ queryKey: ['admin-config'] })
+      qc.invalidateQueries({ queryKey: ['admin-plans'] })
+      notify(true, 'Payment settings saved.')
+    } catch {
+      notify(false, 'Failed to save.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function testGateway() {
-    setTesting(true); setFeedback(null)
     try {
       const res = await api.post('/admin/config/test-payment')
       notify(true, res.data.message)
     } catch (e: any) {
       notify(false, e?.response?.data?.detail ?? 'Test failed.')
-    } finally { setTesting(false) }
+    }
   }
-
-  const setS = (k: keyof typeof stripe) => (v: string) => setStripe(p => ({ ...p, [k]: v }))
-  const setP = (k: keyof typeof paystack) => (v: string) => setPaystack(p => ({ ...p, [k]: v }))
-
-  if (isLoading) return null
 
   return (
     <div className="space-y-4">
@@ -1024,107 +1136,56 @@ function PaymentConfig() {
         </div>
       )}
 
-      {/* Gateway selector */}
-      <div className="bg-s1 border border-s3 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-tx mb-3">Payment Gateway</h3>
-        <div className="flex gap-3">
-          {(['stripe', 'paystack'] as const).map(gw => (
-            <button key={gw} onClick={() => setGateway(gw)}
-              className={`flex-1 py-3 rounded-xl border text-sm font-semibold transition-colors ${
-                gateway === gw ? 'border-cy/50 bg-cy/5 text-cy' : 'border-s3 text-tx2 hover:bg-s2'
-              }`}>
-              <div className="font-mono text-base mb-0.5">{gw === 'stripe' ? '⚡' : '✦'}</div>
-              {gw.charAt(0).toUpperCase() + gw.slice(1)}
-              {gateway === gw && <div className="text-[10px] font-mono mt-0.5 opacity-70">ACTIVE</div>}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Paystack API keys */}
+        <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-tx">Paystack Keys</h3>
+          <ConfigInput label="Secret Key" type="password" value={keys.paystack_secret_key}
+            onChange={v => setKeys(k => ({ ...k, paystack_secret_key: v }))}
+            placeholder="sk_live_••••"
+            hint="Paystack Dashboard → Settings → API Keys & Webhooks" />
+          <ConfigInput label="Public Key" value={keys.paystack_public_key}
+            onChange={v => setKeys(k => ({ ...k, paystack_public_key: v }))}
+            placeholder="pk_live_••••"
+            hint="Used for Paystack Inline popup (optional)" />
+          <div className="flex gap-2 pt-1">
+            <button onClick={save} disabled={saving}
+              className="px-5 py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50">
+              {saving ? 'Saving…' : 'Save All'}
+            </button>
+            <button onClick={testGateway}
+              className="px-4 py-2.5 rounded-lg border border-s3 text-xs font-mono text-tx2 hover:bg-s2 transition-colors">
+              Test Connection
+            </button>
+          </div>
+        </div>
 
-        {gateway === 'stripe' ? (
-          <>
-            {/* Stripe keys */}
-            <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
-              <h3 className="text-sm font-semibold text-tx">Stripe Keys</h3>
-              <ConfigInput label="Secret Key" type="password" value={stripe.stripe_secret_key}
-                onChange={setS('stripe_secret_key')} placeholder="sk_live_••••" hint="From Stripe Dashboard → Developers → API Keys" />
-              <ConfigInput label="Webhook Secret" type="password" value={stripe.stripe_webhook_secret}
-                onChange={setS('stripe_webhook_secret')} placeholder="whsec_••••"
-                hint="From Stripe Dashboard → Developers → Webhooks → your endpoint → Signing secret" />
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => save.mutate()} disabled={save.isPending}
-                  className="px-5 py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50">
-                  {save.isPending ? 'Saving…' : 'Save Keys'}
-                </button>
-                <button onClick={testGateway} disabled={testing}
-                  className="px-4 py-2.5 rounded-lg border border-s3 text-xs font-mono text-tx2 hover:bg-s2 transition-colors disabled:opacity-50">
-                  {testing ? '…' : 'Test Connection'}
-                </button>
-              </div>
-            </div>
-
-            {/* Stripe price IDs */}
-            <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-3">
-              <div>
-                <h3 className="text-sm font-semibold text-tx">Price IDs</h3>
-                <p className="text-xs text-tx3 mt-0.5">Stripe Dashboard → Products → each plan → copy the price ID</p>
-              </div>
-              {(['starter', 'trader', 'pro', 'elite'] as const).map(plan => (
-                <ConfigInput key={plan} label={plan.toUpperCase()}
-                  value={(stripe as any)[`stripe_price_${plan}`]}
-                  onChange={setS(`stripe_price_${plan}` as any)}
-                  placeholder={`price_${plan.slice(0,3)}••••`} />
-              ))}
-              <button onClick={() => save.mutate()} disabled={save.isPending}
-                className="w-full py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50 mt-1">
-                {save.isPending ? 'Saving…' : 'Save Price IDs'}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Paystack keys */}
-            <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-4">
-              <h3 className="text-sm font-semibold text-tx">Paystack Keys</h3>
-              <ConfigInput label="Secret Key" type="password" value={paystack.paystack_secret_key}
-                onChange={setP('paystack_secret_key')} placeholder="sk_live_••••"
-                hint="From Paystack Dashboard → Settings → API Keys & Webhooks" />
-              <ConfigInput label="Public Key" value={paystack.paystack_public_key}
-                onChange={setP('paystack_public_key')} placeholder="pk_live_••••"
-                hint="Used on the frontend for Paystack Inline popup (optional)" />
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => save.mutate()} disabled={save.isPending}
-                  className="px-5 py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50">
-                  {save.isPending ? 'Saving…' : 'Save Keys'}
-                </button>
-                <button onClick={testGateway} disabled={testing}
-                  className="px-4 py-2.5 rounded-lg border border-s3 text-xs font-mono text-tx2 hover:bg-s2 transition-colors disabled:opacity-50">
-                  {testing ? '…' : 'Test Connection'}
-                </button>
-              </div>
-            </div>
-
-            {/* Paystack plan codes */}
-            <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-3">
-              <div>
-                <h3 className="text-sm font-semibold text-tx">Plan Codes</h3>
-                <p className="text-xs text-tx3 mt-0.5">Paystack Dashboard → Products → Plans → copy each plan code. Leave blank to use one-time payments.</p>
-              </div>
-              {(['starter', 'trader', 'pro', 'elite'] as const).map(plan => (
-                <ConfigInput key={plan} label={plan.toUpperCase()}
-                  value={(paystack as any)[`paystack_plan_${plan}`]}
-                  onChange={setP(`paystack_plan_${plan}` as any)}
-                  placeholder={`PLN_••••`} />
-              ))}
-              <button onClick={() => save.mutate()} disabled={save.isPending}
-                className="w-full py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50 mt-1">
-                {save.isPending ? 'Saving…' : 'Save Plan Codes'}
-              </button>
-            </div>
-          </>
-        )}
+        {/* Per-plan Paystack plan codes — auto-generated from plan_config */}
+        <div className="bg-s1 border border-s3 rounded-xl p-5 space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-tx">Plan Codes</h3>
+            <p className="text-xs text-tx3 mt-0.5">
+              Paystack Dashboard → Products → Plans → copy each plan code.
+              Leave blank to use one-time payments. Adds/removes automatically when plans are created or deleted.
+            </p>
+          </div>
+          {paidPlans.length === 0 && (
+            <p className="text-tx3 text-xs font-mono">No paid plans configured yet.</p>
+          )}
+          {paidPlans.map((p: any) => (
+            <ConfigInput key={p.plan_id}
+              label={p.name.toUpperCase()}
+              value={planCodes[p.plan_id] ?? ''}
+              onChange={v => setPlanCodes(c => ({ ...c, [p.plan_id]: v }))}
+              placeholder="PLN_••••" />
+          ))}
+          {paidPlans.length > 0 && (
+            <button onClick={save} disabled={saving}
+              className="w-full py-2.5 rounded-lg bg-cy text-bg text-xs font-bold tracking-widest hover:bg-cy/90 transition-colors disabled:opacity-50 mt-1">
+              {saving ? 'Saving…' : 'Save Plan Codes'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -1137,6 +1198,9 @@ function FinnhubConfig() {
   const [apiKey, setApiKey]     = useState('')
   const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null)
   const [testing, setTesting]   = useState(false)
+  // Track whether the user has manually edited the key so we don't
+  // overwrite their input when the query re-fetches after save.
+  const initialised = useRef(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-config'],
@@ -1144,7 +1208,12 @@ function FinnhubConfig() {
   })
 
   useEffect(() => {
-    if (data) setApiKey(data.finnhub_api_key ?? '')
+    // Only populate from server on first load, not after re-fetches
+    // triggered by invalidateQueries — that would clobber the user's input.
+    if (data && !initialised.current) {
+      setApiKey(data.finnhub_api_key ?? '')
+      initialised.current = true
+    }
   }, [data])
 
   const notify = (ok: boolean, msg: string) => {
@@ -1155,6 +1224,8 @@ function FinnhubConfig() {
   const save = useMutation({
     mutationFn: () => api.patch('/admin/config', { finnhub_api_key: apiKey }),
     onSuccess: () => {
+      // Reset so the field refreshes with the masked value from server
+      // only after an explicit page reload — not mid-session.
       qc.invalidateQueries({ queryKey: ['admin-config'] })
       notify(true, 'Finnhub API key saved.')
     },
@@ -1964,7 +2035,7 @@ function InfoTab() {
   if (isLoading) return <p className="text-tx2 text-sm animate-pulse">Loading system info…</p>
   if (!data)     return <p className="text-rd text-sm">Failed to load system info.</p>
 
-  const diskColor = data.disk.used_pct > 85 ? '#ff3d5a' : data.disk.used_pct > 65 ? '#f0b429' : 'var(--color-cy)'
+  const diskColor = data.disk.used_pct > 85 ? '#e8544f' : data.disk.used_pct > 65 ? '#f0b429' : 'var(--color-cy)'
 
   return (
     <div className="space-y-5">
@@ -2111,7 +2182,7 @@ export default function AdminPanel() {
     <div className="space-y-5">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
-          style={{ background: 'rgba(0,229,204,0.12)', border: '1px solid rgba(0,229,204,0.25)', color: 'var(--color-cy)' }}>
+          style={{ background: 'rgba(212,168,83,0.12)', border: '1px solid rgba(212,168,83,0.25)', color: 'var(--color-cy)' }}>
           ◈
         </div>
         <div className="min-w-0">
@@ -2229,6 +2300,7 @@ export default function AdminPanel() {
       {tab === 'audit'    && <AuditLog />}
       {tab === 'config'   && (
         <div className="space-y-6">
+          <FeatureFlagsPanel />
           <BrandingConfig />
           <TelegramConfig />
           <FinnhubConfig />

@@ -62,7 +62,7 @@ export default function Trial() {
         <div className="font-mono text-[10px] tracking-[2px] uppercase mb-2" style={{ color: 'var(--color-tx3)' }}>
           Free Trial
         </div>
-        <div className="font-head text-[26px] font-bold mb-1" style={{ color: '#00e5cc' }}>
+        <div className="font-head text-[26px] font-bold mb-1" style={{ color: '#d4a853' }}>
           14-Day Trial
         </div>
         <p className="font-mono text-[12px]" style={{ color: 'var(--color-tx2)' }}>
@@ -76,11 +76,11 @@ export default function Trial() {
           {isActive && status?.trial_expires_at && (
             <div
               className="flex items-center gap-3 rounded-[10px] px-4 py-3"
-              style={{ background: 'rgba(0,229,204,0.08)', border: '1px solid rgba(0,229,204,0.25)' }}
+              style={{ background: 'rgba(212,168,83,0.08)', border: '1px solid rgba(212,168,83,0.25)' }}
             >
-              <span style={{ color: '#00e5cc', fontSize: 18 }}>✓</span>
+              <span style={{ color: '#d4a853', fontSize: 18 }}>✓</span>
               <div>
-                <div className="font-mono text-[11px] font-bold" style={{ color: '#00e5cc' }}>
+                <div className="font-mono text-[11px] font-bold" style={{ color: '#d4a853' }}>
                   Trial Active — {daysLeft(status.trial_expires_at)} day{daysLeft(status.trial_expires_at) !== 1 ? 's' : ''} remaining
                 </div>
                 <div className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--color-tx3)' }}>
@@ -130,7 +130,7 @@ export default function Trial() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {TRIAL_FEATURES.map(f => (
             <div key={f} className="flex items-center gap-3 font-mono text-[12px]" style={{ color: 'var(--color-tx2)' }}>
-              <span style={{ color: '#00e5cc', flexShrink: 0 }}>✓</span>
+              <span style={{ color: '#d4a853', flexShrink: 0 }}>✓</span>
               {f}
             </div>
           ))}
@@ -144,9 +144,9 @@ export default function Trial() {
           disabled={startMutation.isPending}
           className="font-mono text-[12px] font-bold tracking-widest px-6 py-3 rounded-[10px] transition-all"
           style={{
-            background: startMutation.isPending ? 'rgba(0,229,204,0.15)' : '#00e5cc',
-            color: startMutation.isPending ? '#00e5cc' : '#000',
-            border: '1px solid rgba(0,229,204,0.4)',
+            background: startMutation.isPending ? 'rgba(212,168,83,0.15)' : '#d4a853',
+            color: startMutation.isPending ? '#d4a853' : '#000',
+            border: '1px solid rgba(212,168,83,0.4)',
             cursor: startMutation.isPending ? 'not-allowed' : 'pointer',
           }}
         >

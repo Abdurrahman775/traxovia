@@ -47,7 +47,7 @@ const CARD: React.CSSProperties = {
   padding: 20,
 }
 
-function Toggle({ checked, onChange, disabled, activeColor = '#00e5cc' }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; activeColor?: string }) {
+function Toggle({ checked, onChange, disabled, activeColor = '#d4a853' }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; activeColor?: string }) {
   return (
     <label style={{ position: 'relative', width: 38, height: 20, flexShrink: 0, display: 'inline-block', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
       <input type="checkbox" checked={checked} onChange={e => !disabled && onChange(e.target.checked)}
@@ -60,7 +60,7 @@ function Toggle({ checked, onChange, disabled, activeColor = '#00e5cc' }: { chec
 }
 
 function PlanBadge({ plan }: { plan: PlanId }) {
-  const colors: Record<PlanId, string> = { community: '#8899b4', starter: '#4f8ef7', trader: '#00e5cc', pro: '#f0b429', elite: '#8b5cf6' }
+  const colors: Record<PlanId, string> = { community: '#8899b4', starter: '#4f8ef7', trader: '#d4a853', pro: '#f0b429', elite: '#8b5cf6' }
   const c = colors[plan]
   return (
     <span className="inline-flex items-center font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-widest whitespace-nowrap"
@@ -74,8 +74,8 @@ function SaveBadge({ state }: { state: 'idle' | 'saving' | 'saved' | 'error' }) 
   if (state === 'idle') return null
   const map = {
     saving: { color: '#f0b429', label: 'Saving…' },
-    saved:  { color: '#00e5cc', label: '✓ Saved' },
-    error:  { color: '#ff3d5a', label: '✗ Error' },
+    saved:  { color: '#d4a853', label: '✓ Saved' },
+    error:  { color: '#e8544f', label: '✗ Error' },
   }
   const { color, label } = map[state as keyof typeof map]
   return (
@@ -129,14 +129,14 @@ function BindMt5Form({ onSave, onCancel }: { onSave(acc: object): void; onCancel
     borderRadius: 7, padding: '8px 11px', color: 'var(--color-tx)',
     fontFamily: '"IBM Plex Mono",monospace', fontSize: 12, outline: 'none',
   }
-  const focus = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = '#00e5cc')
+  const focus = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = '#d4a853')
   const blur  = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = 'var(--color-input-border)')
 
   const canSubmit = form.login && form.password && form.server
 
   return (
-    <div style={{ background: 'var(--color-s3)', border: '1px solid rgba(0,229,204,0.2)', borderRadius: 10, padding: 16, marginBottom: 10 }}>
-      <div className="font-mono text-[10px] tracking-widest uppercase mb-1" style={{ color: '#00e5cc' }}>Bind MT5 Account</div>
+    <div style={{ background: 'var(--color-s3)', border: '1px solid rgba(212,168,83,0.2)', borderRadius: 10, padding: 16, marginBottom: 10 }}>
+      <div className="font-mono text-[10px] tracking-widest uppercase mb-1" style={{ color: '#d4a853' }}>Bind MT5 Account</div>
       <div className="font-mono text-[10px] mb-4" style={{ color: 'var(--color-tx3)' }}>
         Works with any MT5 broker — enter the credentials from your broker's welcome email.
       </div>
@@ -160,14 +160,14 @@ function BindMt5Form({ onSave, onCancel }: { onSave(acc: object): void; onCancel
           {brokerOpen && (
             <div style={{
               position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-              background: 'var(--color-s2)', border: '1px solid rgba(0,229,204,0.25)',
+              background: 'var(--color-s2)', border: '1px solid rgba(212,168,83,0.25)',
               borderRadius: 8, marginTop: 4, maxHeight: 240, overflowY: 'auto',
               boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
             }}>
               {BROKER_SERVERS.map(({ broker, servers }) => (
                 <div key={broker}>
                   <div className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5"
-                    style={{ color: '#00e5cc', background: 'rgba(0,229,204,0.05)', borderBottom: '1px solid rgba(0,229,204,0.1)' }}>
+                    style={{ color: '#d4a853', background: 'rgba(212,168,83,0.05)', borderBottom: '1px solid rgba(212,168,83,0.1)' }}>
                     {broker}
                   </div>
                   {servers.map(srv => (
@@ -175,7 +175,7 @@ function BindMt5Form({ onSave, onCancel }: { onSave(acc: object): void; onCancel
                       onClick={() => { setForm(p => ({ ...p, server: srv })); setBrokerOpen(false) }}
                       className="font-mono text-[11px] px-4 py-2 cursor-pointer"
                       style={{ color: 'var(--color-tx2)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,229,204,0.08)')}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(212,168,83,0.08)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       {srv}
@@ -237,7 +237,7 @@ function BindMt5Form({ onSave, onCancel }: { onSave(acc: object): void; onCancel
           }}
           disabled={!canSubmit}
           className="font-mono text-[10px] font-bold tracking-widest px-4 py-1.5 rounded-lg transition-all disabled:opacity-40"
-          style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
+          style={{ background: '#d4a853', color: '#000', border: 'none' }}>
           BIND ACCOUNT
         </button>
         <button onClick={onCancel}
@@ -315,7 +315,7 @@ function TelegramTab({ planIdx, botUsername }: { planIdx: number; botUsername?: 
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-base"
-                style={{ background: 'rgba(0,229,204,0.12)', border: '1px solid rgba(0,229,204,0.3)' }}>✓</div>
+                style={{ background: 'rgba(212,168,83,0.12)', border: '1px solid rgba(212,168,83,0.3)' }}>✓</div>
               <div>
                 <div className="text-sm font-semibold text-tx">Telegram linked</div>
                 <div className="text-xs font-mono text-tx3 mt-0.5">
@@ -327,14 +327,14 @@ function TelegramTab({ planIdx, botUsername }: { planIdx: number; botUsername?: 
               onClick={() => unlinkMutation.mutate()}
               disabled={unlinkMutation.isPending}
               className="px-3 py-1.5 rounded-lg text-xs font-mono transition-colors disabled:opacity-50"
-              style={{ background: 'rgba(255,61,90,0.1)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.25)' }}>
+              style={{ background: 'rgba(232,84,79,0.1)', color: '#e8544f', border: '1px solid rgba(232,84,79,0.25)' }}>
               {unlinkMutation.isPending ? 'Unlinking…' : 'Unlink'}
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-base"
-              style={{ background: 'rgba(255,61,90,0.08)', border: '1px solid rgba(255,61,90,0.2)', color: '#ff3d5a' }}>✗</div>
+              style={{ background: 'rgba(232,84,79,0.08)', border: '1px solid rgba(232,84,79,0.2)', color: '#e8544f' }}>✗</div>
             <div>
               <div className="text-sm font-semibold text-tx">Not linked</div>
               <div className="text-xs text-tx3 mt-0.5">Generate a token below to connect your Telegram account.</div>
@@ -358,19 +358,19 @@ function TelegramTab({ planIdx, botUsername }: { planIdx: number; botUsername?: 
 
           {token ? (
             <div className="space-y-3">
-              <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(0,229,204,0.06)', border: '1px solid rgba(0,229,204,0.25)' }}>
+              <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(212,168,83,0.06)', border: '1px solid rgba(212,168,83,0.25)' }}>
                 <div className="text-[10px] font-mono text-tx3 uppercase tracking-widest mb-2">Send this to the bot</div>
                 <div className="font-mono text-lg font-bold tracking-wider" style={{ color: 'var(--color-cy)' }}>
                   /link {token}
                 </div>
                 <div className="text-[10px] font-mono text-tx3 mt-2">
-                  Expires in <span style={{ color: countdown < 60 ? '#ff3d5a' : '#f0b429' }}>{fmtCountdown(countdown)}</span>
+                  Expires in <span style={{ color: countdown < 60 ? '#e8544f' : '#f0b429' }}>{fmtCountdown(countdown)}</span>
                 </div>
               </div>
               <div className="flex gap-2">
                 <button onClick={copyToken}
                   className="flex-1 py-2 rounded-lg text-xs font-mono font-bold tracking-widest transition-colors"
-                  style={{ background: copied ? 'rgba(0,229,204,0.15)' : 'rgba(0,229,204,0.1)', color: 'var(--color-cy)', border: '1px solid rgba(0,229,204,0.3)' }}>
+                  style={{ background: copied ? 'rgba(212,168,83,0.15)' : 'rgba(212,168,83,0.1)', color: 'var(--color-cy)', border: '1px solid rgba(212,168,83,0.3)' }}>
                   {copied ? '✓ COPIED' : '⎘ COPY COMMAND'}
                 </button>
                 <button onClick={() => generateMutation.mutate()}
@@ -384,7 +384,7 @@ function TelegramTab({ planIdx, botUsername }: { planIdx: number; botUsername?: 
               onClick={() => generateMutation.mutate()}
               disabled={generateMutation.isPending}
               className="w-full py-2.5 rounded-xl font-mono font-bold text-sm tracking-widest transition-colors disabled:opacity-50"
-              style={{ background: '#00e5cc', color: '#000' }}>
+              style={{ background: '#d4a853', color: '#000' }}>
               {generateMutation.isPending ? 'Generating…' : 'Generate Token'}
             </button>
           )}
@@ -404,7 +404,7 @@ function TelegramTab({ planIdx, botUsername }: { planIdx: number; botUsername?: 
               style={{ borderBottom: '1px solid var(--color-card-border)', opacity: locked ? 0.4 : 1 }}>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-xs" style={{ color: locked ? 'var(--color-tx3)' : '#00e5cc' }}>{cmd.cmd}</span>
+                  <span className="font-mono text-xs" style={{ color: locked ? 'var(--color-tx3)' : '#d4a853' }}>{cmd.cmd}</span>
                   {locked && <span className="text-[10px]">🔒</span>}
                 </div>
                 <div className="text-xs text-tx2 mt-0.5">{cmd.desc}</div>
@@ -522,7 +522,7 @@ export default function Settings() {
             <button key={t.key} onClick={() => setTab(t.key)} title={t.key}
               className="shrink-0 flex flex-col items-center gap-0.5 px-3 py-2 rounded-[7px] transition-all border border-transparent"
               style={tab === t.key
-                ? { background: 'var(--color-s2)', color: '#00e5cc', border: '1px solid var(--color-card-border)' }
+                ? { background: 'var(--color-s2)', color: '#d4a853', border: '1px solid var(--color-card-border)' }
                 : { color: 'var(--color-tx3)' }
               }>
               <span className="text-sm leading-none">{t.icon}</span>
@@ -536,7 +536,7 @@ export default function Settings() {
             <button key={t.key} onClick={() => setTab(t.key)}
               className="flex-1 flex items-center justify-center gap-1.5 py-[7px] font-mono text-[10px] tracking-widest cursor-pointer rounded-[7px] transition-all border border-transparent"
               style={tab === t.key
-                ? { background: 'var(--color-s2)', color: '#00e5cc', border: '1px solid var(--color-card-border)' }
+                ? { background: 'var(--color-s2)', color: '#d4a853', border: '1px solid var(--color-card-border)' }
                 : { color: 'var(--color-tx3)' }
               }>
               <span>{t.icon}</span>
@@ -636,7 +636,7 @@ export default function Settings() {
                   style={{ borderBottom: '1px solid var(--color-card-border)' }}>
                   <div>
                     <div style={{ fontSize: 13, color: 'var(--color-tx2)' }}>{p.l}</div>
-                    <div className="font-mono" style={{ fontSize: 11, color: '#00e5cc', marginTop: 2 }}>
+                    <div className="font-mono" style={{ fontSize: 11, color: '#d4a853', marginTop: 2 }}>
                       {riskParams[p.k as keyof typeof riskParams]}%
                     </div>
                   </div>
@@ -645,7 +645,7 @@ export default function Settings() {
                     onChange={e => setRiskParams(prev => ({ ...prev, [p.k]: parseFloat(e.target.value) }))}
                     onMouseUp={e => patch({ [p.api]: parseFloat((e.target as HTMLInputElement).value) })}
                     onTouchEnd={e => patch({ [p.api]: parseFloat((e.target as HTMLInputElement).value) })}
-                    style={{ accentColor: '#00e5cc', width: 130 }} />
+                    style={{ accentColor: '#d4a853', width: 130 }} />
                 </div>
               ))}
               {can('tg_bot_settings') && (
@@ -691,7 +691,7 @@ export default function Settings() {
                 <div key={pair} className="flex flex-col gap-2.5 rounded-[12px] p-4"
                   style={{
                     background: 'var(--color-s3)',
-                    border: `1px solid ${active ? 'rgba(0,229,204,0.3)' : 'var(--color-card-border)'}`,
+                    border: `1px solid ${active ? 'rgba(212,168,83,0.3)' : 'var(--color-card-border)'}`,
                     opacity: allowed ? 1 : 0.5,
                   }}>
 
@@ -699,7 +699,7 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span style={{ fontSize: 16 }}>{meta?.flag}</span>
-                      <span style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 12, fontWeight: 700, color: active ? '#00e5cc' : 'var(--color-tx)' }}>
+                      <span style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 12, fontWeight: 700, color: active ? '#d4a853' : 'var(--color-tx)' }}>
                         {pair}
                       </span>
                     </div>
@@ -722,7 +722,7 @@ export default function Settings() {
                   {meta && (
                     <div className="flex gap-2">
                       <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(0,229,204,0.08)', color: '#00e5cc', border: '1px solid rgba(0,229,204,0.15)' }}>
+                        style={{ background: 'rgba(212,168,83,0.08)', color: '#d4a853', border: '1px solid rgba(212,168,83,0.15)' }}>
                         {meta.wr}% WR
                       </span>
                       <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
@@ -775,9 +775,9 @@ export default function Settings() {
               display: 'flex', alignItems: 'center', gap: 12,
             }}>
               <div style={{
-                width: 36, height: 36, borderRadius: 8, background: 'rgba(0,229,204,0.1)',
+                width: 36, height: 36, borderRadius: 8, background: 'rgba(212,168,83,0.1)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: '"IBM Plex Mono",monospace', fontSize: 11, color: '#00e5cc',
+                fontFamily: '"IBM Plex Mono",monospace', fontSize: 11, color: '#d4a853',
               }}>
                 MT5
               </div>
@@ -790,8 +790,8 @@ export default function Settings() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: acc.active ? '#00e596' : '#888', display: 'inline-block' }} />
-                <span style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 10, color: acc.active ? '#00e5cc' : 'var(--color-tx3)' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: acc.active ? '#c9953a' : '#888', display: 'inline-block' }} />
+                <span style={{ fontFamily: '"IBM Plex Mono",monospace', fontSize: 10, color: acc.active ? '#d4a853' : 'var(--color-tx3)' }}>
                   {acc.active ? 'BOUND' : 'INACTIVE'}
                 </span>
                 <button
@@ -801,7 +801,7 @@ export default function Settings() {
                     patch({ mt5_accounts: updated })
                   }}
                   className="font-mono text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-lg cursor-pointer transition-all"
-                  style={{ background: 'rgba(255,61,90,0.1)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)' }}>
+                  style={{ background: 'rgba(232,84,79,0.1)', color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)' }}>
                   UNBIND
                 </button>
               </div>

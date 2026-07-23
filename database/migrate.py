@@ -163,6 +163,39 @@ MIGRATIONS = [
           AND NOT (features ? 'news_feed')
         """,
     ),
+    # ── Feature flags on bot_config ─────────────────────────────────────────
+    (
+        "add feature flag columns to bot_config",
+        """
+        ALTER TABLE bot_config
+          ADD COLUMN IF NOT EXISTS registration_enabled   BOOLEAN NOT NULL DEFAULT TRUE,
+          ADD COLUMN IF NOT EXISTS maintenance_mode       BOOLEAN NOT NULL DEFAULT FALSE,
+          ADD COLUMN IF NOT EXISTS trial_enabled          BOOLEAN NOT NULL DEFAULT TRUE,
+          ADD COLUMN IF NOT EXISTS telegram_login_enabled BOOLEAN NOT NULL DEFAULT TRUE
+        """,
+    ),
+    # ── Payment gateway config ───────────────────────────────────────────────
+    (
+        "add payment gateway columns to bot_config",
+        """
+        ALTER TABLE bot_config
+          ADD COLUMN IF NOT EXISTS payment_gateway       TEXT NOT NULL DEFAULT 'paystack',
+          ADD COLUMN IF NOT EXISTS paystack_secret_key   TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS paystack_public_key   TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS paystack_plan_starter TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS paystack_plan_trader  TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS paystack_plan_pro     TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS paystack_plan_elite   TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS finnhub_api_key       TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS smtp_host             TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS smtp_port             INT  NOT NULL DEFAULT 587,
+          ADD COLUMN IF NOT EXISTS smtp_user             TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS smtp_password         TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS smtp_from_email       TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS smtp_from_name        TEXT NOT NULL DEFAULT '',
+          ADD COLUMN IF NOT EXISTS smtp_enabled          BOOLEAN NOT NULL DEFAULT FALSE
+        """,
+    ),
     # ── Refresh token revocation table ──────────────────────────────────────
     (
         "create refresh_token_jti table",

@@ -1,0 +1,17 @@
+[Unit]
+Description=MetaTrader 5 Terminal (Wine)
+After=network.target xvfb.service
+Requires=xvfb.service
+
+[Service]
+Type=simple
+User=kira
+Environment=DISPLAY=:0
+Environment=WINEPREFIX=/home/kira/.mt5wine
+Environment=WINEARCH=win64
+ExecStart=/home/kira/trading-bot/scripts/start_mt5_terminal.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

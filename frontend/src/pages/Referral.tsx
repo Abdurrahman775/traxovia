@@ -49,7 +49,7 @@ export default function Referral() {
           onClick={copyLink}
           disabled={!code}
           className="px-5 py-2.5 rounded-lg font-mono font-bold text-xs tracking-widest transition-colors disabled:opacity-40"
-          style={{ background: copied ? 'rgba(0,229,204,0.15)' : '#00e5cc', color: copied ? 'var(--color-cy)' : '#000', border: copied ? '1px solid rgba(0,229,204,0.4)' : 'none' }}
+          style={{ background: copied ? 'rgba(212,168,83,0.15)' : '#d4a853', color: copied ? 'var(--color-cy)' : '#000', border: copied ? '1px solid rgba(212,168,83,0.4)' : 'none' }}
         >
           {copied ? '✓ Copied!' : 'Copy Link'}
         </button>
@@ -67,7 +67,7 @@ export default function Referral() {
             <div key={title} className="flex gap-4 py-3.5"
               style={{ borderBottom: i < 2 ? '1px solid var(--color-divider)' : 'none' }}>
               <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 font-mono text-xs font-bold text-cy"
-                style={{ background: 'rgba(0,229,204,0.1)', border: '1px solid rgba(0,229,204,0.2)' }}>
+                style={{ background: 'rgba(212,168,83,0.1)', border: '1px solid rgba(212,168,83,0.2)' }}>
                 {i + 1}
               </div>
               <div>

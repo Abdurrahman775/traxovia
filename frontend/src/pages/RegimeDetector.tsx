@@ -23,9 +23,9 @@ function formatPair(raw: string): string {
 
 function regimeMeta(regime: string) {
   switch (regime) {
-    case 'trending':      return { label: 'TRENDING',      color: 'var(--color-cy)',  bg: 'rgba(0,229,204,0.08)',  border: 'rgba(0,229,204,0.2)' }
+    case 'trending':      return { label: 'TRENDING',      color: 'var(--color-cy)',  bg: 'rgba(212,168,83,0.08)',  border: 'rgba(212,168,83,0.2)' }
     case 'volatile':      return { label: 'VOLATILE',      color: '#f0b429',           bg: 'rgba(240,180,41,0.08)', border: 'rgba(240,180,41,0.2)' }
-    case 'ranging':       return { label: 'RANGING',        color: '#ff3d5a',           bg: 'rgba(255,61,90,0.08)',  border: 'rgba(255,61,90,0.2)' }
+    case 'ranging':       return { label: 'RANGING',        color: '#e8544f',           bg: 'rgba(232,84,79,0.08)',  border: 'rgba(232,84,79,0.2)' }
     case 'bridge_offline':return { label: 'BRIDGE OFFLINE', color: 'var(--color-tx3)', bg: 'transparent',           border: 'var(--color-s3)' }
     default:              return { label: 'UNKNOWN',        color: 'var(--color-tx3)', bg: 'transparent',           border: 'var(--color-s3)' }
   }
@@ -34,7 +34,7 @@ function regimeMeta(regime: string) {
 function gateMeta(gate: string) {
   if (gate === 'open')    return { label: 'OPEN',         color: 'var(--color-cy)' }
   if (gate === 'reduced') return { label: 'OPEN (0.5×)',  color: '#f0b429' }
-  return                         { label: 'BLOCKED',      color: '#ff3d5a' }
+  return                         { label: 'BLOCKED',      color: '#e8544f' }
 }
 
 function MiniBar({ pct, color }: { pct: number; color: string }) {
@@ -88,7 +88,7 @@ export default function RegimeDetector() {
       {/* Bridge offline warning */}
       {data && !data.bridge_online && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl font-mono text-xs"
-          style={{ background: 'rgba(255,61,90,0.06)', border: '1px solid rgba(255,61,90,0.2)', color: '#ff3d5a' }}>
+          style={{ background: 'rgba(232,84,79,0.06)', border: '1px solid rgba(232,84,79,0.2)', color: '#e8544f' }}>
           ✗ MT5 bridge unreachable — showing last known regime state. All signals blocked.
         </div>
       )}
@@ -105,7 +105,7 @@ export default function RegimeDetector() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: 'Trending',        value: trendingCount,  color: 'var(--color-cy)' },
-          { label: 'Ranging',         value: rangingCount,   color: '#ff3d5a' },
+          { label: 'Ranging',         value: rangingCount,   color: '#e8544f' },
           { label: 'Volatile',        value: volatileCount,  color: '#f0b429' },
           { label: 'Signals Blocked', value: blockedCount,   color: 'var(--color-tx2)' },
         ].map(c => (
@@ -128,7 +128,7 @@ export default function RegimeDetector() {
           <div className="px-5 py-8 text-center text-tx2 text-sm animate-pulse">Classifying regimes…</div>
         )}
         {isError && (
-          <div className="px-5 py-8 text-center font-mono text-xs" style={{ color: '#ff3d5a' }}>
+          <div className="px-5 py-8 text-center font-mono text-xs" style={{ color: '#e8544f' }}>
             Failed to load regime data. Check API connection.
           </div>
         )}
@@ -137,7 +137,7 @@ export default function RegimeDetector() {
           const rm      = regimeMeta(e.regime)
           const gm      = gateMeta(e.signal_gate)
           const offline = e.regime === 'bridge_offline' || e.regime === 'unknown'
-          const biasColor = e.d1_bias === 'bullish' ? 'var(--color-cy)' : e.d1_bias === 'bearish' ? '#ff3d5a' : 'var(--color-tx3)'
+          const biasColor = e.d1_bias === 'bullish' ? 'var(--color-cy)' : e.d1_bias === 'bearish' ? '#e8544f' : 'var(--color-tx3)'
 
           return (
             <div key={e.key} className="px-5 py-4 border-b border-s3 last:border-0"

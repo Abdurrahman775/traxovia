@@ -66,7 +66,7 @@ const INPUT: React.CSSProperties = {
 
 const TYPE_COLORS: Record<string, string> = {
   signals:   '#4f8ef7',
-  community: '#00e5cc',
+  community: '#d4a853',
   admin:     '#8b5cf6',
   general:   '#f0b429',
 }
@@ -82,7 +82,7 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 function Feedback({ msg, ok, onClose }: { msg: string; ok: boolean; onClose(): void }) {
-  const c = ok ? '#00e5cc' : '#ff3d5a'
+  const c = ok ? '#d4a853' : '#e8544f'
   return (
     <div className="flex items-center justify-between px-4 py-3 rounded-xl text-xs font-mono"
       style={{ background: `${c}10`, border: `1px solid ${c}30`, color: c }}>
@@ -121,13 +121,13 @@ function AddChannelModal({ onClose, onAdded }: { onClose(): void; onAdded(): voi
         <div>
           <label style={LABEL}>Channel Name</label>
           <input style={INPUT} value={form.name} onChange={set('name')} placeholder="My Signals Channel"
-            onFocus={e => (e.target.style.borderColor = '#00e5cc')}
+            onFocus={e => (e.target.style.borderColor = '#d4a853')}
             onBlur={e => (e.target.style.borderColor = 'var(--color-input-border)')} />
         </div>
         <div>
           <label style={LABEL}>Chat ID</label>
           <input style={INPUT} value={form.chat_id} onChange={set('chat_id')} placeholder="-1001234567890"
-            onFocus={e => (e.target.style.borderColor = '#00e5cc')}
+            onFocus={e => (e.target.style.borderColor = '#d4a853')}
             onBlur={e => (e.target.style.borderColor = 'var(--color-input-border)')} />
           <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--color-tx3)' }}>
             Add the bot as channel admin first, then get the chat ID from @userinfobot or getUpdates API.
@@ -145,7 +145,7 @@ function AddChannelModal({ onClose, onAdded }: { onClose(): void; onAdded(): voi
         <div>
           <label style={LABEL}>Description (optional)</label>
           <input style={INPUT} value={form.description} onChange={set('description')} placeholder="e.g. VIP signals group"
-            onFocus={e => (e.target.style.borderColor = '#00e5cc')}
+            onFocus={e => (e.target.style.borderColor = '#d4a853')}
             onBlur={e => (e.target.style.borderColor = 'var(--color-input-border)')} />
         </div>
 
@@ -154,7 +154,7 @@ function AddChannelModal({ onClose, onAdded }: { onClose(): void; onAdded(): voi
             onClick={() => create.mutate()}
             disabled={create.isPending || !form.chat_id.trim()}
             className="flex-1 py-2.5 rounded-xl text-xs font-bold font-mono tracking-widest transition-colors disabled:opacity-50"
-            style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
+            style={{ background: '#d4a853', color: '#000', border: 'none' }}>
             {create.isPending ? 'Verifying…' : 'Add Channel'}
           </button>
           <button onClick={onClose}
@@ -205,7 +205,7 @@ function ChannelRow({ ch, onRefresh }: { ch: Channel; onRefresh(): void }) {
             <TypeBadge type={ch.channel_type} />
             {!ch.is_active && (
               <span className="font-mono text-[9px] px-1.5 py-0.5 rounded"
-                style={{ background: 'rgba(255,61,90,0.1)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)' }}>
+                style={{ background: 'rgba(232,84,79,0.1)', color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)' }}>
                 INACTIVE
               </span>
             )}
@@ -231,7 +231,7 @@ function ChannelRow({ ch, onRefresh }: { ch: Channel; onRefresh(): void }) {
           <span className="font-mono text-[10px] flex-1 truncate" style={{ color: 'var(--color-cy)' }}>{invite}</span>
           <button onClick={copyLink}
             className="font-mono text-[10px] px-2 py-0.5 rounded transition-colors"
-            style={{ background: copied ? '#00e5cc20' : 'var(--color-s2)', color: copied ? '#00e5cc' : 'var(--color-tx2)',
+            style={{ background: copied ? '#d4a85320' : 'var(--color-s2)', color: copied ? '#d4a853' : 'var(--color-tx2)',
               border: '1px solid var(--color-card-border)' }}>
             {copied ? 'Copied!' : 'Copy'}
           </button>
@@ -241,7 +241,7 @@ function ChannelRow({ ch, onRefresh }: { ch: Channel; onRefresh(): void }) {
       <div className="flex flex-wrap gap-2">
         <button onClick={() => genLink.mutate()} disabled={genLink.isPending}
           className="font-mono text-[10px] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-          style={{ background: 'rgba(0,229,204,0.08)', color: '#00e5cc', border: '1px solid rgba(0,229,204,0.2)' }}>
+          style={{ background: 'rgba(212,168,83,0.08)', color: '#d4a853', border: '1px solid rgba(212,168,83,0.2)' }}>
           {genLink.isPending ? 'Generating…' : '🔗 Invite Link'}
         </button>
         <button onClick={() => refreshCount.mutate()} disabled={refreshCount.isPending}
@@ -251,7 +251,7 @@ function ChannelRow({ ch, onRefresh }: { ch: Channel; onRefresh(): void }) {
         </button>
         <button onClick={() => { if (confirm(`Remove "${ch.name}"?`)) del.mutate() }} disabled={del.isPending}
           className="font-mono text-[10px] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ml-auto"
-          style={{ background: 'rgba(255,61,90,0.07)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.15)' }}>
+          style={{ background: 'rgba(232,84,79,0.07)', color: '#e8544f', border: '1px solid rgba(232,84,79,0.15)' }}>
           Remove
         </button>
       </div>
@@ -379,7 +379,7 @@ export default function Community() {
             onClick={() => dropSignal.mutate()}
             disabled={dropSignal.isPending}
             className="w-full py-2.5 rounded-xl font-mono text-xs font-bold tracking-widest transition-colors disabled:opacity-50"
-            style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
+            style={{ background: '#d4a853', color: '#000', border: 'none' }}>
             {dropSignal.isPending ? 'Dropping…' : '📡 Drop Signal to Telegram'}
           </button>
 
@@ -402,7 +402,7 @@ export default function Community() {
             onClick={() => dropResult.mutate()}
             disabled={dropResult.isPending}
             className="w-full py-2.5 rounded-xl font-mono text-xs font-bold tracking-widest transition-colors disabled:opacity-50"
-            style={{ background: 'rgba(0,229,204,0.08)', color: '#00e5cc', border: '1px solid rgba(0,229,204,0.25)' }}>
+            style={{ background: 'rgba(212,168,83,0.08)', color: '#d4a853', border: '1px solid rgba(212,168,83,0.25)' }}>
             {dropResult.isPending ? 'Dropping…' : '📬 Drop Result to Telegram'}
           </button>
 
@@ -426,16 +426,16 @@ export default function Community() {
                     <span className="font-mono font-bold text-sm" style={{ color: 'var(--color-tx)' }}>{d.pair}</span>
                     <span className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded"
                       style={{
-                        background: d.direction === 'BUY' ? 'rgba(0,229,204,0.1)' : 'rgba(255,61,90,0.1)',
-                        color: d.direction === 'BUY' ? '#00e5cc' : '#ff3d5a',
-                        border: `1px solid ${d.direction === 'BUY' ? 'rgba(0,229,204,0.2)' : 'rgba(255,61,90,0.2)'}`,
+                        background: d.direction === 'BUY' ? 'rgba(212,168,83,0.1)' : 'rgba(232,84,79,0.1)',
+                        color: d.direction === 'BUY' ? '#d4a853' : '#e8544f',
+                        border: `1px solid ${d.direction === 'BUY' ? 'rgba(212,168,83,0.2)' : 'rgba(232,84,79,0.2)'}`,
                       }}>
                       {d.direction}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-mono font-bold text-sm"
-                      style={{ color: d.pnl_r > 0 ? '#4ade80' : '#ff3d5a' }}>
+                      style={{ color: d.pnl_r > 0 ? '#4ade80' : '#e8544f' }}>
                       {d.pnl_r > 0 ? '+' : ''}{d.pnl_r?.toFixed(1)}R
                     </span>
                     <span className="font-mono text-[10px]" style={{ color: 'var(--color-tx3)' }}>{d.created_at}</span>
@@ -459,7 +459,7 @@ export default function Community() {
           <button
             onClick={() => setShowAdd(true)}
             className="font-mono text-xs font-bold tracking-widest px-4 py-2 rounded-xl transition-colors"
-            style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
+            style={{ background: '#d4a853', color: '#000', border: 'none' }}>
             + Add Channel
           </button>
         </div>
@@ -474,7 +474,7 @@ export default function Community() {
             <button
               onClick={() => setShowAdd(true)}
               className="font-mono text-xs font-bold tracking-widest px-5 py-2.5 rounded-xl transition-colors"
-              style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
+              style={{ background: '#d4a853', color: '#000', border: 'none' }}>
               Add Your First Channel
             </button>
           </div>

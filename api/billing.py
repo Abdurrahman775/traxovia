@@ -1,39 +1,22 @@
 """
-api/billing.py — Stripe subscription management.
+api/billing.py — Paystack subscription management.
 
 Endpoints
 ---------
-POST /billing/webhook                  Stripe webhook receiver (no auth — verified by signature)
-POST /billing/create-checkout-session  Start a Stripe Checkout flow for a plan upgrade
-POST /billing/customer-portal          Open the Stripe Billing Portal for self-service management
-GET  /billing/subscription             Return the current user's plan and subscription status
-
-Webhook events handled
-----------------------
-customer.subscription.created   → activate new plan
-customer.subscription.updated   → apply plan change (upgrade / downgrade / reinstatement)
-customer.subscription.deleted   → downgrade to community on cancellation / non-payment
-
-ACID guarantees
----------------
-Atomicity   — every plan change wraps UPDATE users + INSERT audit_log in an
-              explicit savepoint; either both commit or both roll back.
-Consistency — plan name is validated against VALID_PLANS before any write;
-              DB constraints (FK, NOT NULL) enforce referential integrity.
-Isolation   — SELECT ... FOR UPDATE locks the user row for the duration of
-              each plan-change savepoint, preventing concurrent webhooks or
-              checkout requests from reading stale data and double-writing.
-Durability  — PostgreSQL WAL ensures every committed savepoint survives a crash.
-              Stripe event IDs are recorded in billing_events to make webhook
-              processing idempotent across Stripe retries.
+POST /billing/webhook                  Paystack webhook receiver (verified by signature)
+POST /billing/create-checkout-session  Redirect to Paystack Checkout for a plan upgrade
+GET  /billing/subscription             Return the current user's plan
+GET  /billing/plans                    Public plan catalogue with NGN pricing
+GET  /billing/usage                    Monthly usage counters
 """
 
+import hashlib
+import hmac
 import json
 import logging
 from datetime import datetime, timezone
 
 import httpx
-import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
@@ -45,512 +28,200 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
+VALID_PLANS = {"community", "starter", "trader", "pro", "elite"}
 
-# ── Dynamic payment config ─────────────────────────────────────────────────────
+PLAN_PRICES: dict[str, str] = {
+    "community": "₦0",
+    "starter":   "₦14,900/mo",
+    "trader":    "₦49,900/mo",
+    "pro":       "₦99,900/mo",
+    "elite":     "₦199,900/mo",
+}
+
 
 async def _get_payment_config(db) -> dict:
-    """Read payment gateway config from DB; fall back to .env for each field."""
     row = await db.fetchrow("SELECT * FROM bot_config WHERE id=1")
     cfg = dict(row) if row else {}
     return {
-        "gateway":               cfg.get("payment_gateway") or "stripe",
-        "stripe_secret_key":     cfg.get("stripe_secret_key")     or settings.stripe_secret_key,
-        "stripe_webhook_secret": cfg.get("stripe_webhook_secret") or settings.stripe_webhook_secret,
-        "stripe_price_starter":  cfg.get("stripe_price_starter")  or settings.stripe_price_starter,
-        "stripe_price_trader":   cfg.get("stripe_price_trader")   or settings.stripe_price_trader,
-        "stripe_price_pro":      cfg.get("stripe_price_pro")      or settings.stripe_price_pro,
-        "stripe_price_elite":    cfg.get("stripe_price_elite")    or settings.stripe_price_elite,
-        "paystack_secret_key":   cfg.get("paystack_secret_key")   or "",
-        "paystack_public_key":   cfg.get("paystack_public_key")   or "",
-        "paystack_plan_starter": cfg.get("paystack_plan_starter") or "",
-        "paystack_plan_trader":  cfg.get("paystack_plan_trader")  or "",
-        "paystack_plan_pro":     cfg.get("paystack_plan_pro")     or "",
-        "paystack_plan_elite":   cfg.get("paystack_plan_elite")   or "",
+        "paystack_secret_key": cfg.get("paystack_secret_key") or "",
+        "paystack_public_key": cfg.get("paystack_public_key") or "",
     }
 
-# ── Plan definitions ───────────────────────────────────────────────────────────
 
-# All valid plan names in the platform. "community" is the free / downgrade target.
-VALID_PLANS = {"community", "starter", "trader", "pro", "elite"}
-
-# Human-readable prices — used in audit log messages only.
-PLAN_PRICES: dict[str, str] = {
-    "community": "$0",
-    "starter":   "$29/mo",
-    "trader":    "$79/mo",
-    "pro":       "$149/mo",
-    "elite":     "$299/mo",
-}
-
-# Stripe subscription statuses that mean the subscription is effectively active.
-_ACTIVE_STATUSES = {"active", "trialing"}
-
-
-def _price_to_plan_map(cfg: dict) -> dict[str, str]:
-    m: dict[str, str] = {}
-    for plan in ("starter", "trader", "pro", "elite"):
-        price_id = cfg.get(f"stripe_price_{plan}", "")
-        if price_id:
-            m[price_id] = plan
-    return m
-
-
-def _paystack_plan_map(cfg: dict) -> dict[str, str]:
-    m: dict[str, str] = {}
-    for plan in ("starter", "trader", "pro", "elite"):
-        code = cfg.get(f"paystack_plan_{plan}", "")
+async def _get_paystack_plan_map(db) -> dict[str, str]:
+    """Return {plan_id: paystack_plan_code} from plan_config.features."""
+    rows = await db.fetch(
+        "SELECT plan_id, features FROM plan_config WHERE is_active=TRUE AND plan_id != 'community'"
+    )
+    result = {}
+    for r in rows:
+        features = r["features"] if isinstance(r["features"], dict) else {}
+        code = features.get("paystack_plan_code", "")
         if code:
-            m[plan] = code
-    return m
-
-
-def _plan_from_subscription(sub: stripe.Subscription, cfg: dict) -> str | None:
-    price_map = _price_to_plan_map(cfg)
-    try:
-        price_id = sub["items"]["data"][0]["price"]["id"]
-        return price_map.get(price_id)
-    except (KeyError, IndexError):
-        return None
-
-
-# ── Internal helpers ───────────────────────────────────────────────────────────
-
-async def _is_event_processed(event_id: str, event_type: str, db) -> bool:
-    """
-    Idempotency guard — record the Stripe event ID atomically.
-    Returns True if this event was already processed (Stripe retry).
-    Uses INSERT ... ON CONFLICT to make the check-and-insert atomic.
-    """
-    result = await db.fetchval(
-        """
-        INSERT INTO billing_events (event_id, event_type)
-        VALUES ($1, $2)
-        ON CONFLICT (event_id) DO NOTHING
-        RETURNING event_id
-        """,
-        event_id, event_type,
-    )
-    return result is None  # None means the INSERT was skipped (conflict = already seen)
-
-
-async def _get_or_create_stripe_customer(user: dict, db) -> str:
-    """
-    Return the user's Stripe customer ID, creating a new Customer if needed.
-
-    Isolation: SELECT ... FOR UPDATE locks the user row so concurrent requests
-    cannot both see stripe_customer_id = NULL and create duplicate customers.
-    The Stripe API call happens outside the lock window — if it fails the
-    transaction rolls back cleanly with no side-effects in our DB.
-    """
-    async with db.transaction():  # savepoint — rolls back on any exception
-        row = await db.fetchrow(
-            "SELECT id, email, stripe_customer_id FROM users WHERE id = $1::uuid FOR UPDATE",
-            user["sub"],
-        )
-        if not row:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-
-        if row["stripe_customer_id"]:
-            return row["stripe_customer_id"]
-
-        # Row is locked — no concurrent request can enter this branch simultaneously.
-        customer = stripe.Customer.create(
-            email=row["email"],
-            metadata={"user_id": str(row["id"])},
-        )
-        await db.execute(
-            "UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
-            customer["id"], row["id"],
-        )
-        return customer["id"]
-
-
-async def _apply_plan_change(
-    customer_id: str,
-    new_plan: str,
-    event_type: str,
-    db,
-) -> None:
-    """
-    Update the user's plan in the DB and write an audit log entry.
-
-    ACID breakdown
-    ──────────────
-    Atomicity   — explicit savepoint (async with db.transaction()) ensures the
-                  plan UPDATE and audit_log INSERT both commit or both roll back.
-    Consistency — new_plan validated against VALID_PLANS before any write.
-    Isolation   — SELECT ... FOR UPDATE locks the user row for the duration of
-                  this savepoint, preventing a second concurrent webhook from
-                  reading the same old_plan and writing a duplicate audit entry.
-    Durability  — PostgreSQL WAL; handled by the outer request transaction.
-    """
-    if new_plan not in VALID_PLANS:
-        raise ValueError(f"billing: invalid plan name '{new_plan}'")
-
-    async with db.transaction():  # savepoint — rolls back both writes on any exception
-        # Lock row: no other transaction can read or write this user's plan
-        # until this savepoint commits or rolls back.
-        user = await db.fetchrow(
-            "SELECT id, plan FROM users WHERE stripe_customer_id = $1 FOR UPDATE",
-            customer_id,
-        )
-        if not user:
-            logger.warning("stripe webhook: no user found for customer %s", customer_id)
-            return
-
-        old_plan = user["plan"]
-        if old_plan == new_plan:
-            return  # Idempotent — already in desired state, savepoint releases cleanly.
-
-        # ── Atomicity: both writes happen together or not at all ──────────────
-
-        await db.execute(
-            "UPDATE users SET plan = $1, updated_at = NOW() WHERE id = $2",
-            new_plan, user["id"],
-        )
-
-        direction = "upgraded" if _plan_rank(new_plan) > _plan_rank(old_plan) else "downgraded"
-        detail = (
-            f"Plan {direction} from {old_plan} ({PLAN_PRICES.get(old_plan, '?')}) "
-            f"to {new_plan} ({PLAN_PRICES.get(new_plan, '?')}) "
-            f"via Stripe event {event_type}"
-        )
-
-        await set_rls_user(db, str(user["id"]))
-        await db.execute(
-            "INSERT INTO audit_log (user_id, action, detail) VALUES ($1, $2, $3)",
-            user["id"],
-            "plan_upgraded" if direction == "upgraded" else "plan_downgraded",
-            detail,
-        )
-
-    logger.info(
-        "billing: user %s %s — %s → %s (event: %s)",
-        user["id"], direction, old_plan, new_plan, event_type,
-    )
+            result[r["plan_id"]] = code
+    return result
 
 
 def _plan_rank(plan: str) -> int:
-    """Numeric rank so upgrade vs downgrade direction can be determined."""
     return {"community": 0, "starter": 1, "trader": 2, "pro": 3, "elite": 4}.get(plan, -1)
 
 
-# ── Webhook endpoint ───────────────────────────────────────────────────────────
+async def _apply_plan_change(user_id: str, new_plan: str, source: str, db) -> None:
+    # Validate plan exists in DB (dynamic — not a hardcoded set)
+    if new_plan != "community":
+        exists = await db.fetchval("SELECT 1 FROM plan_config WHERE plan_id=$1", new_plan)
+        if not exists:
+            raise ValueError(f"invalid plan '{new_plan}'")
+    async with db.transaction():
+        user = await db.fetchrow(
+            "SELECT id, plan FROM users WHERE id=$1::uuid FOR UPDATE", user_id
+        )
+        if not user or user["plan"] == new_plan:
+            return
+        old_plan = user["plan"]
+        await db.execute(
+            "UPDATE users SET plan=$1, updated_at=NOW() WHERE id=$2",
+            new_plan, user["id"],
+        )
+        direction = "upgraded" if _plan_rank(new_plan) > _plan_rank(old_plan) else "downgraded"
+        await set_rls_user(db, str(user["id"]))
+        await db.execute(
+            "INSERT INTO audit_log (user_id, action, detail) VALUES ($1,$2,$3)",
+            user["id"],
+            "plan_upgraded" if direction == "upgraded" else "plan_downgraded",
+            f"Plan {direction} from {old_plan} to {new_plan} via {source}",
+        )
+    logger.info("billing: user %s %s → %s (%s)", user_id, old_plan, new_plan, source)
 
-@router.post(
-    "/webhook",
-    status_code=status.HTTP_200_OK,
-    summary="Receive and process Stripe webhook events",
-    # No auth dependency — Stripe does not send a JWT.
-    # Security is provided by signature verification below.
-)
-async def stripe_webhook(request: Request, db=Depends(get_db)):
+
+# ── Webhook ────────────────────────────────────────────────────────────────────
+
+@router.post("/webhook", status_code=200)
+async def paystack_webhook(request: Request, db=Depends(get_db)):
     payload = await request.body()
-    sig_header = request.headers.get("Stripe-Signature", "")
     cfg = await _get_payment_config(db)
-    stripe.api_key = cfg["stripe_secret_key"]
+    secret = cfg["paystack_secret_key"]
+
+    sig = request.headers.get("x-paystack-signature", "")
+    expected = hmac.new(secret.encode(), payload, hashlib.sha512).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        raise HTTPException(400, "Invalid Paystack signature")
+
+    event = json.loads(payload)
+    event_type: str = event.get("event", "")
+    data = event.get("data", {})
 
     try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, cfg["stripe_webhook_secret"]
-        )
-    except stripe.error.SignatureVerificationError:
-        logger.warning("stripe webhook: invalid signature")
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid Stripe signature")
-    except Exception as exc:
-        logger.warning("stripe webhook: malformed payload — %s", exc)
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Malformed webhook payload")
+        if event_type == "subscription.create":
+            email = data.get("customer", {}).get("email")
+            plan_code = data.get("plan", {}).get("plan_code", "")
+            plan_map = {v: k for k, v in (await _get_paystack_plan_map(db)).items()}
+            plan = plan_map.get(plan_code)
+            if email and plan:
+                row = await db.fetchrow("SELECT id FROM users WHERE email=$1", email)
+                if row:
+                    await _apply_plan_change(str(row["id"]), plan, "paystack.subscription.create", db)
 
-    event_type: str = event["type"]
-    event_id:   str = event["id"]
-    sub: stripe.Subscription = event["data"]["object"]
+        elif event_type in ("subscription.disable", "subscription.not_renew"):
+            email = data.get("customer", {}).get("email")
+            if email:
+                row = await db.fetchrow("SELECT id FROM users WHERE email=$1", email)
+                if row:
+                    await _apply_plan_change(str(row["id"]), "community", event_type, db)
 
-    # ── Idempotency guard ────────────────────────────────────────────────────
-    # Stripe retries unacknowledged webhooks. INSERT ... ON CONFLICT ensures
-    # each event_id is processed exactly once even under concurrent delivery.
-    if await _is_event_processed(event_id, event_type, db):
-        logger.info("stripe webhook: duplicate event %s (%s) — skipping", event_id, event_type)
-        return {"status": "ok", "event": event_type, "duplicate": True}
-
-    try:
-        if event_type == "customer.subscription.created":
-            await _handle_subscription_created(sub, db, cfg)
-
-        elif event_type == "customer.subscription.updated":
-            await _handle_subscription_updated(sub, db, cfg)
-
-        elif event_type == "customer.subscription.deleted":
-            await _handle_subscription_deleted(sub, db)
-
-        # All other event types are acknowledged but not processed.
+        elif event_type == "charge.success":
+            email = data.get("customer", {}).get("email")
+            plan_code = data.get("plan", {}).get("plan_code", "") if data.get("plan") else ""
+            plan_map = {v: k for k, v in (await _get_paystack_plan_map(db)).items()}
+            plan = plan_map.get(plan_code)
+            if email and plan:
+                row = await db.fetchrow("SELECT id FROM users WHERE email=$1", email)
+                if row:
+                    await _apply_plan_change(str(row["id"]), plan, "paystack.charge.success", db)
 
     except Exception as exc:
-        # Return 500 so Stripe retries — do not swallow DB errors silently.
-        logger.exception("stripe webhook: unhandled error processing %s", event_type)
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Webhook processing failed") from exc
+        logger.exception("paystack webhook: error processing %s", event_type)
+        raise HTTPException(500, "Webhook processing failed") from exc
 
-    return {"status": "ok", "event": event_type}
-
-
-# ── Webhook sub-handlers ───────────────────────────────────────────────────────
-
-async def _handle_subscription_created(sub: stripe.Subscription, db, cfg: dict) -> None:
-    """
-    New subscription created.
-    Only activate the plan if the subscription status is active or trialing.
-    A `status=incomplete` means payment hasn't cleared yet — do not grant access.
-
-    Note (Correction 2.5): payment method fingerprint fraud check for referrals
-    is applied in api/routes/referral.py at reward-issuance time, not here.
-    """
-    if sub["status"] not in _ACTIVE_STATUSES:
-        logger.info(
-            "subscription.created with status=%s — deferring plan activation",
-            sub["status"],
-        )
-        return
-
-    plan = _plan_from_subscription(sub, cfg)
-    if not plan:
-        logger.warning("subscription.created: unrecognised price ID in subscription %s", sub["id"])
-        return
-
-    await _apply_plan_change(sub["customer"], plan, "customer.subscription.created", db)
+    return {"status": "ok"}
 
 
-async def _handle_subscription_updated(sub: stripe.Subscription, db, cfg: dict) -> None:
-    """
-    Subscription changed — covers upgrades, downgrades, and reinstatements
-    after a failed-payment recovery.
-
-    If the new status is not active/trialing, treat it as a cancellation and
-    drop to community so access is revoked promptly (e.g. payment_failed →
-    past_due → access removed before Stripe hard-cancels after grace period).
-    """
-    if sub["status"] not in _ACTIVE_STATUSES:
-        await _apply_plan_change(
-            sub["customer"], "community", "customer.subscription.updated", db
-        )
-        return
-
-    plan = _plan_from_subscription(sub, cfg)
-    if not plan:
-        logger.warning("subscription.updated: unrecognised price ID in subscription %s", sub["id"])
-        return
-
-    await _apply_plan_change(sub["customer"], plan, "customer.subscription.updated", db)
-
-
-async def _handle_subscription_deleted(sub: stripe.Subscription, db) -> None:
-    """
-    Subscription cancelled or permanently failed.
-    Downgrade to community — revoke all paid features immediately.
-    is_paper_mode is left unchanged here; trial expiry (expire_trials Celery
-    task) handles that flag for trial cancellations.
-    """
-    await _apply_plan_change(
-        sub["customer"], "community", "customer.subscription.deleted", db
-    )
-
-
-# ── Checkout session ───────────────────────────────────────────────────────────
+# ── Checkout ───────────────────────────────────────────────────────────────────
 
 class CheckoutRequest(BaseModel):
     plan: str
 
 
-@router.post(
-    "/create-checkout-session",
-    summary="Create a Stripe Checkout session for a plan upgrade",
-)
+@router.post("/create-checkout-session")
 async def create_checkout_session(
     body: CheckoutRequest,
     user: dict = Depends(get_current_user),
     db=Depends(get_db),
 ):
-    cfg     = await _get_payment_config(db)
-    gateway = cfg["gateway"]
-    plan    = body.plan.lower()
+    plan = body.plan.lower()
 
-    if gateway == "paystack":
-        secret = cfg["paystack_secret_key"]
-        if not secret:
-            raise HTTPException(400, "Paystack secret key is not configured.")
-        plan_code = _paystack_plan_map(cfg).get(plan)
-        row = await db.fetchrow("SELECT email FROM users WHERE id=$1::uuid", user["sub"])
-        email = row["email"] if row else ""
-        payload: dict = {"email": email, "callback_url": f"{settings.frontend_url}/dashboard?checkout=success"}
-        if plan_code:
-            payload["plan"] = plan_code
-        else:
-            plan_prices = {"starter": 2900, "trader": 7900, "pro": 14900, "elite": 29900}
-            payload["amount"] = plan_prices.get(plan, 2900)
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(
-                "https://api.paystack.co/transaction/initialize",
-                json=payload,
-                headers={"Authorization": f"Bearer {secret}"},
-            )
-        if resp.status_code != 200:
-            raise HTTPException(400, f"Paystack error: {resp.json().get('message', resp.text)}")
-        data = resp.json()
-        return {"checkout_url": data["data"]["authorization_url"]}
-
-    # Default: Stripe
-    stripe.api_key = cfg["stripe_secret_key"]
-    price_map      = _price_to_plan_map(cfg)
-    plan_to_price  = {v: k for k, v in price_map.items()}
-
-    if plan not in plan_to_price:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            f"Unknown plan '{plan}'. Valid paid plans: starter, trader, pro, elite",
-        )
-
-    customer_id = await _get_or_create_stripe_customer(user, db)
-
-    # ── Isolation: lock user row before checking/modifying subscription ──────
-    # Prevents concurrent checkout requests (e.g. double-click) from both
-    # seeing no active subscription and both creating new checkout sessions.
-    async with db.transaction():  # savepoint
-        await db.fetchrow(
-            "SELECT id FROM users WHERE id = $1::uuid FOR UPDATE",
-            user["sub"],
-        )
-
-        # If the customer already has an active subscription, modify it directly
-        # instead of creating a new checkout session (which would double-bill them
-        # and leave two live subscriptions).
-        existing_subs = stripe.Subscription.list(customer=customer_id, status="active", limit=1)
-        if existing_subs.data:
-            existing_sub  = existing_subs.data[0]
-            existing_item = existing_sub["items"]["data"][0]
-            new_price_id  = plan_to_price[plan]
-
-            if existing_item["price"]["id"] == new_price_id:
-                return {"success": True, "message": "You are already on this plan."}
-
-            current_plan = price_map.get(existing_item["price"]["id"], "community")
-            is_upgrade   = _plan_rank(plan) > _plan_rank(current_plan)
-
-            stripe.Subscription.modify(
-                existing_sub["id"],
-                items=[{"id": existing_item["id"], "price": new_price_id}],
-                # Upgrades: invoice immediately so access is granted now.
-                # Downgrades: no proration — new lower price takes effect at renewal.
-                proration_behavior="always_invoice" if is_upgrade else "none",
-            )
-            return {
-                "success": True,
-                "message": f"Plan {'upgraded' if is_upgrade else 'downgraded'} successfully.",
-            }
-
-        # No existing subscription — start a fresh checkout flow.
-        session = stripe.checkout.Session.create(
-            customer=customer_id,
-            mode="subscription",
-            line_items=[{"price": plan_to_price[plan], "quantity": 1}],
-            success_url=f"{settings.frontend_url}/dashboard?checkout=success",
-            cancel_url=f"{settings.frontend_url}/billing",
-            metadata={"user_id": user["sub"], "plan": plan},
-        )
-    return {"checkout_url": session["url"]}
-
-
-# ── Customer portal ────────────────────────────────────────────────────────────
-
-@router.post(
-    "/customer-portal",
-    summary="Open the Stripe Billing Portal for subscription self-management",
-)
-async def customer_portal(
-    user: dict = Depends(get_current_user),
-    db=Depends(get_db),
-):
     cfg = await _get_payment_config(db)
-    stripe.api_key = cfg["stripe_secret_key"]
+    secret = cfg["paystack_secret_key"]
+    if not secret:
+        raise HTTPException(400, "Paystack secret key is not configured.")
 
-    row = await db.fetchrow(
-        "SELECT stripe_customer_id FROM users WHERE id = $1::uuid", user["sub"]
-    )
-    if not row or not row["stripe_customer_id"]:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "No active Stripe subscription found",
+    row = await db.fetchrow("SELECT email FROM users WHERE id=$1::uuid", user["sub"])
+    email = row["email"] if row else ""
+
+    payload: dict = {
+        "email": email,
+        "callback_url": f"{settings.frontend_url}/dashboard?checkout=success",
+    }
+    plan_map = await _get_paystack_plan_map(db)
+    plan_code = plan_map.get(plan)
+    if plan_code:
+        payload["plan"] = plan_code
+    else:
+        # Fetch amount from plan_config
+        plan_row = await db.fetchrow("SELECT price FROM plan_config WHERE plan_id=$1", plan)
+        if not plan_row:
+            raise HTTPException(400, f"Unknown plan '{plan}'")
+        payload["amount"] = int(float(plan_row["price"]) * 100)  # kobo
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            "https://api.paystack.co/transaction/initialize",
+            json=payload,
+            headers={"Authorization": f"Bearer {secret}"},
         )
+    if resp.status_code != 200:
+        raise HTTPException(400, f"Paystack error: {resp.json().get('message', resp.text)}")
 
-    session = stripe.billing_portal.Session.create(
-        customer=row["stripe_customer_id"],
-        return_url=f"{settings.frontend_url}/billing",
-    )
-    return {"portal_url": session["url"]}
+    return {"checkout_url": resp.json()["data"]["authorization_url"]}
 
 
 # ── Subscription status ────────────────────────────────────────────────────────
 
-@router.get(
-    "/subscription",
-    summary="Return the current user's plan and Stripe subscription status",
-)
-async def get_subscription(
-    user: dict = Depends(get_current_user),
-    db=Depends(get_db),
-):
+@router.get("/subscription")
+async def get_subscription(user: dict = Depends(get_current_user), db=Depends(get_db)):
     row = await db.fetchrow(
-        "SELECT plan, stripe_customer_id, trial_expires_at, is_paper_mode FROM users WHERE id = $1::uuid",
+        "SELECT plan, trial_expires_at, is_paper_mode FROM users WHERE id=$1::uuid",
         user["sub"],
     )
     if not row:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-
-    result = {
+        raise HTTPException(404, "User not found")
+    return {
         "plan":             row["plan"],
         "price":            PLAN_PRICES.get(row["plan"], "unknown"),
         "is_paper_mode":    row["is_paper_mode"],
         "trial_expires_at": row["trial_expires_at"].isoformat() if row["trial_expires_at"] else None,
     }
 
-    # Optionally enrich with live Stripe subscription data if customer exists.
-    if row["stripe_customer_id"]:
-        try:
-            cfg = await _get_payment_config(db)
-            stripe.api_key = cfg["stripe_secret_key"]
-            subs = stripe.Subscription.list(
-                customer=row["stripe_customer_id"],
-                status="active",
-                limit=1,
-            )
-            if subs.data:
-                live = subs.data[0]
-                result["stripe_status"]       = live["status"]
-                result["current_period_end"]  = live["current_period_end"]
-                result["cancel_at_period_end"] = live["cancel_at_period_end"]
-        except stripe.error.StripeError as exc:
-            # Non-fatal: return DB plan even if Stripe API is unreachable.
-            logger.warning("billing: Stripe API error fetching subscription: %s", exc)
 
-    return result
+# ── Plans catalogue ────────────────────────────────────────────────────────────
 
-
-# ── Public plan catalogue ──────────────────────────────────────────────────────
-
-@router.get(
-    "/plans",
-    summary="Return all active plan definitions (prices + features) with active currency",
-)
+@router.get("/plans")
 async def get_plans(db=Depends(get_db)):
-    cfg = await _get_payment_config(db)
-    gateway = cfg.get("gateway", "stripe")
-    if gateway == "paystack":
-        currency, symbol = "NGN", "₦"
-    else:
-        currency, symbol = "USD", "$"
-
     rows = await db.fetch(
         "SELECT plan_id, name, price, color, popular, sort_order, features "
-        "FROM plan_config WHERE is_active = TRUE ORDER BY sort_order"
+        "FROM plan_config WHERE is_active=TRUE ORDER BY sort_order"
     )
-    result = []
+    plans = []
     for r in rows:
         d = dict(r)
         d["price"] = float(d["price"])
@@ -559,101 +230,36 @@ async def get_plans(db=Depends(get_db)):
                 d["features"] = json.loads(d["features"])
             except (ValueError, TypeError):
                 d["features"] = {}
-        result.append(d)
-    return {"currency": currency, "symbol": symbol, "plans": result}
+        plans.append(d)
+    return {"currency": "NGN", "symbol": "₦", "plans": plans}
 
 
-# ── Usage stats ────────────────────────────────────────────────────────────────
+# ── Usage ──────────────────────────────────────────────────────────────────────
 
-@router.get(
-    "/usage",
-    summary="Return the current user's monthly usage counters",
-)
-async def get_usage(
-    user: dict = Depends(get_current_user),
-    db=Depends(get_db),
-):
+@router.get("/usage")
+async def get_usage(user: dict = Depends(get_current_user), db=Depends(get_db)):
     await set_rls_user(db, user["sub"])
     month_start = datetime.now(timezone.utc).replace(
         day=1, hour=0, minute=0, second=0, microsecond=0
     )
-
-    signals_generated = await db.fetchval(
-        "SELECT COUNT(*) FROM trade_signals WHERE user_id=$1 AND created_at >= $2",
+    signals = await db.fetchval(
+        "SELECT COUNT(*) FROM trade_signals WHERE user_id=$1 AND created_at>=$2",
         user["sub"], month_start,
     ) or 0
-
-    trades_executed = await db.fetchval(
-        "SELECT COUNT(*) FROM trades WHERE user_id=$1 AND entry_time >= $2",
+    trades = await db.fetchval(
+        "SELECT COUNT(*) FROM trades WHERE user_id=$1 AND entry_time>=$2",
         user["sub"], month_start,
     ) or 0
-
-    row = await db.fetchrow(
-        "SELECT mt5_accounts FROM users WHERE id=$1::uuid", user["sub"]
-    )
+    row = await db.fetchrow("SELECT mt5_accounts FROM users WHERE id=$1::uuid", user["sub"])
     mt5_raw = row["mt5_accounts"] if row else None
     if isinstance(mt5_raw, str):
         try:
             mt5_raw = json.loads(mt5_raw)
         except (ValueError, TypeError):
             mt5_raw = []
-    mt5_count = len(mt5_raw) if isinstance(mt5_raw, list) else 0
-
     return {
-        "signals_generated": int(signals_generated),
-        "trades_executed":   int(trades_executed),
+        "signals_generated": int(signals),
+        "trades_executed":   int(trades),
         "api_calls":         0,
-        "mt5_accounts":      mt5_count,
+        "mt5_accounts":      len(mt5_raw) if isinstance(mt5_raw, list) else 0,
     }
-
-
-# ── Invoice history ────────────────────────────────────────────────────────────
-
-@router.get(
-    "/invoices",
-    summary="Return the last 12 Stripe invoices for the current user",
-)
-async def get_invoices(
-    user: dict = Depends(get_current_user),
-    db=Depends(get_db),
-):
-    row = await db.fetchrow(
-        "SELECT stripe_customer_id FROM users WHERE id=$1::uuid", user["sub"]
-    )
-    if not row or not row["stripe_customer_id"]:
-        return []
-
-    cfg = await _get_payment_config(db)
-    stripe.api_key = cfg["stripe_secret_key"]
-
-    try:
-        invoices = stripe.Invoice.list(
-            customer=row["stripe_customer_id"],
-            limit=12,
-        )
-    except stripe.error.StripeError as exc:
-        logger.warning("billing: Stripe invoice list error: %s", exc)
-        return []
-
-    price_to_plan = {v: k for k, v in _price_to_plan_map(cfg).items()}
-
-    result = []
-    for inv in invoices.data:
-        # Derive plan name from first line item price ID
-        plan_name = "—"
-        try:
-            price_id = inv["lines"]["data"][0]["price"]["id"]
-            plan_name = price_to_plan.get(price_id, plan_name)
-        except (KeyError, IndexError):
-            pass
-
-        result.append({
-            "id":     inv["id"],
-            "date":   datetime.fromtimestamp(inv["created"], tz=timezone.utc)
-                      .strftime("%b %d, %Y"),
-            "plan":   plan_name,
-            "amount": f"${inv['amount_paid'] / 100:.2f}",
-            "status": inv["status"].upper(),
-            "pdf":    inv.get("invoice_pdf"),
-        })
-    return result

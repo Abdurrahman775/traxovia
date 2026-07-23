@@ -24,7 +24,6 @@ const NAV_GROUPS = [
     items: [
       { to: '/profile',   label: 'Profile',   icon: '◉' },
       { to: '/billing',   label: 'Billing',   icon: '◎' },
-      { to: '/referral',  label: 'Referral',  icon: '★' },
       { to: '/auditlog',  label: 'Audit Log', icon: '≡' },
       { to: '/settings',  label: 'Settings',  icon: '◇' },
     ],

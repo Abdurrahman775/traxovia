@@ -120,7 +120,7 @@ export default function ModelRetrain() {
             <div className="bg-s1 border border-s3 rounded-xl p-5">
               <div className="text-[10px] font-mono tracking-widest uppercase text-tx3 mb-3">Auto-Labeling Feedback Loop</div>
               <div className="px-3 py-2 rounded-lg text-xs font-mono mb-4"
-                style={{ background: 'rgba(0,229,204,0.06)', border: '1px solid rgba(0,229,204,0.18)', color: 'var(--color-cy)' }}>
+                style={{ background: 'rgba(212,168,83,0.06)', border: '1px solid rgba(212,168,83,0.18)', color: 'var(--color-cy)' }}>
                 ACTIVE — Every trade close writes outcome to feature_store
               </div>
               <div className="space-y-0 divide-y divide-s3">
@@ -211,7 +211,7 @@ export default function ModelRetrain() {
             ].map(([title, desc, type], i) => (
               <div key={i} className="flex gap-3 py-3.5">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs font-bold text-cy shrink-0"
-                  style={{ background: 'rgba(0,229,204,0.1)', border: '1px solid rgba(0,229,204,0.2)' }}>
+                  style={{ background: 'rgba(212,168,83,0.1)', border: '1px solid rgba(212,168,83,0.2)' }}>
                   {i + 1}
                 </div>
                 <div className="flex-1">

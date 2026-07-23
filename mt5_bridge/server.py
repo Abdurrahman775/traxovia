@@ -233,5 +233,29 @@ def deals(from_ts: int, to_ts: int):
 
 
 if __name__ == "__main__":
+    import sys
+    import logging
+
     port = int(os.getenv("MT5_BRIDGE_PORT", "8001"))
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+    log_file = os.getenv(
+        "MT5_BRIDGE_LOG",
+        "Z:\\home\\kira\\trading-bot\\logs\\mt5_bridge.log",
+    )
+
+    # When launched from systemd (no TTY), Wine Python cannot write to the
+    # inherited stdout/stderr handles — redirect them to the log file so
+    # uvicorn's log output is captured without triggering WinError 6.
+    try:
+        _fh = open(log_file, "a", encoding="utf-8")
+        sys.stdout = _fh
+        sys.stderr = _fh
+    except Exception:
+        pass  # fallback: keep original handles (interactive / dev mode)
+
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.INFO,
+        format="%(asctime)s  %(levelname)-8s  %(message)s",
+    )
+
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

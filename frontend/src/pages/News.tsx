@@ -24,14 +24,15 @@ interface NewsResponse {
   medium_impact:  number
   low_impact:     number
   events:         NewsEvent[]
+  message?:       string
 }
 
-const PAIRS = ['All Pairs', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD']
+const PAIRS = ['All Pairs', 'USDJPY', 'XAUUSD']
 const IMPACTS = ['all', 'high', 'medium', 'low']
 
 function impactMeta(impact: string) {
   switch (impact) {
-    case 'high':   return { label: 'HIGH',   color: '#ff3d5a', bg: 'rgba(255,61,90,0.08)',   border: 'rgba(255,61,90,0.22)' }
+    case 'high':   return { label: 'HIGH',   color: '#e8544f', bg: 'rgba(232,84,79,0.08)',   border: 'rgba(232,84,79,0.22)' }
     case 'medium': return { label: 'MED',    color: '#f0b429', bg: 'rgba(240,180,41,0.08)',  border: 'rgba(240,180,41,0.22)' }
     default:       return { label: 'LOW',    color: 'var(--color-tx3)', bg: 'var(--color-s3)', border: 'var(--color-card-border)' }
   }
@@ -49,7 +50,7 @@ function countryFlag(country: string): string {
 function timingBadge(minutesAway: number | null) {
   if (minutesAway === null) return null
   if (minutesAway < 0)   return { label: 'PAST',       color: 'var(--color-tx3)' }
-  if (minutesAway <= 30) return { label: `in ${minutesAway}m`, color: '#ff3d5a' }
+  if (minutesAway <= 30) return { label: `in ${minutesAway}m`, color: '#e8544f' }
   if (minutesAway <= 60) return { label: `in ${minutesAway}m`, color: '#f0b429' }
   const hrs = Math.floor(minutesAway / 60)
   const min = minutesAway % 60
@@ -75,7 +76,7 @@ function UpcomingBanner({ events }: { events: NewsEvent[] }) {
   if (!soon.length) return null
   return (
     <div className="flex items-start gap-3 px-4 py-3 rounded-xl font-mono text-xs"
-      style={{ background: 'rgba(255,61,90,0.06)', border: '1px solid rgba(255,61,90,0.22)', color: '#ff3d5a' }}>
+      style={{ background: 'rgba(232,84,79,0.06)', border: '1px solid rgba(232,84,79,0.22)', color: '#e8544f' }}>
       <span className="shrink-0 text-sm mt-0.5">⚠</span>
       <div>
         <span className="font-bold">HIGH-IMPACT EVENT WITHIN 30 MIN — </span>
@@ -106,7 +107,7 @@ function LockedState() {
               { time: '12:30 UTC', country: '🇬🇧', label: 'GB', event: 'BoE Rate Decision', impact: 'high',   est: '5.0%', prev: '5.25%' },
               { time: '14:00 UTC', country: '🇯🇵', label: 'JP', event: 'Unemployment Rate', impact: 'low',    est: '2.5%', prev: '2.4%' },
             ].map((row, i) => {
-              const colors: Record<string, string> = { high: '#ff3d5a', medium: '#f0b429', low: 'var(--color-tx3)' }
+              const colors: Record<string, string> = { high: '#e8544f', medium: '#f0b429', low: 'var(--color-tx3)' }
               const c = colors[row.impact]
               return (
                 <div key={i} className="px-5 py-4 border-b border-s3 last:border-0 flex items-start gap-4">
@@ -237,7 +238,7 @@ export default function News() {
                   onClick={() => setSelectedImpact(imp)}
                   className="px-2.5 py-1 rounded-lg font-mono text-[11px] font-semibold transition-all"
                   style={active
-                    ? { background: m ? m.bg : 'rgba(0,229,204,0.10)', color: m ? m.color : 'var(--color-cy)', border: `1px solid ${m ? m.border : 'rgba(0,229,204,0.3)'}` }
+                    ? { background: m ? m.bg : 'rgba(212,168,83,0.10)', color: m ? m.color : 'var(--color-cy)', border: `1px solid ${m ? m.border : 'rgba(212,168,83,0.3)'}` }
                     : { background: 'transparent', color: 'var(--color-tx3)', border: '1px solid transparent' }
                   }
                 >
@@ -260,7 +261,7 @@ export default function News() {
                   onClick={() => setSelectedPair(p)}
                   className="px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all"
                   style={active
-                    ? { background: 'rgba(0,229,204,0.10)', color: 'var(--color-cy)', border: '1px solid rgba(0,229,204,0.3)' }
+                    ? { background: 'rgba(212,168,83,0.10)', color: 'var(--color-cy)', border: '1px solid rgba(212,168,83,0.3)' }
                     : { background: 'transparent', color: 'var(--color-tx3)', border: '1px solid transparent' }
                   }
                 >
@@ -279,7 +280,7 @@ export default function News() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: 'Total Events',  value: data?.total          ?? '—', color: 'var(--color-tx)' },
-          { label: 'High Impact',   value: data?.high_impact    ?? '—', color: '#ff3d5a' },
+          { label: 'High Impact',   value: data?.high_impact    ?? '—', color: '#e8544f' },
           { label: 'Medium Impact', value: data?.medium_impact  ?? '—', color: '#f0b429' },
           { label: 'Low Impact',    value: data?.low_impact     ?? '—', color: 'var(--color-tx3)' },
         ].map(c => (
@@ -305,14 +306,21 @@ export default function News() {
 
         {isError && (
           <div className="px-5 py-10 text-center space-y-2">
-            <div className="font-mono text-xs" style={{ color: '#ff3d5a' }}>Failed to load news.</div>
+            <div className="font-mono text-xs" style={{ color: '#e8544f' }}>Failed to load news.</div>
             <div className="text-tx3 text-xs font-mono">Check that the Finnhub API key is set in Admin → Settings.</div>
           </div>
         )}
 
         {!isLoading && !isError && events.length === 0 && (
-          <div className="px-5 py-10 text-center text-tx3 font-mono text-xs">
-            No events found for the selected filters.
+          <div className="px-5 py-10 text-center space-y-2">
+            {data?.message ? (
+              <>
+                <div className="font-mono text-xs text-tx2">{data.message}</div>
+                <div className="text-tx3 text-xs">Contact admin to upgrade your Finnhub plan for full news features.</div>
+              </>
+            ) : (
+              <div className="text-tx3 font-mono text-xs">No events found for the selected filters.</div>
+            )}
           </div>
         )}
 
@@ -352,7 +360,7 @@ export default function News() {
                     </span>
                     {ev.actual && (
                       <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold"
-                        style={{ background: 'rgba(0,229,204,0.08)', color: 'var(--color-cy)', border: '1px solid rgba(0,229,204,0.2)' }}>
+                        style={{ background: 'rgba(212,168,83,0.08)', color: 'var(--color-cy)', border: '1px solid rgba(212,168,83,0.2)' }}>
                         RELEASED
                       </span>
                     )}
@@ -399,7 +407,7 @@ export default function News() {
 
       {/* Telegram notice */}
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl font-mono text-[11px]"
-        style={{ background: 'rgba(0,229,204,0.05)', border: '1px solid rgba(0,229,204,0.15)', color: 'var(--color-tx2)' }}>
+        style={{ background: 'rgba(212,168,83,0.05)', border: '1px solid rgba(212,168,83,0.15)', color: 'var(--color-tx2)' }}>
         <span className="text-cy text-sm shrink-0">✈</span>
         <span>
           <span className="text-cy font-semibold">Telegram alerts active.</span>{' '}

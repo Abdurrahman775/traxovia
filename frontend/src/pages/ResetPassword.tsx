@@ -45,7 +45,7 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(2px)' }} />
         <div className="w-full max-w-sm rounded-2xl p-8 text-center space-y-4" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)', position: 'relative', zIndex: 1 }}>
-          <div className="text-sm font-mono" style={{ color: '#ff3d5a' }}>✗ Invalid reset link</div>
+          <div className="text-sm font-mono" style={{ color: '#e8544f' }}>✗ Invalid reset link</div>
           <Link to="/forgot-password" style={{ color: 'var(--color-cy)' }} className="text-xs font-mono hover:underline">
             Request a new one
           </Link>
@@ -70,12 +70,12 @@ export default function ResetPassword() {
         {done ? (
           <div className="space-y-4">
             <div className="px-4 py-4 rounded-xl text-sm font-mono text-center"
-              style={{ background: 'rgba(0,229,204,0.08)', color: 'var(--color-cy)', border: '1px solid rgba(0,229,204,0.2)' }}>
+              style={{ background: 'rgba(212,168,83,0.08)', color: 'var(--color-cy)', border: '1px solid rgba(212,168,83,0.2)' }}>
               ✓ Password updated successfully
             </div>
             <Link to="/login"
               className="block w-full py-2.5 rounded-xl font-mono font-bold text-sm tracking-widest text-center"
-              style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
+              style={{ background: '#d4a853', color: '#000', border: 'none' }}>
               SIGN IN
             </Link>
           </div>
@@ -111,14 +111,14 @@ export default function ResetPassword() {
 
             {error && (
               <div className="text-xs font-mono px-3 py-2 rounded-lg"
-                style={{ background: 'rgba(255,61,90,0.08)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)' }}>
+                style={{ background: 'rgba(232,84,79,0.08)', color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)' }}>
                 ✗ {error}
               </div>
             )}
 
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-xl font-mono font-bold text-sm tracking-widest transition-colors disabled:opacity-50"
-              style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
+              style={{ background: '#d4a853', color: '#000', border: 'none' }}>
               {loading ? 'UPDATING…' : 'SET NEW PASSWORD'}
             </button>
 

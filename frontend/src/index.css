@@ -2,46 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Dark theme (default) ── */
+/* ── Dark theme (default) — warm charcoal/ink ── */
 :root {
-  --color-bg:           #05080f;
-  --color-s1:           #080d18;
-  --color-s2:           #0c1220;
-  --color-s3:           #101828;
-  --color-tx:           #dde4f0;
-  --color-tx2:          #8899b4;
-  --color-tx3:          #445570;
-  --color-card-border:  rgba(255,255,255,0.06);
-  --color-input-border: rgba(255,255,255,0.11);
-  --color-divider:      rgba(255,255,255,0.05);
-  --color-hover-bg:     rgba(255,255,255,0.04);
+  --color-bg:           #0b0d0f;
+  --color-s1:           #111317;
+  --color-s2:           #171a20;
+  --color-s3:           #1e2128;
+  --color-tx:           #e4e8ee;
+  --color-tx2:          #8690a4;
+  --color-tx3:          #4b5366;
+  --color-card-border:  rgba(255,255,255,0.05);
+  --color-input-border: rgba(255,255,255,0.10);
+  --color-divider:      rgba(255,255,255,0.04);
+  --color-hover-bg:     rgba(255,255,255,0.03);
+  --color-amber:        #d4a853;
+  --color-gold:         #c9953a;
+  --color-emerald:      #3dce8e;
 }
 
-/* ── Light theme ── */
+/* ── Light theme — warm cream/paper ── */
 html.light {
-  --color-bg:           #f3f6fd;
-  --color-s1:           #e6ecf8;
+  --color-bg:           #f4f1ea;
+  --color-s1:           #e8e4dc;
   --color-s2:           #ffffff;
-  --color-s3:           #edf1fa;
-  --color-tx:           #0d1526;
-  --color-tx2:          #475569;
-  --color-tx3:          #94a3b8;
-  --color-card-border:  rgba(13,21,38,0.10);
-  --color-input-border: rgba(13,21,38,0.16);
-  --color-divider:      rgba(13,21,38,0.07);
-  --color-hover-bg:     rgba(13,21,38,0.05);
+  --color-s3:           #ddd9d1;
+  --color-tx:           #1b1916;
+  --color-tx2:          #6c6559;
+  --color-tx3:          #a59d91;
+  --color-card-border:  rgba(0,0,0,0.08);
+  --color-input-border: rgba(0,0,0,0.12);
+  --color-divider:      rgba(0,0,0,0.06);
+  --color-hover-bg:     rgba(0,0,0,0.04);
+  --color-amber:        #b8923f;
+  --color-gold:         #a67a2e;
+  --color-emerald:      #2aad74;
 }
 
+/* ── Base ── */
 body {
   background-color: var(--color-bg);
   color: var(--color-tx);
   font-family: 'Figtree', sans-serif;
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.25s ease, color 0.25s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(212, 168, 83, 0.25);
+  color: var(--color-tx);
 }
 
 ::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--color-s1); }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-s3); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-tx3); }
 
 /* ── Responsive grid utilities ─────────────────────────────────────────── */
 .rg4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
@@ -49,22 +64,32 @@ body {
 .rg2 { display: grid; grid-template-columns: 1fr 1fr;       gap: 14px; }
 
 /* ── Animations ────────────────────────────────────────────────────────── */
-@keyframes pageIn  { from { opacity:0; transform:translateY(6px)  } to { opacity:1; transform:translateY(0) } }
-@keyframes cardIn  { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
-@keyframes tickUp  { 0%{color:inherit} 30%{color:#00ffea} 100%{color:inherit} }
-@keyframes tickDn  { 0%{color:inherit} 30%{color:#ff6b7a} 100%{color:inherit} }
+@keyframes pageIn  { from { opacity:0; transform:translateY(8px)  } to { opacity:1; transform:translateY(0) } }
+@keyframes cardIn  { from { opacity:0; transform:translateY(14px); filter:blur(2px) } to { opacity:1; transform:translateY(0); filter:blur(0) } }
+@keyframes tickUp  { 0%{color:inherit} 30%{color:var(--color-emerald)} 100%{color:inherit} }
+@keyframes tickDn  { 0%{color:inherit} 30%{color:#e8544f} 100%{color:inherit} }
+@keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
+@keyframes glow    { 0%,100%{box-shadow:0 0 0 rgba(212,168,83,0)} 50%{box-shadow:0 0 20px rgba(212,168,83,0.12)} }
 
-.page-enter { animation: pageIn 180ms ease-out both; }
-.card-anim  { animation: cardIn 250ms ease both; }
+.page-enter { animation: pageIn 200ms ease-out both; }
+.card-anim  { animation: cardIn 300ms ease both; }
 .tick-up    { animation: tickUp 400ms ease; }
 .tick-dn    { animation: tickDn 400ms ease; }
+.fade-in    { animation: fadeIn 300ms ease both; }
+
+/* ── Card hover glow ───────────────────────────────────────────────────── */
+.card-glow { transition: box-shadow 0.3s ease, transform 0.3s ease; }
+.card-glow:hover { box-shadow: 0 0 30px rgba(212,168,83,0.06); transform: translateY(-1px); }
 
 /* ── Sidebar nav hover slide ───────────────────────────────────────────── */
-.nav-link-item { transition: transform 0.15s ease, color 0.15s, background 0.15s; }
-.nav-link-item:hover { transform: translateX(3px); }
+.nav-link-item { transition: transform 0.15s ease, color 0.15s, background 0.15s, opacity 0.15s; }
+.nav-link-item:hover { transform: translateX(4px); }
 
 /* ── Button active press ───────────────────────────────────────────────── */
 button:active { transform: scale(0.96); }
+
+/* ── Focus ring ────────────────────────────────────────────────────────── */
+*:focus-visible { outline: 2px solid var(--color-amber); outline-offset: 2px; border-radius: 4px; }
 
 /* ── Hamburger button ──────────────────────────────────────────────────── */
 .hbg {
@@ -141,7 +166,6 @@ button:active { transform: scale(0.96); }
   }
   .sidebar-desktop.open { transform: translateX(0); }
 
-  /* Restore full sidebar content on mobile overlay */
   .sidebar-desktop .nav-label-text,
   .sidebar-desktop .nav-group-label,
   .sidebar-desktop .sidebar-logo-text,
@@ -159,9 +183,7 @@ button:active { transform: scale(0.96); }
   .card-pad { padding: 12px !important; }
   .hide-mobile { display: none !important; }
 
-  /* Topbar: sits above the sidebar so the theme toggle is always reachable */
   header { position: relative; z-index: 160; }
   .topbar-logo { position: absolute; left: 50%; transform: translateX(-50%); }
   .topbar-ticker { display: none !important; }
 }
-

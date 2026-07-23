@@ -27,6 +27,7 @@ from api.routes.data_management import router as data_mgmt_router
 from api.routes.news import router as news_router
 from api.routes.admin_pairs import router as admin_pairs_router
 from api.routes.trial import router as trial_router
+from api.routes.account import router as account_router
 
 
 pathlib.Path("static/logos").mkdir(parents=True, exist_ok=True)
@@ -70,6 +71,7 @@ app.include_router(data_mgmt_router)
 app.include_router(news_router)
 app.include_router(admin_pairs_router)
 app.include_router(trial_router)
+app.include_router(account_router)
 
 # Serve React SPA — must be last so API routes take priority
 _FRONTEND_DIST = pathlib.Path(__file__).parent / "frontend" / "dist"

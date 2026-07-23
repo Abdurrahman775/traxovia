@@ -18,7 +18,7 @@ export default function NotFound() {
         {/* Big 404 */}
         <div className="font-head font-bold select-none"
           style={{ fontSize: 'clamp(80px, 18vw, 120px)', lineHeight: 1, color: 'transparent',
-            backgroundImage: 'linear-gradient(135deg, #00e5cc 0%, #4f8ef7 100%)',
+            backgroundImage: 'linear-gradient(135deg, #d4a853 0%, #4f8ef7 100%)',
             WebkitBackgroundClip: 'text', backgroundClip: 'text' }}>
           404
         </div>
@@ -46,7 +46,7 @@ export default function NotFound() {
               <>
                 <Link to="/dashboard"
                   className="font-mono text-xs px-4 py-2 rounded-lg transition-all"
-                  style={{ background: 'linear-gradient(135deg,#00e5cc,#4f8ef7)', color: '#05080f', fontWeight: 700 }}>
+                  style={{ background: 'linear-gradient(135deg,#d4a853,#4f8ef7)', color: '#05080f', fontWeight: 700 }}>
                   ← Dashboard
                 </Link>
                 <Link to="/signals"
@@ -58,7 +58,7 @@ export default function NotFound() {
             ) : (
               <Link to="/login"
                 className="font-mono text-xs px-5 py-2 rounded-lg"
-                style={{ background: 'linear-gradient(135deg,#00e5cc,#4f8ef7)', color: '#05080f', fontWeight: 700 }}>
+                style={{ background: 'linear-gradient(135deg,#d4a853,#4f8ef7)', color: '#05080f', fontWeight: 700 }}>
                 ← Back to Login
               </Link>
             )}

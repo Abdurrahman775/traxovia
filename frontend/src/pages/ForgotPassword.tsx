@@ -42,7 +42,7 @@ export default function ForgotPassword() {
         {sent ? (
           <div className="space-y-4">
             <div className="px-4 py-4 rounded-xl text-sm font-mono text-center"
-              style={{ background: 'rgba(0,229,204,0.08)', color: 'var(--color-cy)', border: '1px solid rgba(0,229,204,0.2)' }}>
+              style={{ background: 'rgba(212,168,83,0.08)', color: 'var(--color-cy)', border: '1px solid rgba(212,168,83,0.2)' }}>
               ✓ Check your email for a reset link.<br />
               <span style={{ color: 'var(--color-tx3)', fontSize: '11px' }}>It expires in 15 minutes.</span>
             </div>
@@ -70,14 +70,14 @@ export default function ForgotPassword() {
 
             {error && (
               <div className="text-xs font-mono px-3 py-2 rounded-lg"
-                style={{ background: 'rgba(255,61,90,0.08)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)' }}>
+                style={{ background: 'rgba(232,84,79,0.08)', color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)' }}>
                 ✗ {error}
               </div>
             )}
 
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-xl font-mono font-bold text-sm tracking-widest transition-colors disabled:opacity-50"
-              style={{ background: '#00e5cc', color: '#000', border: 'none' }}>
+              style={{ background: '#d4a853', color: '#000', border: 'none' }}>
               {loading ? 'SENDING…' : 'SEND RESET LINK'}
             </button>
 

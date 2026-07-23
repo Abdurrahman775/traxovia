@@ -27,12 +27,6 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
 
-    stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
-    stripe_price_starter: str = ""
-    stripe_price_trader: str = ""
-    stripe_price_pro: str = ""
-    stripe_price_elite: str = ""
     frontend_url: str = "http://localhost:3000"
 
     telegram_bot_token: str = ""

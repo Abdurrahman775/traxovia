@@ -20,10 +20,10 @@ function calcRR(s: any): string {
 
 type BadgeType = 'cyan' | 'red' | 'gold' | 'gray' | 'green' | 'blue'
 const BADGE: Record<BadgeType, { bg: string; color: string; border: string }> = {
-  cyan:  { bg: 'rgba(0,229,204,0.1)',    color: '#00e5cc', border: '1px solid rgba(0,229,204,0.2)'    },
-  red:   { bg: 'rgba(255,61,90,0.1)',    color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)'    },
+  cyan:  { bg: 'rgba(212,168,83,0.1)',    color: '#d4a853', border: '1px solid rgba(212,168,83,0.2)'    },
+  red:   { bg: 'rgba(232,84,79,0.1)',    color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)'    },
   gold:  { bg: 'rgba(240,180,41,0.1)',   color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)'   },
-  green: { bg: 'rgba(0,229,150,0.1)',    color: '#00e596', border: '1px solid rgba(0,229,150,0.2)'    },
+  green: { bg: 'rgba(0,229,150,0.1)',    color: '#c9953a', border: '1px solid rgba(0,229,150,0.2)'    },
   blue:  { bg: 'rgba(79,142,247,0.1)',   color: '#4f8ef7', border: '1px solid rgba(79,142,247,0.2)'   },
   gray:  { bg: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' },
 }
@@ -102,14 +102,14 @@ function EquityCurve({ trades }: { trades: any[] }) {
       ctx.fillStyle = grad; ctx.fill()
 
       ctx.beginPath()
-      ctx.strokeStyle = pos ? '#00e5cc' : '#ff3d5a'
+      ctx.strokeStyle = pos ? '#d4a853' : '#e8544f'
       ctx.lineWidth = 2; ctx.lineJoin = 'round'
       vals.forEach((v, i) => i ? ctx.lineTo(tx(i), ty(v)) : ctx.moveTo(tx(i), ty(v)))
       ctx.stroke()
 
       ctx.beginPath()
       ctx.arc(tx(vals.length - 1), ty(vals[vals.length - 1]), 3, 0, Math.PI * 2)
-      ctx.fillStyle = pos ? '#00e5cc' : '#ff3d5a'; ctx.fill()
+      ctx.fillStyle = pos ? '#d4a853' : '#e8544f'; ctx.fill()
 
       ctx.fillStyle = 'var(--color-tx3)'; ctx.font = '9px IBM Plex Mono'
       ctx.textAlign = 'left'
@@ -131,7 +131,7 @@ function EquityCurve({ trades }: { trades: any[] }) {
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
 
-function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; color?: string }) {
+function ProgBar({ val, max, color = '#d4a853' }: { val: number; max: number; color?: string }) {
   return (
     <div style={{ height: 5, background: 'var(--color-card-border)', borderRadius: 3, overflow: 'hidden' }}>
       <div style={{
@@ -145,7 +145,7 @@ function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; co
 // ── Plan colors ───────────────────────────────────────────────────────────────
 
 const PLAN_COLORS: Record<string, string> = {
-  community: '#8899b4', starter: '#4f8ef7', trader: '#00e5cc', pro: '#f0b429', elite: '#8b5cf6',
+  community: '#8899b4', starter: '#4f8ef7', trader: '#d4a853', pro: '#f0b429', elite: '#8b5cf6',
 }
 const PLAN_PRICES: Record<string, number> = {
   community: 0, starter: 29, trader: 79, pro: 149, elite: 299,
@@ -188,6 +188,11 @@ export default function Dashboard() {
   const { data: sub } = useQuery({
     queryKey: ['subscription'],
     queryFn: () => api.get('/billing/subscription').then(r => r.data).catch(() => null),
+  })
+  const { data: account } = useQuery({
+    queryKey: ['account'],
+    queryFn: () => api.get('/account').then(r => r.data).catch(() => null),
+    refetchInterval: 30_000,
   })
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -241,7 +246,7 @@ export default function Dashboard() {
           className="flex items-center justify-between gap-3 rounded-[10px] px-4 py-3"
           style={{ background: 'rgba(0,229,150,0.08)', border: '1px solid rgba(0,229,150,0.25)' }}
         >
-          <span className="font-mono text-[11px]" style={{ color: '#00e596' }}>
+          <span className="font-mono text-[11px]" style={{ color: '#c9953a' }}>
             ✓ {checkoutBanner}
           </span>
           <button onClick={() => setCheckoutBanner(null)} className="font-mono text-[14px] shrink-0" style={{ color: 'var(--color-tx3)' }}>×</button>
@@ -252,16 +257,16 @@ export default function Dashboard() {
       <div className="rg4">
         {[
           {
-            t: 'Equity',
-            v: netPnl != null ? `${netPnl >= 0 ? '+' : ''}${fmt(netPnl)}R` : '—',
-            s: `${closed.length} closed trades`,
-            c: netPnl != null ? (netPnl >= 0 ? '#00e5cc' : '#ff3d5a') : '#00e5cc',
+            t: 'Account Equity',
+            v: account != null ? `$${fmt(account.equity, 2)}` : '—',
+            s: account != null ? `${account.currency} balance: $${fmt(account.balance, 2)}` : 'Connecting…',
+            c: account != null ? (account.equity >= account.balance ? '#d4a853' : '#f0b429') : '#d4a853',
           },
           {
             t: 'Net P&L',
             v: totalR !== 0 ? `${totalR >= 0 ? '+' : ''}${totalR.toFixed(1)}R` : '—',
             s: `${wins}W / ${closed.length - wins}L`,
-            c: totalR >= 0 ? '#00e5cc' : '#ff3d5a',
+            c: totalR >= 0 ? '#d4a853' : '#e8544f',
           },
           {
             t: 'Win Rate',
@@ -301,15 +306,15 @@ export default function Dashboard() {
             Live Risk State
           </div>
           {[
-            { l: 'Daily Risk Used',         v: parseFloat(dailyUsed.toFixed(1)),            max: maxDaily, c: '#00e5cc' },
-            { l: 'Total Drawdown',          v: parseFloat(maxDrawdown.toFixed(1)),           max: maxDD,    c: '#f0b429' },
-            { l: 'USD Group Exposure',      v: tradeList.filter(t => t.status === 'open' && (t.pair?.includes('USD') || t.pair?.includes('XAU'))).length, max: 3, c: '#4f8ef7' },
-            { l: 'Open Correlated Pairs',   v: tradeList.filter(t => t.status === 'open').length,  max: 3, c: '#8b5cf6' },
+            { l: 'Daily Risk Used',         v: parseFloat(dailyUsed.toFixed(1)),            max: maxDaily, c: '#d4a853', unit: '%' },
+            { l: 'Total Drawdown',          v: parseFloat(maxDrawdown.toFixed(1)),           max: maxDD,    c: '#f0b429', unit: '%' },
+            { l: 'USD Group Exposure',      v: tradeList.filter(t => t.status === 'open' && (t.pair?.includes('USD') || t.pair?.includes('XAU'))).length, max: 3, c: '#4f8ef7', unit: ' pairs' },
+            { l: 'Open Correlated Pairs',   v: tradeList.filter(t => t.status === 'open').length,  max: 3, c: '#8b5cf6', unit: ' pairs' },
           ].map(m => (
             <div key={m.l} style={{ marginBottom: 12 }}>
               <div className="flex justify-between" style={{ marginBottom: 4 }}>
                 <span style={{ fontSize: 12, color: 'var(--color-tx2)' }}>{m.l}</span>
-                <span className="font-mono" style={{ fontSize: 11, color: m.c }}>{m.v} / {m.max}%</span>
+                <span className="font-mono" style={{ fontSize: 11, color: m.c }}>{m.v} / {m.max}{m.unit}</span>
               </div>
               <ProgBar val={m.v} max={m.max} color={m.c} />
             </div>
@@ -318,8 +323,8 @@ export default function Dashboard() {
           {/* Drawdown stage banner */}
           <div style={{
             marginTop: 12, padding: '10px 14px', borderRadius: 8,
-            background: 'rgba(0,229,204,0.08)', border: '1px solid rgba(0,229,204,0.2)',
-            fontFamily: '"IBM Plex Mono",monospace', fontSize: 10, color: '#00e5cc',
+            background: 'rgba(212,168,83,0.08)', border: '1px solid rgba(212,168,83,0.2)',
+            fontFamily: '"IBM Plex Mono",monospace', fontSize: 10, color: '#d4a853',
           }}>
             ✓ DRAWDOWN STAGE: NORMAL · Risk {fmt((settings as any)?.base_risk_pct != null ? (settings as any).base_risk_pct * 100 : 1, 1)}% per trade · No restrictions active
           </div>
@@ -327,17 +332,17 @@ export default function Dashboard() {
           {/* System status */}
           {(() => {
             const paused = (settings as any)?.trading_paused === true
-            const dotColor = paused ? '#f59e0b' : '#00e596'
+            const dotColor = paused ? '#f59e0b' : '#c9953a'
             const mode = ((settings as any)?.trading_mode ?? 'signal_approval').replace('_', ' ').toUpperCase()
             return (
               <div style={{
                 marginTop: 10, padding: '9px 12px', borderRadius: 8,
-                background: paused ? 'rgba(245,158,11,0.08)' : 'rgba(0,229,204,0.1)',
-                border: `1px solid ${paused ? 'rgba(245,158,11,0.3)' : 'rgba(0,229,204,0.18)'}`,
+                background: paused ? 'rgba(245,158,11,0.08)' : 'rgba(212,168,83,0.1)',
+                border: `1px solid ${paused ? 'rgba(245,158,11,0.3)' : 'rgba(212,168,83,0.18)'}`,
                 display: 'flex', alignItems: 'center',
               }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, boxShadow: `0 0 6px ${dotColor}`, display: 'inline-block', marginRight: 8, flexShrink: 0 }} />
-                <span className="font-mono" style={{ fontSize: 10, color: paused ? '#f59e0b' : '#00e5cc' }}>
+                <span className="font-mono" style={{ fontSize: 10, color: paused ? '#f59e0b' : '#d4a853' }}>
                   SYSTEM: {paused ? 'PAUSED' : 'TRADING'} · MODE: {mode}
                 </span>
                 <span className="font-mono" style={{ fontSize: 9, color: 'var(--color-tx3)', marginLeft: 'auto' }}>NEWS: CLEAR</span>
@@ -375,7 +380,7 @@ export default function Dashboard() {
         ]
         const allPass   = gates.every(g => g.pass)
         const pct       = Math.min(100, (paperClosed.length / PAPER_TARGET) * 100)
-        const progressColor = allPass ? '#00e596' : paperClosed.length > 0 ? '#00e5cc' : '#4f8ef7'
+        const progressColor = allPass ? '#c9953a' : paperClosed.length > 0 ? '#d4a853' : '#4f8ef7'
 
         return (
           <div className="rounded-[14px] p-5" style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
@@ -391,7 +396,7 @@ export default function Dashboard() {
                   </span>
                 )}
                 {allPass
-                  ? <span className="font-mono text-[9px] px-2 py-0.5 rounded tracking-widest" style={{ background: 'rgba(0,229,150,0.1)', color: '#00e596', border: '1px solid rgba(0,229,150,0.25)' }}>🎯 READY FOR LIVE</span>
+                  ? <span className="font-mono text-[9px] px-2 py-0.5 rounded tracking-widest" style={{ background: 'rgba(0,229,150,0.1)', color: '#c9953a', border: '1px solid rgba(0,229,150,0.25)' }}>🎯 READY FOR LIVE</span>
                   : <span className="font-mono text-[9px] px-2 py-0.5 rounded tracking-widest" style={{ background: 'rgba(240,180,41,0.08)', color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)' }}>IN PROGRESS</span>
                 }
               </div>
@@ -413,14 +418,14 @@ export default function Dashboard() {
               {gates.map(g => (
                 <div key={g.label} className="rounded-[8px] px-3 py-2.5"
                   style={{
-                    background: paperClosed.length === 0 ? 'var(--color-s3)' : g.pass ? 'rgba(0,229,150,0.06)' : 'rgba(255,61,90,0.06)',
-                    border: `1px solid ${paperClosed.length === 0 ? 'var(--color-card-border)' : g.pass ? 'rgba(0,229,150,0.2)' : 'rgba(255,61,90,0.2)'}`,
+                    background: paperClosed.length === 0 ? 'var(--color-s3)' : g.pass ? 'rgba(0,229,150,0.06)' : 'rgba(232,84,79,0.06)',
+                    border: `1px solid ${paperClosed.length === 0 ? 'var(--color-card-border)' : g.pass ? 'rgba(0,229,150,0.2)' : 'rgba(232,84,79,0.2)'}`,
                   }}>
                   <div className="flex items-center gap-1.5 mb-1">
                     <span style={{ fontSize: 10 }}>{paperClosed.length === 0 ? '○' : g.pass ? '✓' : '✗'}</span>
                     <span className="font-mono text-[9px] tracking-widest uppercase" style={{ color: 'var(--color-tx3)' }}>{g.label}</span>
                   </div>
-                  <div className="font-mono font-bold" style={{ fontSize: 14, color: paperClosed.length === 0 ? 'var(--color-tx3)' : g.pass ? '#00e596' : '#ff3d5a' }}>
+                  <div className="font-mono font-bold" style={{ fontSize: 14, color: paperClosed.length === 0 ? 'var(--color-tx3)' : g.pass ? '#c9953a' : '#e8544f' }}>
                     {paperClosed.length === 0 ? '—' : g.fmt}
                   </div>
                   <div className="font-mono" style={{ fontSize: 9, color: 'var(--color-tx3)', marginTop: 2 }}>{g.target}</div>
@@ -437,9 +442,9 @@ export default function Dashboard() {
                   return (
                     <span key={pair} className="font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-widest"
                       style={{
-                        background: pairOpen > 0 ? 'rgba(0,229,204,0.12)' : 'var(--color-s3)',
-                        color:      pairOpen > 0 ? '#00e5cc' : 'var(--color-tx3)',
-                        border:     `1px solid ${pairOpen > 0 ? 'rgba(0,229,204,0.25)' : 'var(--color-card-border)'}`,
+                        background: pairOpen > 0 ? 'rgba(212,168,83,0.12)' : 'var(--color-s3)',
+                        color:      pairOpen > 0 ? '#d4a853' : 'var(--color-tx3)',
+                        border:     `1px solid ${pairOpen > 0 ? 'rgba(212,168,83,0.25)' : 'var(--color-card-border)'}`,
                       }}>
                       {pair}{pairOpen > 0 ? ' ●' : ''}
                     </span>
@@ -460,7 +465,7 @@ export default function Dashboard() {
           <Link to="/signals"
             className="font-mono text-[10px] transition-colors"
             style={{ color: 'var(--color-tx3)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#00e5cc' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#d4a853' }}
             onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-tx3)' }}>
             View All →
           </Link>
@@ -506,7 +511,7 @@ export default function Dashboard() {
                     </td>
 
                     {/* R:R */}
-                    <td className="font-mono py-[11px] px-3" style={{ fontSize: 12, color: '#00e5cc' }}>
+                    <td className="font-mono py-[11px] px-3" style={{ fontSize: 12, color: '#d4a853' }}>
                       {calcRR(s)}
                     </td>
 
@@ -514,7 +519,7 @@ export default function Dashboard() {
                     {(() => {
                       const bias = s.gate_results?.d1_bias
                       return (
-                        <td className="font-mono py-[11px] px-3" style={{ fontSize: 11, color: bias === 'bullish' ? '#00e5cc' : bias === 'bearish' ? '#ff3d5a' : 'var(--color-tx3)' }}>
+                        <td className="font-mono py-[11px] px-3" style={{ fontSize: 11, color: bias === 'bullish' ? '#d4a853' : bias === 'bearish' ? '#e8544f' : 'var(--color-tx3)' }}>
                           {bias ? (bias === 'bullish' ? '▲ BULL' : '▼ BEAR') : '—'}
                         </td>
                       )
@@ -541,7 +546,7 @@ export default function Dashboard() {
                             disabled={approve.isPending}
                             className="font-mono text-[9px] font-bold tracking-widest px-2 py-1 rounded cursor-pointer transition-all"
                             style={canApprove
-                              ? { background: '#00e5cc', color: '#000', border: 'none' }
+                              ? { background: '#d4a853', color: '#000', border: 'none' }
                               : { background: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' }}>
                             {canApprove ? '✓ Approve' : '🔒'}
                           </button>
@@ -549,7 +554,7 @@ export default function Dashboard() {
                             onClick={() => approve.mutate({ id: s.id, status: 'rejected' })}
                             disabled={approve.isPending}
                             className="font-mono text-[9px] font-bold tracking-widest px-2 py-1 rounded cursor-pointer transition-all"
-                            style={{ background: '#ff3d5a', color: '#fff', border: 'none' }}>
+                            style={{ background: '#e8544f', color: '#fff', border: 'none' }}>
                             ✗
                           </button>
                         </div>

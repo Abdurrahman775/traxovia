@@ -23,7 +23,7 @@ function fmt(n: number | null | undefined, d = 2) {
   return Number(n).toFixed(d)
 }
 
-function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; color?: string }) {
+function ProgBar({ val, max, color = '#d4a853' }: { val: number; max: number; color?: string }) {
   return (
     <div style={{ height: 5, background: 'var(--color-card-border)', borderRadius: 3, overflow: 'hidden' }}>
       <div style={{
@@ -36,9 +36,9 @@ function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; co
 }
 
 function regimeBadge(regime: string) {
-  if (regime === 'trending')  return { bg: 'rgba(0,229,204,0.08)',   color: '#00e5cc', border: '1px solid rgba(0,229,204,0.2)' }
+  if (regime === 'trending')  return { bg: 'rgba(212,168,83,0.08)',   color: '#d4a853', border: '1px solid rgba(212,168,83,0.2)' }
   if (regime === 'ranging')   return { bg: 'rgba(240,180,41,0.08)',  color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)' }
-  return                             { bg: 'rgba(255,61,90,0.08)',   color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)'  }
+  return                             { bg: 'rgba(232,84,79,0.08)',   color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)'  }
 }
 
 export default function Analytics() {
@@ -69,12 +69,14 @@ export default function Analytics() {
   const bestPair = pairList.length > 0 ? pairList[0].pair : '—'
   const netPnl   = summary?.net_pnl_r ?? null
 
+  const pf   = summary?.profit_factor
+  const avgD = summary?.avg_duration_hours
   const topStats = [
-    { l: 'Win Rate',      v: summary?.win_rate  != null ? `${summary.win_rate}%`                          : '—', c: '#00e5cc' },
-    { l: 'Net P&L',       v: netPnl             != null ? `${netPnl >= 0 ? '+' : ''}${fmt(netPnl)}R`     : '—', c: netPnl != null ? (netPnl >= 0 ? '#00e5cc' : '#ff3d5a') : 'var(--color-tx)' },
+    { l: 'Win Rate',      v: summary?.win_rate  != null ? `${summary.win_rate}%`                          : '—', c: '#d4a853' },
+    { l: 'Net P&L',       v: netPnl             != null ? `${netPnl >= 0 ? '+' : ''}${fmt(netPnl)}R`     : '—', c: netPnl != null ? (netPnl >= 0 ? '#d4a853' : '#e8544f') : 'var(--color-tx)' },
     { l: 'Total Trades',  v: summary?.total_trades != null ? String(summary.total_trades)                 : '—', c: 'var(--color-tx)' },
-    { l: 'Profit Factor', v: '—', c: '#00e5cc' },
-    { l: 'Avg Duration',  v: '—', c: 'var(--color-tx)' },
+    { l: 'Profit Factor', v: pf != null ? fmt(pf, 2) : '—', c: pf != null ? (pf >= 1 ? '#d4a853' : '#e8544f') : '#d4a853' },
+    { l: 'Avg Duration',  v: avgD != null ? `${avgD}h` : '—', c: 'var(--color-tx)' },
     { l: 'Best Pair',     v: bestPair,                                                                         c: '#4f8ef7' },
   ]
 
@@ -112,7 +114,7 @@ export default function Analytics() {
               <div className="flex justify-between mb-[5px]">
                 <span className="font-mono" style={{ fontSize: 12 }}>{p.pair}</span>
                 <div className="flex gap-3">
-                  <span className="font-mono" style={{ fontSize: 11, color: p.net_r >= 0 ? '#00e5cc' : '#ff3d5a' }}>
+                  <span className="font-mono" style={{ fontSize: 11, color: p.net_r >= 0 ? '#d4a853' : '#e8544f' }}>
                     {p.net_r >= 0 ? '+' : ''}{fmt(p.net_r)}R
                   </span>
                   <span className="font-mono" style={{ fontSize: 11, color: 'var(--color-tx3)' }}>
@@ -120,7 +122,7 @@ export default function Analytics() {
                   </span>
                 </div>
               </div>
-              <ProgBar val={p.win_rate} max={100} color={p.net_r >= 0 ? '#00e5cc' : '#ff3d5a'} />
+              <ProgBar val={p.win_rate} max={100} color={p.net_r >= 0 ? '#d4a853' : '#e8544f'} />
             </div>
           ))}
         </div>
@@ -142,7 +144,7 @@ export default function Analytics() {
                     {(r.regime ?? '—').toUpperCase()}
                   </span>
                   <div className="flex gap-[10px]">
-                    <span className="font-mono" style={{ fontSize: 11, color: r.net_r >= 0 ? '#00e5cc' : '#ff3d5a' }}>
+                    <span className="font-mono" style={{ fontSize: 11, color: r.net_r >= 0 ? '#d4a853' : '#e8544f' }}>
                       {r.net_r >= 0 ? '+' : ''}{fmt(r.net_r)}R
                     </span>
                     <span className="font-mono" style={{ fontSize: 11, color: 'var(--color-tx3)' }}>
@@ -153,7 +155,7 @@ export default function Analytics() {
                     </span>
                   </div>
                 </div>
-                <ProgBar val={r.win_rate} max={100} color={r.net_r >= 0 ? '#00e5cc' : '#ff3d5a'} />
+                <ProgBar val={r.win_rate} max={100} color={r.net_r >= 0 ? '#d4a853' : '#e8544f'} />
               </div>
             )
           })}
@@ -168,7 +170,7 @@ export default function Analytics() {
             Strategy Benchmark — All 5 Pairs
           </div>
           <span className="font-mono text-[9px] px-2 py-0.5 rounded tracking-widest"
-            style={{ background: 'rgba(0,229,204,0.08)', color: '#00e5cc', border: '1px solid rgba(0,229,204,0.2)' }}>
+            style={{ background: 'rgba(212,168,83,0.08)', color: '#d4a853', border: '1px solid rgba(212,168,83,0.2)' }}>
             2024-01-01 → 2026-05-25
           </span>
         </div>
@@ -192,14 +194,14 @@ export default function Analytics() {
                   onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = ''}>
                   <td className="font-mono font-bold py-3 px-3" style={{ fontSize: 12, color: 'var(--color-tx)' }}>{b.pair}</td>
                   <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: 'var(--color-tx2)' }}>{b.trades}</td>
-                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#00e5cc' }}>{b.wr}%</td>
-                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: b.netR >= 0 ? '#00e5cc' : '#ff3d5a' }}>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#d4a853' }}>{b.wr}%</td>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: b.netR >= 0 ? '#d4a853' : '#e8544f' }}>
                     {b.netR >= 0 ? '+' : ''}{b.netR.toFixed(2)}R
                   </td>
-                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: b.avgR >= 0.15 ? '#00e5cc' : '#f0b429' }}>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: b.avgR >= 0.15 ? '#d4a853' : '#f0b429' }}>
                     {b.avgR >= 0 ? '+' : ''}{b.avgR.toFixed(3)}R
                   </td>
-                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: b.maxDD <= 10 ? '#00e596' : b.maxDD <= 20 ? '#f0b429' : '#ff3d5a' }}>
+                  <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: b.maxDD <= 10 ? '#c9953a' : b.maxDD <= 20 ? '#f0b429' : '#e8544f' }}>
                     {b.maxDD.toFixed(1)}%
                   </td>
                   <td className="font-mono py-3 px-3" style={{ fontSize: 10, color: 'var(--color-tx3)', whiteSpace: 'nowrap' }}>
@@ -207,7 +209,7 @@ export default function Analytics() {
                   </td>
                   <td className="py-3 px-3">
                     <span className="font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-widest"
-                      style={{ background: 'rgba(0,229,150,0.1)', color: '#00e596', border: '1px solid rgba(0,229,150,0.25)' }}>
+                      style={{ background: 'rgba(0,229,150,0.1)', color: '#c9953a', border: '1px solid rgba(0,229,150,0.25)' }}>
                       ✓ PASS
                     </span>
                   </td>
@@ -220,13 +222,13 @@ export default function Analytics() {
                 <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: 'var(--color-tx2)' }}>
                   {BENCHMARK.reduce((s, b) => s + b.trades, 0)}
                 </td>
-                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#00e5cc' }}>
+                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#d4a853' }}>
                   {(BENCHMARK.reduce((s, b) => s + b.wr, 0) / BENCHMARK.length).toFixed(1)}%
                 </td>
-                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#00e5cc' }}>
+                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#d4a853' }}>
                   +{BENCHMARK.reduce((s, b) => s + b.netR, 0).toFixed(2)}R
                 </td>
-                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#00e5cc' }}>
+                <td className="font-mono py-3 px-3" style={{ fontSize: 11, color: '#d4a853' }}>
                   +{(BENCHMARK.reduce((s, b) => s + b.avgR, 0) / BENCHMARK.length).toFixed(3)}R
                 </td>
                 <td colSpan={3} />

@@ -5,7 +5,7 @@ import api from '../api/client'
 const PLAN_ORDER = ['community', 'starter', 'trader', 'pro', 'elite']
 
 const FALLBACK_COLORS: Record<string, string> = {
-  community: '#8899b4', starter: '#4f8ef7', trader: '#00e5cc', pro: '#f0b429', elite: '#8b5cf6',
+  community: '#8899b4', starter: '#4f8ef7', trader: '#d4a853', pro: '#f0b429', elite: '#8b5cf6',
 }
 const FALLBACK_PRICES: Record<string, string> = {
   community: 'Free', starter: '$29/mo', trader: '$79/mo', pro: '$149/mo', elite: '$299/mo',
@@ -21,7 +21,7 @@ const FEATURE_PLAN: Record<string, string> = {
   settings:         'starter',
   profile:          'starter',
   billing:          'starter',
-  referral:         'starter',
+
   auditlog:         'starter',
   copy_trade:       'trader',
   tg_bot_approve:   'trader',

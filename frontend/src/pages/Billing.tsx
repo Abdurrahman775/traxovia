@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import api from '../api/client'
 
 type PlanId = 'community' | 'starter' | 'trader' | 'pro' | 'elite'
-type Tab = 'plans' | 'invoices' | 'usage'
+type Tab = 'plans' | 'usage'
 
 interface PlanDef {
   plan_id: string
@@ -18,7 +18,7 @@ interface PlanDef {
 const FALLBACK_PLANS: PlanDef[] = [
   { plan_id: 'community', name: 'Community', price: 0,   color: '#8899b4', features: { pairs: 0, mt5_accounts: 0, dashboard: false, signals_web: false, news_feed: false, signals_tg_drops: true,  tg_bot_approve: false, tg_bot_settings: false, auto_execute: false, copy_trade: false, api_access: false, mobile_app: false, priority_support: false } },
   { plan_id: 'starter',   name: 'Starter',   price: 29,  color: '#4f8ef7', features: { pairs: 2, mt5_accounts: 1, dashboard: true,  signals_web: true,  news_feed: true,  signals_tg_drops: true,  tg_bot_approve: false, tg_bot_settings: false, auto_execute: false, copy_trade: false, api_access: false, mobile_app: false, priority_support: false } },
-  { plan_id: 'trader',    name: 'Trader',    price: 79,  color: '#00e5cc', popular: true, features: { pairs: 5, mt5_accounts: 1, dashboard: true, signals_web: true, news_feed: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: false, auto_execute: false, copy_trade: true, api_access: false, mobile_app: true, priority_support: false } },
+  { plan_id: 'trader',    name: 'Trader',    price: 79,  color: '#d4a853', popular: true, features: { pairs: 5, mt5_accounts: 1, dashboard: true, signals_web: true, news_feed: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: false, auto_execute: false, copy_trade: true, api_access: false, mobile_app: true, priority_support: false } },
   { plan_id: 'pro',       name: 'Pro',       price: 149, color: '#f0b429', features: { pairs: 5, mt5_accounts: 2, dashboard: true, signals_web: true, news_feed: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: true,  auto_execute: true,  copy_trade: true, api_access: false, mobile_app: true, priority_support: true } },
   { plan_id: 'elite',     name: 'Elite',     price: 299, color: '#8b5cf6', features: { pairs: 5, mt5_accounts: 5, dashboard: true, signals_web: true, news_feed: true, signals_tg_drops: true, tg_bot_approve: true, tg_bot_settings: true,  auto_execute: true,  copy_trade: true, api_access: true,  mobile_app: true, priority_support: true } },
 ]
@@ -55,7 +55,7 @@ function PlanBadge({ plan, plans }: { plan: string; plans?: PlanDef[] }) {
   )
 }
 
-function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; color?: string }) {
+function ProgBar({ val, max, color = '#d4a853' }: { val: number; max: number; color?: string }) {
   return (
     <div className="h-[5px] rounded-full overflow-hidden" style={{ background: 'var(--color-card-border)' }}>
       <div
@@ -90,12 +90,6 @@ export default function Billing() {
   const { data: usageData } = useQuery({
     queryKey: ['billing-usage'],
     queryFn: () => api.get('/billing/usage').then(r => r.data).catch(() => null),
-    retry: false,
-  })
-
-  const { data: invoicesData } = useQuery({
-    queryKey: ['billing-invoices'],
-    queryFn: () => api.get('/billing/invoices').then(r => r.data).catch(() => []),
     retry: false,
   })
 
@@ -142,7 +136,7 @@ export default function Billing() {
     setTimeout(() => plansGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
   }
 
-  const TABS: Tab[] = ['plans', 'invoices', 'usage']
+  const TABS: Tab[] = ['plans', 'usage']
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -156,7 +150,7 @@ export default function Billing() {
             border: `1px solid ${checkoutMsg.type === 'success' ? 'rgba(0,229,150,0.25)' : 'rgba(255,107,122,0.25)'}`,
           }}
         >
-          <span className="font-mono text-[11px]" style={{ color: checkoutMsg.type === 'success' ? '#00e596' : '#ff6b7a' }}>
+          <span className="font-mono text-[11px]" style={{ color: checkoutMsg.type === 'success' ? '#c9953a' : '#ff6b7a' }}>
             {checkoutMsg.type === 'success' ? '✓' : '✗'} {checkoutMsg.text}
           </span>
           <button
@@ -177,7 +171,7 @@ export default function Billing() {
             onClick={() => setTab(t)}
             className="flex-1 text-center py-[7px] font-mono text-[10px] tracking-widest cursor-pointer rounded-[7px] transition-all border border-transparent"
             style={tab === t
-              ? { background: 'var(--color-s2)', color: '#00e5cc', border: '1px solid var(--color-card-border)' }
+              ? { background: 'var(--color-s2)', color: '#d4a853', border: '1px solid var(--color-card-border)' }
               : { color: 'var(--color-tx3)' }
             }
           >
@@ -203,14 +197,9 @@ export default function Billing() {
                 <span className="font-head text-[20px] font-bold" style={{ color: p?.color }}>
                   {currencySymbol}{p?.price ?? 0}/mo
                 </span>
-                {sub?.current_period_end && (
+                {sub?.trial_expires_at && (
                   <span className="font-mono text-[10px]" style={{ color: 'var(--color-tx3)' }}>
-                    Next billing: {new Date(sub.current_period_end * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
-                )}
-                {sub?.cancel_at_period_end && (
-                  <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: 'rgba(255,107,122,0.1)', color: '#ff6b7a', border: '1px solid rgba(255,107,122,0.2)' }}>
-                    Cancels at period end
+                    Trial expires: {new Date(sub.trial_expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                 )}
               </div>
@@ -219,9 +208,9 @@ export default function Billing() {
               <button
                 onClick={scrollToPlans}
                 className="font-mono text-[11px] font-bold tracking-widest px-[18px] py-[9px] rounded-lg cursor-pointer transition-all flex items-center gap-1.5 shrink-0"
-                style={{ background: '#00e5cc', color: '#000' }}
+                style={{ background: '#d4a853', color: '#000' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#00ffea' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#00e5cc' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#d4a853' }}
               >
                 Upgrade Plan →
               </button>
@@ -244,7 +233,7 @@ export default function Billing() {
                   key={pl.plan_id}
                   style={{
                     background: 'var(--color-s2)',
-                    border: `1px solid ${isCurrent ? '#00e5cc' : 'var(--color-card-border)'}`,
+                    border: `1px solid ${isCurrent ? '#d4a853' : 'var(--color-card-border)'}`,
                     borderRadius: 14,
                     padding: 18,
                     position: 'relative',
@@ -269,7 +258,7 @@ export default function Billing() {
                   {isCurrent && (
                     <div style={{
                       position: 'absolute', top: 10, right: 10,
-                      background: '#00e5cc', color: '#000',
+                      background: '#d4a853', color: '#000',
                       fontFamily: '"IBM Plex Mono",monospace', fontSize: 8, fontWeight: 700,
                       padding: '2px 6px', borderRadius: 3,
                     }}>
@@ -295,7 +284,7 @@ export default function Billing() {
                         display: 'flex', gap: 6, padding: '4px 0', fontSize: 11,
                         color: has ? 'var(--color-tx2)' : 'var(--color-tx3)',
                       }}>
-                        <span style={{ color: has ? '#00e5cc' : 'var(--color-tx3)' }}>{has ? '✓' : '✗'}</span>
+                        <span style={{ color: has ? '#d4a853' : 'var(--color-tx3)' }}>{has ? '✓' : '✗'}</span>
                         {f.label}
                       </div>
                     )
@@ -308,9 +297,9 @@ export default function Billing() {
                       className="font-mono text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-lg transition-all"
                       style={{
                         width: '100%', marginTop: 14, justifyContent: 'center', display: 'flex',
-                        background: isLoading ? 'rgba(0,229,204,0.12)' : 'var(--color-divider)',
-                        color: isLoading ? '#00e5cc' : 'var(--color-tx2)',
-                        border: `1px solid ${isLoading ? 'rgba(0,229,204,0.3)' : 'var(--color-card-border)'}`,
+                        background: isLoading ? 'rgba(212,168,83,0.12)' : 'var(--color-divider)',
+                        color: isLoading ? '#d4a853' : 'var(--color-tx2)',
+                        border: `1px solid ${isLoading ? 'rgba(212,168,83,0.3)' : 'var(--color-card-border)'}`,
                         cursor: upgrading ? 'not-allowed' : 'pointer',
                       }}
                       onMouseEnter={e => { if (!upgrading) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.09)' }}
@@ -325,71 +314,6 @@ export default function Billing() {
               )
             })}
           </div>
-        </div>
-      )}
-
-      {/* INVOICES TAB */}
-      {tab === 'invoices' && (
-        <div className="bg-s2 rounded-[14px] p-5" style={{ border: '1px solid var(--color-card-border)' }}>
-          <div className="font-mono text-[10px] tracking-[2px] uppercase mb-[14px]" style={{ color: 'var(--color-tx3)' }}>
-            Invoice History
-          </div>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                {['Date', 'Plan', 'Amount', 'Status', ''].map(h => (
-                  <th
-                    key={h}
-                    className="font-mono text-[9px] tracking-widest text-left pb-[10px] px-3 uppercase"
-                    style={{ color: 'var(--color-tx3)', borderBottom: '1px solid var(--color-card-border)' }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(invoicesData as any[] ?? []).length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="font-mono text-xs py-8 px-3 text-center" style={{ color: 'var(--color-tx3)' }}>
-                    No invoices yet
-                  </td>
-                </tr>
-              ) : (invoicesData as any[]).map((inv, i) => (
-                <tr key={inv.id ?? i} className="group">
-                  <td className="font-mono text-xs py-[11px] px-3 text-tx2" style={{ borderBottom: '1px solid var(--color-divider)' }}>
-                    {inv.date}
-                  </td>
-                  <td className="py-[11px] px-3" style={{ borderBottom: '1px solid var(--color-divider)' }}>
-                    <PlanBadge plan={inv.plan ?? '—'} plans={plans} />
-                  </td>
-                  <td className="font-mono text-xs py-[11px] px-3 text-cy" style={{ borderBottom: '1px solid var(--color-divider)' }}>
-                    {inv.amount}
-                  </td>
-                  <td className="py-[11px] px-3" style={{ borderBottom: '1px solid var(--color-divider)' }}>
-                    <span
-                      className="inline-flex items-center font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-widest"
-                      style={inv.status === 'PAID'
-                        ? { background: 'rgba(0,229,150,0.1)', color: '#00e596', border: '1px solid rgba(0,229,150,0.2)' }
-                        : { background: 'rgba(240,180,41,0.1)', color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)' }}
-                    >
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td className="py-[11px] px-3" style={{ borderBottom: '1px solid var(--color-divider)' }}>
-                    {inv.pdf
-                      ? <a href={inv.pdf} target="_blank" rel="noreferrer"
-                          className="font-mono text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-lg cursor-pointer transition-all inline-block"
-                          style={{ background: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' }}>
-                          PDF
-                        </a>
-                      : <span className="font-mono text-[10px]" style={{ color: 'var(--color-tx3)' }}>—</span>
-                    }
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       )}
 

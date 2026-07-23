@@ -12,7 +12,7 @@ except ImportError:
     _MT5_AVAILABLE = False
 
 router = APIRouter(tags=["prices"])
-PAIRS  = ["USDJPY", "XAUUSD"]
+PAIRS  = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "AUDUSD"]
 
 
 def _get_bid_sync(pair: str) -> tuple[str, float] | None:

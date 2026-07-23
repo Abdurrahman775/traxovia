@@ -69,11 +69,11 @@ function parseWindows(raw: string): SessionWindow[] | null {
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { label: string; bg: string; color: string; border: string }> = {
-    pass:              { label: 'PASS',       bg: 'rgba(0,229,150,0.1)',   color: '#00e596', border: 'rgba(0,229,150,0.25)' },
-    fail:              { label: 'FAIL',       bg: 'rgba(255,61,90,0.1)',   color: '#ff3d5a', border: 'rgba(255,61,90,0.25)' },
+    pass:              { label: 'PASS',       bg: 'rgba(0,229,150,0.1)',   color: '#c9953a', border: 'rgba(0,229,150,0.25)' },
+    fail:              { label: 'FAIL',       bg: 'rgba(232,84,79,0.1)',   color: '#e8544f', border: 'rgba(232,84,79,0.25)' },
     insufficient_data: { label: 'LOW DATA',  bg: 'rgba(240,180,41,0.1)',  color: '#f0b429', border: 'rgba(240,180,41,0.25)' },
     running:           { label: 'RUNNING…',  bg: 'rgba(79,142,247,0.1)',  color: '#4f8ef7', border: 'rgba(79,142,247,0.25)' },
-    error:             { label: 'ERROR',     bg: 'rgba(255,61,90,0.1)',   color: '#ff3d5a', border: 'rgba(255,61,90,0.25)' },
+    error:             { label: 'ERROR',     bg: 'rgba(232,84,79,0.1)',   color: '#e8544f', border: 'rgba(232,84,79,0.25)' },
     never_tested:      { label: 'UNTESTED',  bg: 'rgba(255,255,255,0.05)', color: 'var(--color-tx3)', border: 'rgba(255,255,255,0.1)' },
   }
   const c = cfg[status] ?? cfg['never_tested']
@@ -90,9 +90,9 @@ function GateRow({ label, val, pass, threshold }: { label: string; val: number |
     <div className="flex items-center justify-between py-1">
       <span className="font-mono text-[11px]" style={{ color: 'var(--color-tx2)' }}>{label}</span>
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[11px]" style={{ color: pass ? '#00e5cc' : '#ff3d5a' }}>{String(val)}</span>
+        <span className="font-mono text-[11px]" style={{ color: pass ? '#d4a853' : '#e8544f' }}>{String(val)}</span>
         <span className="font-mono text-[9px]" style={{ color: 'var(--color-tx3)' }}>{threshold}</span>
-        <span style={{ color: pass ? '#00e596' : '#ff3d5a', fontSize: 13 }}>{pass ? '✓' : '✗'}</span>
+        <span style={{ color: pass ? '#c9953a' : '#e8544f', fontSize: 13 }}>{pass ? '✓' : '✗'}</span>
       </div>
     </div>
   )
@@ -184,7 +184,7 @@ function AddPairModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {err && <p className="font-mono text-xs" style={{ color: '#ff3d5a' }}>{err}</p>}
+        {err && <p className="font-mono text-xs" style={{ color: '#e8544f' }}>{err}</p>}
 
         <div className="flex gap-3 pt-1">
           <button onClick={onClose}
@@ -196,7 +196,7 @@ function AddPairModal({ onClose }: { onClose: () => void }) {
             onClick={() => { setErr(null); add.mutate() }}
             disabled={!symbol.trim() || add.isPending}
             className="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-40"
-            style={{ background: '#00e5cc', color: '#0a0e17' }}>
+            style={{ background: '#d4a853', color: '#0a0e17' }}>
             {add.isPending ? 'Adding…' : 'Add Pair'}
           </button>
         </div>
@@ -256,7 +256,7 @@ function EditSessionsModal({ pair, onClose }: { pair: ManagedPair; onClose: () =
           <input value={notes} onChange={e => setNotes(e.target.value)} className={inputCls} />
         </div>
 
-        {err && <p className="font-mono text-xs" style={{ color: '#ff3d5a' }}>{err}</p>}
+        {err && <p className="font-mono text-xs" style={{ color: '#e8544f' }}>{err}</p>}
 
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2 rounded-lg text-sm font-semibold"
@@ -265,7 +265,7 @@ function EditSessionsModal({ pair, onClose }: { pair: ManagedPair; onClose: () =
           </button>
           <button onClick={() => { setErr(null); save.mutate() }} disabled={save.isPending}
             className="flex-1 py-2 rounded-lg text-sm font-semibold disabled:opacity-40"
-            style={{ background: '#00e5cc', color: '#0a0e17' }}>
+            style={{ background: '#d4a853', color: '#0a0e17' }}>
             {save.isPending ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -330,10 +330,10 @@ function PairCard({ pair }: { pair: ManagedPair }) {
 
         {/* Sessions */}
         <div className="rounded-lg px-3 py-2 flex items-center justify-between"
-          style={{ background: 'rgba(0,229,204,0.05)', border: '1px solid rgba(0,229,204,0.1)' }}>
+          style={{ background: 'rgba(212,168,83,0.05)', border: '1px solid rgba(212,168,83,0.1)' }}>
           <div>
             <p className="font-mono text-[9px] uppercase tracking-widest mb-0.5" style={{ color: 'var(--color-tx3)' }}>ICT Sessions (UTC)</p>
-            <p className="font-mono text-[11px]" style={{ color: '#00e5cc' }}>{fmtWindows(pair.session_windows)}</p>
+            <p className="font-mono text-[11px]" style={{ color: '#d4a853' }}>{fmtWindows(pair.session_windows)}</p>
           </div>
           <button onClick={() => setShowEdit(true)}
             className="font-mono text-[10px] px-2 py-1 rounded transition-colors hover:text-cy"
@@ -387,7 +387,7 @@ function PairCard({ pair }: { pair: ManagedPair }) {
         {/* Error msg */}
         {tr?.status === 'error' && tr.error && (
           <p className="font-mono text-[11px] rounded-lg px-3 py-2"
-            style={{ color: '#ff3d5a', background: 'rgba(255,61,90,0.08)', border: '1px solid rgba(255,61,90,0.2)' }}>
+            style={{ color: '#e8544f', background: 'rgba(232,84,79,0.08)', border: '1px solid rgba(232,84,79,0.2)' }}>
             {tr.error}
           </p>
         )}
@@ -404,7 +404,7 @@ function PairCard({ pair }: { pair: ManagedPair }) {
             onClick={() => runTest.mutate()}
             disabled={runTest.isPending || testStatus === 'running'}
             className="flex-1 py-2 rounded-lg text-xs font-semibold font-mono transition-colors disabled:opacity-40"
-            style={{ background: 'rgba(0,229,204,0.12)', color: '#00e5cc', border: '1px solid rgba(0,229,204,0.25)' }}>
+            style={{ background: 'rgba(212,168,83,0.12)', color: '#d4a853', border: '1px solid rgba(212,168,83,0.25)' }}>
             {runTest.isPending || testStatus === 'running' ? '⏳ Running…' : '▶ Run Backtest'}
           </button>
 
@@ -422,7 +422,7 @@ function PairCard({ pair }: { pair: ManagedPair }) {
             }}
             disabled={deletePair.isPending}
             className="px-3 py-2 rounded-lg text-xs font-semibold font-mono transition-colors disabled:opacity-40"
-            style={{ background: 'rgba(255,61,90,0.08)', border: '1px solid rgba(255,61,90,0.2)', color: '#ff3d5a' }}>
+            style={{ background: 'rgba(232,84,79,0.08)', border: '1px solid rgba(232,84,79,0.2)', color: '#e8544f' }}>
             Delete
           </button>
         </div>
@@ -464,7 +464,7 @@ export default function AdminPairs() {
           <button
             onClick={() => setShowAdd(true)}
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-            style={{ background: '#00e5cc', color: '#0a0e17' }}>
+            style={{ background: '#d4a853', color: '#0a0e17' }}>
             + Add Pair
           </button>
         </div>
@@ -473,8 +473,8 @@ export default function AdminPairs() {
         <div className="grid grid-cols-3 gap-4">
           {[
             { l: 'Total Pairs',   v: pairs.length,   c: 'var(--color-tx)' },
-            { l: 'Active',        v: active.length,  c: '#00e5cc' },
-            { l: 'Gate Passing',  v: passing.length, c: '#00e596' },
+            { l: 'Active',        v: active.length,  c: '#d4a853' },
+            { l: 'Gate Passing',  v: passing.length, c: '#c9953a' },
           ].map(s => (
             <div key={s.l} className="rounded-[10px] px-4 py-3 flex items-center justify-between"
               style={{ background: 'var(--color-s2)', border: '1px solid var(--color-card-border)' }}>
@@ -495,7 +495,7 @@ export default function AdminPairs() {
 
         {isError && (
           <div className="rounded-[14px] px-5 py-8 text-center font-mono text-sm"
-            style={{ background: 'var(--color-s2)', color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)' }}>
+            style={{ background: 'var(--color-s2)', color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)' }}>
             Failed to load pairs — API error
           </div>
         )}
@@ -535,11 +535,11 @@ export default function AdminPairs() {
           style={{ background: 'var(--color-s1)', border: '1px solid var(--color-card-border)' }}>
           <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--color-tx3)' }}>How it works</p>
           <ul className="space-y-1.5 font-mono text-[11px]" style={{ color: 'var(--color-tx2)' }}>
-            <li><span style={{ color: '#00e5cc' }}>1. Add pair</span> — enter symbol + optional ICT session windows (UTC hour ranges)</li>
-            <li><span style={{ color: '#00e5cc' }}>2. Upload data</span> — go to Data Management → upload M15 and H4 CSV files for the pair</li>
-            <li><span style={{ color: '#00e5cc' }}>3. Run backtest</span> — click "Run Backtest" to test the 4-gate ICT pipeline against your data</li>
-            <li><span style={{ color: '#00e5cc' }}>4. Check gates</span> — WR ≥50% · Avg R ≥0.15R · Max DD ≤10R · Trades ≥50 must all pass</li>
-            <li><span style={{ color: '#00e5cc' }}>5. Enable</span> — once gates pass, activate the pair for live paper / live trading</li>
+            <li><span style={{ color: '#d4a853' }}>1. Add pair</span> — enter symbol + optional ICT session windows (UTC hour ranges)</li>
+            <li><span style={{ color: '#d4a853' }}>2. Upload data</span> — go to Data Management → upload M15 and H4 CSV files for the pair</li>
+            <li><span style={{ color: '#d4a853' }}>3. Run backtest</span> — click "Run Backtest" to test the 4-gate ICT pipeline against your data</li>
+            <li><span style={{ color: '#d4a853' }}>4. Check gates</span> — WR ≥50% · Avg R ≥0.15R · Max DD ≤10R · Trades ≥50 must all pass</li>
+            <li><span style={{ color: '#d4a853' }}>5. Enable</span> — once gates pass, activate the pair for live paper / live trading</li>
           </ul>
         </div>
 

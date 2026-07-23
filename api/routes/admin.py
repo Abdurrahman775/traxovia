@@ -381,26 +381,23 @@ class BotConfigPatch(BaseModel):
     smtp_from_name:             str  | None = None
     smtp_enabled:               bool | None = None
     # Payment gateway
-    payment_gateway:            str  | None = None
-    stripe_secret_key:          str  | None = None
-    stripe_webhook_secret:      str  | None = None
-    stripe_price_starter:       str  | None = None
-    stripe_price_trader:        str  | None = None
-    stripe_price_pro:           str  | None = None
-    stripe_price_elite:         str  | None = None
     paystack_secret_key:        str  | None = None
     paystack_public_key:        str  | None = None
     paystack_plan_starter:      str  | None = None
     paystack_plan_trader:       str  | None = None
     paystack_plan_pro:          str  | None = None
     paystack_plan_elite:        str  | None = None
+    # Feature flags
+    registration_enabled:       bool | None = None
+    maintenance_mode:           bool | None = None
+    trial_enabled:              bool | None = None
+    telegram_login_enabled:     bool | None = None
 
 
 # Fields that are masked with last-4 visible
 _SECRET_FIELDS = {
     "telegram_bot_token", "finnhub_api_key",
-    "smtp_password", "stripe_secret_key", "stripe_webhook_secret",
-    "paystack_secret_key",
+    "smtp_password", "paystack_secret_key",
 }
 
 
@@ -435,6 +432,7 @@ async def update_bot_config(
         val = getattr(body, field, None)
         if val is not None and not val.startswith(_TOKEN_MASK):
             updates.append(f"{field}=${i}"); params.append(val); i += 1
+            logger.info("admin: updating secret field '%s'", field)
 
     scalar_fields = [
         "telegram_signals_channel", "telegram_community_channel",
@@ -444,11 +442,11 @@ async def update_bot_config(
         "smtp_host", "smtp_port", "smtp_user", "smtp_from_email",
         "smtp_from_name", "smtp_enabled",
         "payment_gateway",
-        "stripe_price_starter", "stripe_price_trader",
-        "stripe_price_pro", "stripe_price_elite",
         "paystack_public_key",
         "paystack_plan_starter", "paystack_plan_trader",
         "paystack_plan_pro", "paystack_plan_elite",
+        "registration_enabled", "maintenance_mode",
+        "trial_enabled", "telegram_login_enabled",
     ]
     for col in scalar_fields:
         val = getattr(body, col, None)
@@ -498,36 +496,59 @@ async def test_telegram(user=Depends(get_current_user), db=Depends(get_db)):
 
 @router.post("/admin/config/test-finnhub")
 async def test_finnhub(user=Depends(get_current_user), db=Depends(get_db)):
-    """Verify the Finnhub API key by calling /calendar/economic for today."""
+    """Verify the Finnhub API key by testing basic quote access."""
     _require_admin(user)
     row = await db.fetchrow("SELECT finnhub_api_key FROM bot_config WHERE id=1")
     key = row["finnhub_api_key"] if row else ""
     if not key:
         raise HTTPException(400, "Finnhub API key is not configured yet.")
 
-    from datetime import date
-    today = date.today().isoformat()
+    # Test with basic quote endpoint (works on free tier) and
+    # economic calendar (requires paid plan) in one client session.
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(
-            "https://finnhub.io/api/v1/calendar/economic",
-            params={"from": today, "to": today, "token": key},
+            "https://finnhub.io/api/v1/quote",
+            params={"symbol": "AAPL", "token": key},
         )
 
-    if resp.status_code == 401:
-        raise HTTPException(400, "Invalid API key — check your Finnhub dashboard.")
-    if resp.status_code == 429:
-        raise HTTPException(400, "Rate limit hit — key is valid but throttled. Try again in a minute.")
-    if resp.status_code != 200:
-        raise HTTPException(400, f"Finnhub returned HTTP {resp.status_code}")
+        if resp.status_code == 401:
+            raise HTTPException(400, "Invalid API key — check your Finnhub dashboard.")
+        if resp.status_code == 403:
+            raise HTTPException(400, "API key valid but Economic Calendar requires paid Finnhub plan (not free tier).")
+        if resp.status_code == 429:
+            raise HTTPException(400, "Rate limit hit — key is valid but throttled. Try again in a minute.")
+        if resp.status_code != 200:
+            raise HTTPException(400, f"Finnhub returned HTTP {resp.status_code}")
 
-    data   = resp.json()
-    events = data.get("economicCalendar", [])
-    high   = sum(1 for e in events if e.get("impact", "").lower() == "high")
+        # Test economic calendar endpoint to check plan level
+        resp2 = await client.get(
+            "https://finnhub.io/api/v1/calendar/economic",
+            params={"from": "2026-07-08", "to": "2026-07-08", "token": key},
+        )
+
+    if resp2.status_code == 403:
+        return {
+            "ok": True,
+            "message": "✓ API key valid but Economic Calendar requires paid plan. News features will be limited.",
+            "has_calendar": False,
+        }
+
+    if resp2.status_code == 200:
+        data = resp2.json()
+        events = data.get("economicCalendar", [])
+        high = sum(1 for e in events if e.get("impact", "").lower() == "high")
+        return {
+            "ok": True,
+            "events_today": len(events),
+            "high_impact": high,
+            "message": f"✓ Connected with full access. {len(events)} events today, {high} high-impact.",
+            "has_calendar": True,
+        }
+
     return {
-        "ok":           True,
-        "events_today": len(events),
-        "high_impact":  high,
-        "message":      f"Connected. {len(events)} events today, {high} high-impact.",
+        "ok": True,
+        "message": "✓ API key valid for basic endpoints.",
+        "has_calendar": False,
     }
 
 
@@ -694,6 +715,24 @@ async def get_branding(db=Depends(get_db)):
     return {
         "app_name":     row["app_name"] or "Traxovia AI",
         "app_logo_url": row["app_logo_url"] or "",
+    }
+
+
+@router.get("/config/flags")
+async def get_flags(db=Depends(get_db)):
+    """Public — returns site feature flags for the frontend."""
+    row = await db.fetchrow(
+        "SELECT registration_enabled, maintenance_mode, trial_enabled, "
+        "telegram_login_enabled FROM bot_config WHERE id=1"
+    )
+    if not row:
+        return {"registration_enabled": True, "maintenance_mode": False,
+                "trial_enabled": True, "telegram_login_enabled": True}
+    return {
+        "registration_enabled":   row["registration_enabled"],
+        "maintenance_mode":       row["maintenance_mode"],
+        "trial_enabled":          row["trial_enabled"],
+        "telegram_login_enabled": row["telegram_login_enabled"],
     }
 
 

@@ -22,12 +22,19 @@ async def analytics_summary(user=Depends(get_current_user), db=Depends(get_db)):
     # pnl_r >= 0 counts both wins (3R) and break-even trades (SL→BE → 0R) as wins,
     # matching the backtest methodology where BE = no loss = trade managed correctly
     wins  = await db.fetchval("SELECT COUNT(*) FROM trades WHERE user_id=$1 AND status='closed' AND pnl_r >= 0", user["sub"]) or 0
+    losses = total - wins
     net   = await db.fetchval("SELECT COALESCE(SUM(pnl_r),0) FROM trades WHERE user_id=$1 AND status='closed'", user["sub"]) or 0
+    sum_wins   = await db.fetchval("SELECT COALESCE(SUM(pnl_r),0) FROM trades WHERE user_id=$1 AND status='closed' AND pnl_r > 0", user["sub"]) or 0
+    sum_losses = await db.fetchval("SELECT COALESCE(ABS(SUM(pnl_r)),0) FROM trades WHERE user_id=$1 AND status='closed' AND pnl_r < 0", user["sub"]) or 0
+    avg_dur   = await db.fetchval("SELECT AVG(duration_hours) FROM trades WHERE user_id=$1 AND status='closed' AND duration_hours IS NOT NULL", user["sub"]) or 0
     win_rate = round(wins / total * 100, 1) if total > 0 else 0
+    profit_factor = round(float(sum_wins) / float(sum_losses), 2) if float(sum_losses) > 0 else round(float(sum_wins), 2) if float(sum_wins) > 0 else 0
     return {
         "total_trades": total,
         "win_rate": win_rate,
         "net_pnl_r": round(float(net), 2),
+        "profit_factor": profit_factor,
+        "avg_duration_hours": round(float(avg_dur), 1) if avg_dur else None,
     }
 
 

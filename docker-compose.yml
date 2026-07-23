@@ -85,6 +85,9 @@ services:
       REDIS_URL:             redis://redis:6379/0
       CELERY_BROKER_URL:     redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
+
+      # ── MT5 Bridge (runs on host, not in Docker) ─────────────────────────────
+      MT5_BRIDGE_URL: http://172.19.0.1:8002
     depends_on:
       db:
         condition: service_healthy   # wait for pg_isready before starting

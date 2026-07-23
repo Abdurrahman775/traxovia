@@ -43,7 +43,7 @@ export default function AuditLog() {
       </div>
 
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-mono"
-        style={{ background: 'rgba(0,229,204,0.06)', border: '1px solid rgba(0,229,204,0.18)', color: 'var(--color-cy)' }}>
+        style={{ background: 'rgba(212,168,83,0.06)', border: '1px solid rgba(212,168,83,0.18)', color: 'var(--color-cy)' }}>
         ◈ All entries are permanent and cannot be edited or deleted.
       </div>
 
@@ -78,7 +78,7 @@ export default function AuditLog() {
                   </td>
                   <td className="py-2.5 px-4">
                     <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold"
-                      style={{ background: 'rgba(0,229,204,0.08)', color: 'var(--color-cy)', border: '1px solid rgba(0,229,204,0.18)' }}>
+                      style={{ background: 'rgba(212,168,83,0.08)', color: 'var(--color-cy)', border: '1px solid rgba(212,168,83,0.18)' }}>
                       {e.action}
                     </span>
                   </td>

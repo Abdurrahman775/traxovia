@@ -4,10 +4,10 @@ import api from '../api/client'
 type BadgeType = 'cyan' | 'red' | 'gold' | 'gray' | 'green'
 
 const BADGE: Record<BadgeType, { bg: string; color: string; border: string }> = {
-  cyan:  { bg: 'rgba(0,229,204,0.1)',    color: '#00e5cc', border: '1px solid rgba(0,229,204,0.2)'    },
-  red:   { bg: 'rgba(255,61,90,0.1)',    color: '#ff3d5a', border: '1px solid rgba(255,61,90,0.2)'    },
+  cyan:  { bg: 'rgba(212,168,83,0.1)',    color: '#d4a853', border: '1px solid rgba(212,168,83,0.2)'    },
+  red:   { bg: 'rgba(232,84,79,0.1)',    color: '#e8544f', border: '1px solid rgba(232,84,79,0.2)'    },
   gold:  { bg: 'rgba(240,180,41,0.1)',   color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)'   },
-  green: { bg: 'rgba(0,229,150,0.1)',    color: '#00e596', border: '1px solid rgba(0,229,150,0.2)'    },
+  green: { bg: 'rgba(0,229,150,0.1)',    color: '#c9953a', border: '1px solid rgba(0,229,150,0.2)'    },
   gray:  { bg: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' },
 }
 
@@ -21,7 +21,7 @@ function Badge({ type, children }: { type: BadgeType; children: React.ReactNode 
   )
 }
 
-function ProgBar({ val, max, color = '#00e5cc' }: { val: number; max: number; color?: string }) {
+function ProgBar({ val, max, color = '#d4a853' }: { val: number; max: number; color?: string }) {
   return (
     <div style={{ height: 5, background: 'var(--color-card-border)', borderRadius: 3, overflow: 'hidden' }}>
       <div style={{
@@ -155,8 +155,8 @@ export default function Signals() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
                   {([
                     ['ENTRY', fmtPrice(s.entry_price), 'var(--color-tx)'],
-                    ['SL',    fmtPrice(s.stop_loss, 4), '#ff3d5a'],
-                    ['R:R',   calcRR(s),                '#00e5cc'],
+                    ['SL',    fmtPrice(s.stop_loss, 4), '#e8544f'],
+                    ['R:R',   calcRR(s),                '#d4a853'],
                   ] as [string, string, string][]).map(([l, v, c]) => (
                     <div key={l} style={{ background: 'var(--color-s3)', borderRadius: 8, padding: '8px 10px' }}>
                       <div className="font-mono" style={{ fontSize: 9, color: 'var(--color-tx3)', marginBottom: 3 }}>{l}</div>
@@ -170,11 +170,11 @@ export default function Signals() {
                   <>
                     <div className="flex justify-between" style={{ marginBottom: 6 }}>
                       <span style={{ fontSize: 11, color: 'var(--color-tx3)' }}>AI Confidence</span>
-                      <span className="font-mono" style={{ fontSize: 11, color: conf > 75 ? '#00e5cc' : '#f0b429' }}>
+                      <span className="font-mono" style={{ fontSize: 11, color: conf > 75 ? '#d4a853' : '#f0b429' }}>
                         {conf}%
                       </span>
                     </div>
-                    <ProgBar val={conf} max={100} color={conf > 75 ? '#00e5cc' : '#f0b429'} />
+                    <ProgBar val={conf} max={100} color={conf > 75 ? '#d4a853' : '#f0b429'} />
                   </>
                 )}
 
@@ -212,7 +212,7 @@ export default function Signals() {
                       disabled={update.isPending}
                       className="font-mono text-[10px] font-bold tracking-widest py-[7px] rounded-lg cursor-pointer transition-all flex-1 flex justify-center"
                       style={canApprove
-                        ? { background: '#00e5cc', color: '#000', border: 'none' }
+                        ? { background: '#d4a853', color: '#000', border: 'none' }
                         : { background: 'var(--color-divider)', color: 'var(--color-tx2)', border: '1px solid var(--color-card-border)' }}>
                       ✓ APPROVE
                     </button>

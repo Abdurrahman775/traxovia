@@ -181,6 +181,18 @@ async def register(
     db=Depends(get_db),
     _=Depends(rate_limit(limit=10, window=60)),
 ):
+    # Check registration_enabled — always allow first user (admin bootstrap)
+    user_count = await db.fetchval("SELECT COUNT(*) FROM users")
+    if user_count > 0:
+        flags = await db.fetchrow(
+            "SELECT registration_enabled FROM bot_config WHERE id=1"
+        )
+        if flags and not flags["registration_enabled"]:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Registration is currently disabled."
+            )
+
     existing = await db.fetchrow("SELECT id FROM users WHERE email = $1", body.email)
     if existing:
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
